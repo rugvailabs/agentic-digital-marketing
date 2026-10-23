@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.time import to_ist, utcnow
 from app.db.session import get_session
 from app.models import Region, Trend
+from app.sources import configured_source_names
 
 router = APIRouter(tags=["health"])
 
@@ -22,6 +23,8 @@ class Health(BaseModel):
     database: bool
     regions: int
     trends: int
+    # Sources with credentials; the rest are skipped, never fatal.
+    sources_configured: list[str]
 
 
 @router.get("/health", response_model=Health)
@@ -44,4 +47,5 @@ async def health(session: AsyncSession = Depends(get_session)) -> Health:
         database=database,
         regions=regions,
         trends=trends,
+        sources_configured=configured_source_names(),
     )

@@ -1,0 +1,73 @@
+{
+  "_fixture_note": "Hand-authored to the documented videos.list(chart=mostPopular) response shape — unlike the Google Trends and News fixtures it is NOT a live recording, because no YOUTUBE_API_KEY was available. Re-record with a real key when one is set.",
+  "kind": "youtube#videoListResponse",
+  "etag": "fixture-etag",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "aBcD1234efg",
+      "snippet": {
+        "publishedAt": "2026-10-22T06:30:00Z",
+        "channelId": "UCfixture0001",
+        "title": "India vs Sri Lanka highlights | 3rd T20I",
+        "description": "Full match highlights.",
+        "thumbnails": {
+          "default": { "url": "https://i.ytimg.com/vi/aBcD1234efg/default.jpg", "width": 120, "height": 90 },
+          "high": { "url": "https://i.ytimg.com/vi/aBcD1234efg/hqdefault.jpg", "width": 480, "height": 360 }
+        },
+        "channelTitle": "Star Sports",
+        "tags": ["cricket", "t20", "india"],
+        "categoryId": "17"
+      },
+      "statistics": { "viewCount": "4820193", "likeCount": "182044", "commentCount": "9120" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "hIjK5678lmn",
+      "snippet": {
+        "publishedAt": "2026-10-21T12:00:00Z",
+        "channelId": "UCfixture0002",
+        "title": "नया गाना | Official Video",
+        "description": "Music video.",
+        "thumbnails": {
+          "default": { "url": "https://i.ytimg.com/vi/hIjK5678lmn/default.jpg", "width": 120, "height": 90 },
+          "high": { "url": "https://i.ytimg.com/vi/hIjK5678lmn/hqdefault.jpg", "width": 480, "height": 360 }
+        },
+        "channelTitle": "T-Series",
+        "tags": ["music", "bollywood"],
+        "categoryId": "10"
+      },
+      "statistics": { "viewCount": "2310557", "likeCount": "98210" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "oPqR9012stu",
+      "snippet": {
+        "publishedAt": "2026-10-22T03:15:00Z",
+        "channelId": "UCfixture0003",
+        "title": "Diwali 2026 sale: what actually dropped in price",
+        "description": "Shopping breakdown.",
+        "thumbnails": {
+          "default": { "url": "https://i.ytimg.com/vi/oPqR9012stu/default.jpg", "width": 120, "height": 90 }
+        },
+        "channelTitle": "Tech Mirror",
+        "categoryId": "28"
+      },
+      "statistics": { "viewCount": "612004" }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "vWxY3456zab",
+      "snippet": {
+        "publishedAt": "2026-10-20T18:45:00Z",
+        "channelId": "UCfixture0004",
+        "title": "Street food in Indore ₹50 challenge",
+        "thumbnails": {},
+        "channelTitle": "Chatori Gali",
+        "categoryId": "26"
+      },
+      "statistics": {}
+    }
+  ],
+  "pageInfo": { "totalResults": 4, "resultsPerPage": 4 }
+}
