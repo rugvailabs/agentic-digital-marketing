@@ -36,6 +36,7 @@ logs: ## Tail api + worker + beat logs
 	$(COMPOSE) logs -f --tail=100 api worker beat
 
 dev: ## Run the web app on the host (expects `make up` first)
+	@node -e "const n=require('net').createServer();n.once('error',()=>{console.error('port 3020 is already in use — stop the old dev server first; one left running with a deleted .next serves bare 500s');process.exit(1)});n.once('listening',()=>n.close());n.listen(3020)"
 	pnpm --filter @trendforge/web dev
 
 migrate: ## Apply migrations
