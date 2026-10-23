@@ -18,6 +18,13 @@ def configure_logging() -> None:
     logging.basicConfig(
         format="%(message)s", stream=sys.stdout, level=getattr(logging, settings.log_level, 20)
     )
+
+    # httpx logs every request at INFO *including the full URL*, which puts
+    # api keys (YouTube's `key=` query param) straight into the logs. Our
+    # adapters already log what they fetched, so drop httpx to WARNING.
+    for noisy in ("httpx", "httpcore", "hpack"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
+
     structlog.configure(
         processors=[
             structlog.contextvars.merge_contextvars,
