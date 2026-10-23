@@ -39,6 +39,8 @@ TrendForge targets
   seed       Seed regions (idempotent)
   ingest     Run one ingest cycle now, synchronously
   curate     Cluster and name the latest snapshot with Gemini
+  clean-orphans      Delete rank-0 topics older than 7 days and their content
+  clean-orphans-dry  Show what clean-orphans would delete
   reset-db   Drop volumes and rebuild from scratch
   test       pytest + vitest
   test-api   pytest only
@@ -83,6 +85,8 @@ TrendForge targets
   'seed'      { Api python -m app.db.seed }
   'ingest'    { Api python -m app.tasks.run_once }
   'curate'    { Api python -m app.tasks.curate }
+  'clean-orphans'     { Api python -m app.db.maintenance }
+  'clean-orphans-dry' { Api python -m app.db.maintenance --dry-run }
   'reset-db'  { Compose down -v; & $PSCommandPath up }
   'test'      { & $PSCommandPath test-api; & $PSCommandPath test-web }
   'test-api'  { Api pytest -q }

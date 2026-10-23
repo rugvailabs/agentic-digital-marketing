@@ -54,6 +54,12 @@ ingest: ## Run one ingest cycle now (synchronous, no worker needed)
 curate: ## Cluster and name the latest snapshot with Gemini
 	$(API) python -m app.tasks.curate
 
+clean-orphans: ## Delete rank-0 topics older than 7 days and their content
+	$(API) python -m app.db.maintenance
+
+clean-orphans-dry: ## Show what clean-orphans would delete
+	$(API) python -m app.db.maintenance --dry-run
+
 reset-db: ## Drop volumes and rebuild the database from scratch
 	$(COMPOSE) down -v
 	$(MAKE) up

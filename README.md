@@ -77,6 +77,9 @@ docker compose --profile web up web
 .\tf.ps1 help        # list every target
 .\tf.ps1 logs        # tail api + worker + beat
 .\tf.ps1 ingest      # one ingest cycle, synchronous
+.\tf.ps1 curate      # cluster and name the latest snapshot with Gemini
+.\tf.ps1 clean-orphans-dry   # what the pruner would delete
+.\tf.ps1 clean-orphans       # delete rank-0 topics older than 7 days
 .\tf.ps1 test        # pytest (network mocked) + vitest
 .\tf.ps1 lint        # ruff + eslint
 .\tf.ps1 typecheck   # mypy + tsc
