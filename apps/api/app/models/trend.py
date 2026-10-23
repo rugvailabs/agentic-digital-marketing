@@ -6,6 +6,7 @@ import enum
 from datetime import datetime
 from typing import Any
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     DateTime,
     Enum,
@@ -20,8 +21,13 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.config import settings
 from app.db.base import Base, TimestampMixin
 from app.models.region import Region
+
+#: Must match GEMINI_EMBED_DIM; changing the setting alone does not reshape
+#: the column, so a change needs a migration.
+EMBED_DIM = settings.gemini_embed_dim
 
 
 class SourceName(enum.StrEnum):
@@ -129,8 +135,18 @@ class Trend(Base, TimestampMixin):
         nullable=False,
         default=PipelineStatus.ingested,
     )
-    # Set by the safety filter in step 2 (disaster/death/communal/election-result).
+    # SafetyFlag value set by the curator: none | sensitive | skip. `skip` is
+    # hidden from GET /trends by default.
     safety_flag: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    # ── curator output (step 2) ──────────────────────────────────────────
+    #: Stable id of the cluster this topic came from, within its ingest run.
+    cluster_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: One-line summary written by the curator; the writer's brief.
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: Cluster centroid, kept so a later run can match topics across cycles.
+    embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM), nullable=True)
+    curated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

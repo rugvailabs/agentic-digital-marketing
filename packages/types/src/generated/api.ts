@@ -174,6 +174,10 @@ export interface components {
             sources: string[];
             /** Score */
             score: number;
+            /** Summary */
+            summary: string | null;
+            /** Safety Flag */
+            safety_flag: string | null;
             /**
              * Updated At
              * Format: date-time
@@ -276,6 +280,8 @@ export interface operations {
                 /** @description Region code, e.g. IN or IN-MH */
                 region?: string;
                 limit?: number;
+                /** @description Include topics the curator flagged `skip` (disaster, death, communal, election result). Off by default: we do not market against these. */
+                include_flagged?: boolean;
             };
             header?: never;
             path?: never;

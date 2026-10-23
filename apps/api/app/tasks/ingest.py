@@ -227,11 +227,36 @@ async def _run_cycle_and_release(region_codes: list[str] | None) -> dict[str, An
         await engine.dispose()
 
 
+@shared_task(name="app.tasks.curate.curate_regions", bind=True, max_retries=1)
+def curate_regions(self, region_codes: list[str] | None = None) -> dict[str, Any]:
+    """Curate after ingest. Only the configured regions run on the beat —
+    curating all 53 would be ~80 Gemini calls a cycle, well past the free
+    tier; everything else curates when a user opens it."""
+    from app.tasks.curate import run_curate
+
+    async def _run() -> dict[str, Any]:
+        try:
+            return await run_curate(region_codes)
+        finally:
+            await engine.dispose()
+
+    try:
+        return asyncio.run(_run())
+    except Exception as exc:
+        log.error("curate failed", error=f"{type(exc).__name__}: {exc}")
+        raise self.retry(exc=exc, countdown=300) from exc
+
+
 @shared_task(name="app.tasks.ingest.ingest_all_regions", bind=True, max_retries=2)
 def ingest_all_regions(self, region_codes: list[str] | None = None) -> dict[str, Any]:
     """Beat entrypoint. Every 30 minutes by default."""
     try:
-        return asyncio.run(_run_cycle_and_release(region_codes))
+        result = asyncio.run(_run_cycle_and_release(region_codes))
     except Exception as exc:
         log.error("cycle failed", error=f"{type(exc).__name__}: {exc}")
         raise self.retry(exc=exc, countdown=60) from exc
+
+    # Curate runs as its own task so a Gemini outage retries without
+    # re-fetching every source.
+    curate_regions.delay(None)
+    return result

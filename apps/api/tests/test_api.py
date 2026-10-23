@@ -19,10 +19,12 @@ from app.core.time import utcnow
 from app.db.base import Base
 from app.db.session import get_session
 from app.main import app
-from app.models import PipelineStatus, Region, RegionKind, Trend
+from app.models import PipelineStatus, Region, RegionKind, SafetyFlag, Trend
 
 TEST_DB = "trendforge_test"
 DROPPED_TOPIC = "Yesterdays news"
+SKIPPED_TOPIC = "Fatal crash on the expressway"
+SENSITIVE_TOPIC = "Court hears the statue petition"
 
 
 def _test_url() -> str:
@@ -44,6 +46,9 @@ async def engine() -> AsyncIterator[object]:
 
     test_engine = create_async_engine(_test_url())
     async with test_engine.begin() as conn:
+        # create_all does not run migrations, and the embedding columns need
+        # the extension that the first migration installs.
+        await conn.exec_driver_sql("CREATE EXTENSION IF NOT EXISTS vector")
         await conn.run_sync(Base.metadata.create_all)
     yield test_engine
     await test_engine.dispose()
@@ -110,6 +115,44 @@ async def seeded(engine) -> AsyncIterator[None]:
                     last_seen_at=now,
                 )
             )
+        # The curator's safety flags: `skip` is never served by default,
+        # `sensitive` still appears because a marketer should know it is moving.
+        session.add(
+            Trend(
+                region_id=mh.id,
+                topic=SKIPPED_TOPIC,
+                topic_key="fatal crash",
+                rank=4,
+                score=60.0,
+                velocity=[0.0] * 5 + [60.0],
+                hashtags=[],
+                sources=["google_news"],
+                evidence=[],
+                status=PipelineStatus.curated,
+                safety_flag=SafetyFlag.skip.value,
+                summary="A bus overturned on the expressway.",
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+        )
+        session.add(
+            Trend(
+                region_id=mh.id,
+                topic=SENSITIVE_TOPIC,
+                topic_key="statue petition",
+                rank=5,
+                score=55.0,
+                velocity=[0.0] * 5 + [55.0],
+                hashtags=["#StatuePetition"],
+                sources=["google_news"],
+                evidence=[],
+                status=PipelineStatus.curated,
+                safety_flag=SafetyFlag.sensitive.value,
+                summary="The High Court heard the petition.",
+                first_seen_at=now,
+                last_seen_at=now,
+            )
+        )
         # rank 0 = dropped off the board; keeps history, must never be served.
         session.add(
             Trend(
@@ -167,7 +210,7 @@ async def test_regions_are_ordered_and_carry_parent_and_counts(client: httpx.Asy
     assert body[0]["parent_code"] is None
     assert body[1]["parent_code"] == "IN"
     # Only rank > 0 rows count, so the dropped-off row is excluded.
-    assert body[1]["trend_count"] == 3
+    assert body[1]["trend_count"] == 5
     # 1000 + 2000 + 3000; the rank 0 row contributes nothing.
     assert body[1]["total_volume"] == 6000
     # Never ingested, but still listed — the strip shows all 36 states/UTs.
@@ -187,8 +230,9 @@ async def test_trends_returns_the_ladder_in_rank_order(client: httpx.AsyncClient
     body = (await client.get("/trends", params={"region": "IN-MH"})).json()
 
     assert body["region"]["name"] == "Maharashtra"
-    assert body["count"] == 3
-    assert [t["rank"] for t in body["trends"]] == [1, 2, 3]
+    # 5 ranked rows minus the one flagged `skip`.
+    assert body["count"] == 4
+    assert [t["rank"] for t in body["trends"]] == [1, 2, 3, 5]
 
     first = body["trends"][0]
     assert first["topic"] == "Topic 1"
@@ -206,15 +250,15 @@ async def test_trends_excludes_dropped_off_rows(client: httpx.AsyncClient) -> No
 
     topics = [t["topic"] for t in body["trends"]]
     assert DROPPED_TOPIC not in topics
-    assert len(topics) == 3
+    assert len(topics) == 4
 
 
 async def test_trends_respects_limit(client: httpx.AsyncClient) -> None:
     body = (await client.get("/trends", params={"region": "IN-MH", "limit": 2})).json()
 
     assert len(body["trends"]) == 2
-    # count stays the full board size so the UI can say "2 of 3".
-    assert body["count"] == 3
+    # count stays the full board size so the UI can say "2 of 4".
+    assert body["count"] == 4
 
 
 async def test_trends_for_a_never_ingested_region_is_empty_not_an_error(client) -> None:
@@ -246,3 +290,44 @@ async def test_openapi_documents_the_board_contract(client: httpx.AsyncClient) -
     assert "/ingest/run" in schema["paths"]
     # @trendforge/types is generated from these; renaming them breaks the web app.
     assert {"TrendOut", "RegionOut", "TrendsResponse"} <= set(schema["components"]["schemas"])
+
+
+async def test_skip_flagged_topics_are_hidden_by_default(client: httpx.AsyncClient) -> None:
+    """CLAUDE.md: we do not market against disaster, death, communal conflict
+    or election results, so those topics must not reach the board at all."""
+    body = (await client.get("/trends", params={"region": "IN-MH", "limit": 100})).json()
+
+    topics = [t["topic"] for t in body["trends"]]
+    assert SKIPPED_TOPIC not in topics
+    # The count agrees with the list; a hidden row must not inflate "n of m".
+    assert body["count"] == len(topics)
+
+
+async def test_sensitive_topics_still_appear_and_carry_their_flag(client) -> None:
+    body = (await client.get("/trends", params={"region": "IN-MH", "limit": 100})).json()
+
+    sensitive = next(t for t in body["trends"] if t["topic"] == SENSITIVE_TOPIC)
+    assert sensitive["safety_flag"] == "sensitive"
+    assert sensitive["summary"] == "The High Court heard the petition."
+
+
+async def test_skip_flagged_topics_are_available_on_request(client: httpx.AsyncClient) -> None:
+    # Hidden from the board, not deleted: an operator can still inspect them.
+    body = (
+        await client.get(
+            "/trends", params={"region": "IN-MH", "limit": 100, "include_flagged": True}
+        )
+    ).json()
+
+    topics = [t["topic"] for t in body["trends"]]
+    assert SKIPPED_TOPIC in topics
+    assert body["count"] == 5
+
+
+async def test_uncurated_topics_are_not_treated_as_flagged(client: httpx.AsyncClient) -> None:
+    """safety_flag is NULL before a region is curated; those rows must show."""
+    body = (await client.get("/trends", params={"region": "IN-MH", "limit": 100})).json()
+
+    plain = next(t for t in body["trends"] if t["topic"] == "Topic 1")
+    assert plain["safety_flag"] is None
+    assert plain["summary"] is None

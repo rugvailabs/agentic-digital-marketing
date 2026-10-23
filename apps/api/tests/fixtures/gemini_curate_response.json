@@ -1,0 +1,20 @@
+{
+  "_fixture_note": "Recorded live from gemini-3.5-flash on 2026-10-23 for region IN-GA. The candidate text is the curator's JSON array.",
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          {
+            "text": "[{\"cluster_id\": \"c000\", \"title\": \"Zimbabwe vs india\", \"category\": \"Sports\", \"hashtags\": [\"#ZimbabweVsIndia\", \"#IndiaVsZimbabwe\", \"#WomensCricket\"], \"summary\": \"India Women national cricket team plays against Zimbabwe Women national cricket team in an international cricket match.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c001\", \"title\": \"Eng vs sl\", \"category\": \"Sports\", \"hashtags\": [\"#EngVsSl\", \"#SlVsEng\", \"#Cricket\"], \"summary\": \"England cricket team faces Sri Lanka national cricket team in an ongoing international cricket match series.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c002\", \"title\": \"Weather\", \"category\": \"Lifestyle\", \"hashtags\": [\"#Weather\", \"#WeatherUpdate\", \"#Mausam\"], \"summary\": \"Local residents search for daily weather updates and forecast details to plan their daily activities and travel.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c003\", \"title\": \"Gold rate today\", \"category\": \"Business and Finance\", \"hashtags\": [\"#GoldRateToday\", \"#GoldRate\", \"#GoldPrice\"], \"summary\": \"Consumers and investors search for the latest daily gold prices and market rates in India today.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c004\", \"title\": \"Whatsapp\", \"category\": \"Technology\", \"hashtags\": [\"#Whatsapp\", \"#TechNews\", \"#WhatsappUpdate\"], \"summary\": \"Users search for messaging platform WhatsApp regarding updates, new features, or service status across the region.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c005\", \"title\": \"Naman dhir\", \"category\": \"Sports\", \"hashtags\": [\"#NamanDhir\", \"#SanjuSamson\", \"#Cricket\"], \"summary\": \"Indian cricketer Naman Dhir gains attention from cricket fans alongside Sanju Samson following recent match performances.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c006\", \"title\": \"Goa unveils AI policy 2026, launches state-level hackathon\", \"category\": \"Technology\", \"hashtags\": [\"#GoaAIPolicy\", \"#AIHub\", \"#GoaTech\"], \"summary\": \"Goa government unveils its AI Policy 2026 and launches a state hackathon to become India's next artificial intelligence hub.\", \"safety_flag\": \"none\"}, {\"cluster_id\": \"c007\", \"title\": \"Rafale Marine fighter begins flight trials in Goa ahead of Indian Navy induction\", \"category\": \"Technology\", \"hashtags\": [\"#RafaleMarine\", \"#INSVikrant\", \"#IndianNavy\", \"#Goa\"], \"summary\": \"Dassault Rafale Marine fighter aircraft starts flight trials in Goa to test operations on aircraft carrier INS Vikrant for Indian Navy.\", \"safety_flag\": \"none\"}]"
+          }
+        ]
+      },
+      "finishReason": "STOP"
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 1096,
+    "candidatesTokenCount": 857,
+    "totalTokenCount": 4220
+  }
+}

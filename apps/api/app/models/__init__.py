@@ -1,3 +1,14 @@
+from app.models.content import (
+    EMBED_DIM,
+    AssetKind,
+    Brand,
+    ContentAsset,
+    ContentJob,
+    JobStatus,
+    Language,
+    SafetyFlag,
+    TrendItem,
+)
 from app.models.region import Region, RegionKind
 from app.models.trend import (
     PipelineStatus,
@@ -8,11 +19,20 @@ from app.models.trend import (
 )
 
 __all__ = [
+    "EMBED_DIM",
+    "AssetKind",
+    "Brand",
+    "ContentAsset",
+    "ContentJob",
+    "JobStatus",
+    "Language",
     "PipelineStatus",
     "Region",
     "RegionKind",
+    "SafetyFlag",
     "SnapshotStatus",
     "SourceName",
     "Trend",
+    "TrendItem",
     "TrendSnapshot",
 ]

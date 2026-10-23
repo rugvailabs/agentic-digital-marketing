@@ -18,6 +18,10 @@ dependencies = [
   "trendspy>=0.1.6",
   "structlog>=24.4.0",
   "python-dateutil>=2.9.0",
+  # step 2
+  "pgvector>=0.3.6",
+  "pillow>=11.0.0",
+  "boto3>=1.35.0",
 ]
 
 [project.optional-dependencies]

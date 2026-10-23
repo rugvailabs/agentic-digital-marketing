@@ -45,6 +45,10 @@ class TrendOut(BaseModel):
     velocity: list[float] = Field(examples=[[0.0, 0.0, 12.5, 40.0, 88.0, 100.0]])
     sources: list[str] = Field(examples=[["google_trends", "google_news"]])
     score: float = Field(examples=[100.0])
+    #: Curator's one-line brief. None until a region has been curated.
+    summary: str | None = Field(examples=["England face Sri Lanka in the third T20I."])
+    #: none | sensitive | skip. `skip` rows are not served by default.
+    safety_flag: str | None = Field(examples=["none"])
     updated_at: datetime
     #: Links, publishers and thumbnails behind the row, for the Desk panel.
     evidence: list[dict[str, Any]]
