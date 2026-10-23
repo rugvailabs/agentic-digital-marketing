@@ -1,0 +1,74 @@
+# ---- Node / pnpm ----
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Build output
+dist/
+build/
+out/
+.next/
+.turbo/
+.vercel/
+storybook-static/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+build/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.pytype/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+.tox/
+.nox/
+
+# ---- Env / secrets ----
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets.json
+
+# ---- Celery / runtime ----
+celerybeat-schedule
+celerybeat-schedule.*
+celerybeat.pid
+*.pid
+*.sock
+dump.rdb
+
+# ---- Remotion / media artifacts ----
+.remotion/
+remotion-out/
+
+# ---- Editors / OS ----
+.vscode/
+!.vscode/extensions.json
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---- Logs / temp ----
+logs/
+*.log
+tmp/
+.cache/
