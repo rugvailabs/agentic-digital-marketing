@@ -5,6 +5,7 @@ import {
   formatIstDateTime,
   formatIstTime,
   formatNumber,
+  shortCategory,
   velocityTrend,
 } from './format'
 
@@ -72,5 +73,20 @@ describe('velocityTrend', () => {
     expect(velocityTrend([])).toBe('settled')
     expect(velocityTrend([5])).toBe('settled')
     expect(velocityTrend([0, 0, 0, 0, 0, 0])).toBe('settled')
+  })
+})
+
+describe('shortCategory', () => {
+  it('shortens the long Google Trends names that do not fit a ladder chip', () => {
+    expect(shortCategory('Business and Finance')).toBe('Business')
+    expect(shortCategory('Law and Government')).toBe('Law')
+    expect(shortCategory('Travel and Transportation')).toBe('Travel')
+    expect(shortCategory('Technology')).toBe('Tech')
+  })
+
+  it('passes through names that are already short, including unknown ones', () => {
+    expect(shortCategory('Sports')).toBe('Sports')
+    expect(shortCategory('Politics')).toBe('Politics')
+    expect(shortCategory('Something New')).toBe('Something New')
   })
 })

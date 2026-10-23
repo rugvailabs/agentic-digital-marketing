@@ -21,7 +21,9 @@ const display = Bricolage_Grotesque({
 
 const ui = Schibsted_Grotesk({
   subsets: ['latin'],
-  weight: ['400', '500', '600'],
+  // Variable, like Bricolage: asking for static instances made next/font fail
+  // to fetch it ("Cannot read properties of null") and silently fall back to a
+  // system face, which is not a failure mode we can ship.
   variable: '--font-schibsted',
   display: 'swap',
 })

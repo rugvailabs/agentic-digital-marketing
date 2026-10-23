@@ -58,6 +58,29 @@ export function formatIstDateTime(value: Date | string): string {
   return istDateTime.format(typeof value === 'string' ? new Date(value) : value)
 }
 
+/**
+ * Google Trends category names are written out in full ("Business and
+ * Finance", "Travel and Transportation") and do not fit a ladder chip at 420px
+ * — they truncated mid-word. The Desk still shows the full name; this is the
+ * dense-column label only.
+ */
+const SHORT_CATEGORY: Record<string, string> = {
+  'Autos and Vehicles': 'Autos',
+  'Beauty and Fashion': 'Beauty',
+  'Business and Finance': 'Business',
+  'Food and Drink': 'Food',
+  'Hobbies and Leisure': 'Hobbies',
+  'Jobs and Education': 'Jobs',
+  'Law and Government': 'Law',
+  'Pets and Animals': 'Pets',
+  'Travel and Transportation': 'Travel',
+  Technology: 'Tech',
+}
+
+export function shortCategory(category: string): string {
+  return SHORT_CATEGORY[category] ?? category
+}
+
 export type VelocityTrend = 'rising' | 'settled' | 'cooling'
 
 /**

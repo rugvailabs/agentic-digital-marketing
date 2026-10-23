@@ -6,7 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Sparkline } from '@/components/Sparkline'
 import { Chip, cx } from '@/components/primitives'
-import { formatCompactVolume } from '@/lib/format'
+import { formatCompactVolume, shortCategory } from '@/lib/format'
 
 /** Whole-list load-in budget is 240ms, so the stagger shrinks as rows grow. */
 const SETTLE_BUDGET_MS = 240
@@ -104,7 +104,9 @@ function Row({
       tabIndex={tabIndex}
       onClick={onSelect}
       className={cx(
-        'rule-dotted group grid cursor-pointer grid-cols-[3.25rem_1fr_auto] items-start gap-x-3 py-3 pr-4 pl-1 transition-colors',
+        // 4.75rem fits a two-digit numeral at 64px tabular; a narrower column
+        // lets rank 10+ run into the topic text.
+        'rule-dotted group grid cursor-pointer grid-cols-[4.75rem_1fr_auto] items-start gap-x-3 py-3 pr-4 pl-1 transition-colors',
         animate ? 'row-settle' : '',
         selected ? 'bg-row-active' : 'hover:bg-row-hover',
       )}
@@ -112,13 +114,14 @@ function Row({
     >
       {/*
         The rank numeral hangs into the gutter, partly outside the text column —
-        a newspaper folio. -ml-1 plus a narrower column than the glyph is what
-        produces the overhang; it is not a nudge.
+        a newspaper folio. The negative margin against the row padding is what
+        produces the overhang; it is not a nudge. Right-aligned so one- and
+        two-digit ranks share an edge.
       */}
       <span
         aria-hidden
         className={cx(
-          'rank-numeral -ml-1 text-rank select-none',
+          'rank-numeral -ml-2 block text-right text-rank select-none',
           selected ? 'text-chilli' : 'text-ink/15 group-hover:text-ink/30',
         )}
       >
@@ -130,8 +133,20 @@ function Row({
           <span className="sr-only">Rank {trend.rank}: </span>
           {trend.topic}
         </p>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-          {trend.category ? <Chip>{trend.category}</Chip> : null}
+        {/*
+          No wrapping: a long category like "Business and Finance" would push
+          the source chips onto a second line and give that row a taller box,
+          breaking the ladder's rhythm. The category truncates instead.
+        */}
+        <div className="mt-1.5 flex items-center gap-1.5 overflow-hidden">
+          {trend.category ? (
+            // The inner block span is what truncates: text-overflow does not
+            // apply to the inline-flex chip itself, so an ellipsis set there
+            // never renders and the text runs into the border.
+            <Chip className="min-w-0 shrink" title={trend.category}>
+              <span className="block truncate">{shortCategory(trend.category)}</span>
+            </Chip>
+          ) : null}
           {trend.sources.map((source) => (
             <Chip key={source} tone="accent">
               {SOURCE_LABELS[source as SourceName] ?? source}

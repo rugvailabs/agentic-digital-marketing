@@ -14,17 +14,23 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
 export function Chip({
   children,
   tone = 'neutral',
+  className,
+  title,
 }: {
   children: ReactNode
   tone?: 'neutral' | 'accent'
+  /** For the ladder's category chip, which has to truncate inside its border. */
+  className?: string
+  /** Full text when the label is shortened or truncated. */
+  title?: string
 }) {
   return (
     <span
+      title={title}
       className={cx(
         'inline-flex items-center border px-1.5 py-px text-xs leading-5 whitespace-nowrap',
-        tone === 'accent'
-          ? 'border-chilli/40 text-chilli'
-          : 'border-rule text-slate',
+        tone === 'accent' ? 'border-chilli/40 text-chilli' : 'border-rule text-slate',
+        className,
       )}
     >
       {children}
@@ -37,11 +43,20 @@ export function Chip({
  * rejects: the label is always visible, so nothing has to be inferred from
  * position.
  */
-export function Field({ label, children }: { label: string; children: ReactNode }) {
+export function Field({
+  label,
+  numeric = false,
+  children,
+}: {
+  label: string
+  /** Tabular figures. Only for actual numbers — it widens letterforms too. */
+  numeric?: boolean
+  children: ReactNode
+}) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-slate">{label}</span>
-      <span className="num text-sm text-ink">{children}</span>
+      <span className={cx('text-sm text-ink', numeric && 'num')}>{children}</span>
     </div>
   )
 }

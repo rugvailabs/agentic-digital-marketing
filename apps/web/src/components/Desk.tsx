@@ -54,10 +54,12 @@ export function Desk({
       </div>
 
       <div className="grid grid-cols-2 gap-x-8 gap-y-4 border-t border-rule pt-4 sm:grid-cols-3">
-        <Field label="Volume">
+        <Field label="Volume" numeric>
           {trend.volume ? formatNumber(trend.volume) : '—'}
         </Field>
-        <Field label="Score">{trend.score.toFixed(1)}</Field>
+        <Field label="Score" numeric>
+          {trend.score.toFixed(1)}
+        </Field>
         <Field label="Category">{trend.category ?? '—'}</Field>
         <Field label="Velocity">
           <span className="flex items-center gap-2">
@@ -74,7 +76,9 @@ export function Desk({
             ))}
           </span>
         </Field>
-        <Field label="Updated">{formatIstDateTime(trend.updated_at)} IST</Field>
+        <Field label="Updated" numeric>
+          {formatIstDateTime(trend.updated_at)} IST
+        </Field>
       </div>
 
       <div className="flex flex-col gap-2">
