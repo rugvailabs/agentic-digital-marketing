@@ -227,6 +227,21 @@ async def _run_cycle_and_release(region_codes: list[str] | None) -> dict[str, An
         await engine.dispose()
 
 
+@shared_task(name="app.tasks.content.generate_content", bind=True, max_retries=0)
+def generate_content(self, job_id: int) -> dict[str, Any]:
+    """Run one content job. No retries: run_job records failure on the row and
+    the Desk offers "Try again", which is a clearer loop than a silent retry."""
+    from app.tasks.content import run_job
+
+    async def _run() -> dict[str, Any]:
+        try:
+            return await run_job(job_id)
+        finally:
+            await engine.dispose()
+
+    return asyncio.run(_run())
+
+
 @shared_task(name="app.tasks.curate.curate_regions", bind=True, max_retries=1)
 def curate_regions(self, region_codes: list[str] | None = None) -> dict[str, Any]:
     """Curate after ingest. Only the configured regions run on the beat —

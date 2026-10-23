@@ -1,6 +1,6 @@
 'use client'
 
-import type { Region, TrendsResponse } from '@trendforge/types'
+import type { Brand, Region, TrendsResponse } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
 import { Desk } from '@/components/Desk'
@@ -22,9 +22,11 @@ import { formatIstTime } from '@/lib/format'
 export function Board({
   regions,
   board,
+  brands,
 }: {
   regions: Region[]
   board: TrendsResponse
+  brands: Brand[]
 }) {
   const [selectedRank, setSelectedRank] = useState(board.trends[0]?.rank ?? 0)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -109,7 +111,7 @@ export function Board({
             Back to ladder
           </button>
         </div>
-        <Desk region={board.region} trend={selected} />
+        <Desk region={board.region} trend={selected} brands={brands} />
       </div>
     </div>
   )

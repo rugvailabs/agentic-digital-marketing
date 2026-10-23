@@ -37,6 +37,10 @@ type Shot = {
   selectRank?: number
   /** Phone: tapping a row opens the Desk panel, which is the state worth seeing. */
   openPanel?: boolean
+  /** Wait for a generated post to load, and frame the studio rather than the top. */
+  studio?: boolean
+  /** Select the row containing this text, rather than by position. */
+  selectTopic?: string
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -58,6 +62,33 @@ function shots(regionOverride?: string): Shot[] {
       theme: 'dark',
       viewport: DESKTOP,
       selectRank: 3,
+    },
+    // The studio, showing posts generated live in three languages. Addressed
+    // by topic text, not by rank: ranks move every time the curator runs, so
+    // a rank here would silently screenshot a different topic next week.
+    {
+      name: 'studio-english',
+      region: 'IN-GA',
+      theme: 'light',
+      viewport: DESKTOP,
+      selectTopic: 'AI policy',
+      studio: true,
+    },
+    {
+      name: 'studio-hindi',
+      region: 'IN-GA',
+      theme: 'light',
+      viewport: DESKTOP,
+      selectTopic: 'Rafale',
+      studio: true,
+    },
+    {
+      name: 'studio-tamil',
+      region: 'IN-GA',
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectTopic: 'Weather',
+      studio: true,
     },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
     { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },
@@ -104,18 +135,33 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   await page.waitForSelector('[role="option"]', { timeout: 15_000 })
 
   // The IST clock mounts empty and fills in from an effect, so without this a
-  // shot can catch the bar mid-hydration and ship a board with no clock.
-  await page.waitForFunction(
-    () => document.querySelector('header')?.textContent?.includes('IST') ?? false,
-    undefined,
-    { timeout: 10_000 },
-  )
+  // shot can catch the bar mid-hydration and ship a board with no clock. Soft
+  // on purpose: a late clock is cosmetic, and failing the whole run over it
+  // throws away the shots that did work.
+  try {
+    await page.waitForFunction(
+      () => document.querySelector('header')?.textContent?.includes('IST') ?? false,
+      undefined,
+      { timeout: 15_000 },
+    )
+  } catch {
+    // stdout, not stderr: this is a note, and a stderr write makes the
+    // whole run look failed to a shell that watches it.
+    console.log(`  ! ${shot.name}: clock had not painted; capturing anyway`)
+  }
   const rows = await page.locator('[role="option"]').count()
   if (rows === 0) {
     throw new Error(`no topics for ${shot.region}: run \`.\\tf.ps1 ingest\` first`)
   }
 
-  if (shot.selectRank) {
+  if (shot.selectTopic) {
+    const row = page.locator('[role="option"]').filter({ hasText: shot.selectTopic }).first()
+    if ((await row.count()) === 0) {
+      throw new Error(`no row matching "${shot.selectTopic}" in ${shot.region}`)
+    }
+    await row.scrollIntoViewIfNeeded()
+    await row.click()
+  } else if (shot.selectRank) {
     await page.locator('[role="option"]').nth(shot.selectRank - 1).click()
   }
   if (!shot.openPanel) {
@@ -125,9 +171,21 @@ async function capture(page: Page, shot: Shot): Promise<string> {
     if (await close.isVisible().catch(() => false)) await close.click()
   }
 
+  if (shot.studio) {
+    // Wait for the stored post to arrive and its images to decode, or the
+    // shot catches an empty studio that looks like nothing was generated.
+    await page.waitForSelector('figure img', { timeout: 20_000 })
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('figure img')].every((i) => (i as HTMLImageElement).complete),
+      undefined,
+      { timeout: 20_000 },
+    )
+    await page.locator('textarea').first().scrollIntoViewIfNeeded()
+  }
+
   await page.waitForTimeout(SETTLE_MS)
   const path = join(OUT_DIR, `${shot.name}.png`)
-  await page.screenshot({ path, fullPage: false })
+  await page.screenshot({ path, fullPage: shot.studio === true })
   return `${shot.name}.png (${shot.region}, ${shot.viewport.width}px, ${rows} rows)`
 }
 
@@ -167,6 +225,7 @@ async function main(): Promise<void> {
       '- `board-1440-*` — the two-column board at 1440px.',
       '- `board-390-*` — the ladder full width below the 800px Desk breakpoint.',
       '- `panel-390-*` — the Desk as a slide-in panel over the ladder.',
+      '- `studio-*` — the content studio with posts generated live by Gemini.',
       '',
       ...written.map((w) => `- ${w}`),
       '',

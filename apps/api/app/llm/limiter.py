@@ -64,22 +64,29 @@ class DailyBudget:
     def __init__(self, limit: int, *, name: str) -> None:
         self._limit = max(1, limit)
         self._name = name
-        self._used = 0
+        self._used: dict[str, int] = {}
         self._day = time.gmtime().tm_yday
 
     def _roll(self) -> None:
         today = time.gmtime().tm_yday
         if today != self._day:
-            self._day, self._used = today, 0
+            self._day, self._used = today, {}
 
-    def spend(self) -> bool:
-        """True if there was budget left. False means stop, not retry."""
+    def spend(self, key: str = "") -> bool:
+        """True if there was budget left for `key`. False means stop, not retry.
+
+        Counted per model, because Google's limit is per model too
+        (GenerateRequestsPerDayPerProjectPerModel-FreeTier, 20/day on this
+        tier). A single shared counter would block a model that still has
+        budget, which is exactly what the fallback chain exists to use.
+        """
         self._roll()
-        if self._used >= self._limit:
+        used = self._used.get(key, 0)
+        if used >= self._limit:
             return False
-        self._used += 1
+        self._used[key] = used + 1
         return True
 
-    def remaining(self) -> int:
+    def remaining(self, key: str = "") -> int:
         self._roll()
-        return max(0, self._limit - self._used)
+        return max(0, self._limit - self._used.get(key, 0))

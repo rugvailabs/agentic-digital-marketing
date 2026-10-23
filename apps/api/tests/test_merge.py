@@ -9,6 +9,7 @@ from app.tasks.merge import (
     VELOCITY_POINTS,
     SourceItems,
     camel_hashtag,
+    clean_hashtags,
     display_topic,
     hashtags_for,
     merge,
@@ -219,3 +220,35 @@ def test_merge_emits_sentence_cased_display_text_but_keeps_the_raw_key() -> None
     assert merged[0].topic == "Eng vs sl"
     # The dedupe key stays lowercase so casing changes can never split a topic.
     assert merged[0].topic_key == "eng vs sl"
+
+
+class TestCleanHashtags:
+    """Gemini's hashtag arrays arrive in several shapes, not all of them lists."""
+
+    def test_a_normal_list_passes_through(self) -> None:
+        assert clean_hashtags(["#Goa", "#AI"], 8) == ["#Goa", "#AI"]
+
+    def test_the_whole_list_arriving_as_one_joined_string_is_split(self) -> None:
+        # Observed live: the writer returned all eight tags as a single string.
+        mangled = ["#GoaAIPolicy','#TechHub','#AIInGoa','#GoaTech"]
+
+        assert clean_hashtags(mangled, 8) == [
+            "#GoaAIPolicy",
+            "#TechHub",
+            "#AIInGoa",
+            "#GoaTech",
+        ]
+
+    def test_missing_hashes_are_added_and_duplicates_dropped(self) -> None:
+        assert clean_hashtags(["Goa", "#Goa", "AI"], 8) == ["#Goa", "#AI"]
+
+    def test_indic_tags_survive_intact(self) -> None:
+        assert clean_hashtags(["#नयागाना", "#கோவா"], 8) == ["#नयागाना", "#கோவா"]
+
+    def test_the_limit_is_honoured(self) -> None:
+        assert len(clean_hashtags([f"#t{i}" for i in range(20)], 8)) == 8
+
+    def test_junk_yields_nothing_rather_than_empty_hashes(self) -> None:
+        assert clean_hashtags(["", "#", "  ", None], 8) == []
+        assert clean_hashtags(None, 8) == []
+        assert clean_hashtags("not a list", 8) == []

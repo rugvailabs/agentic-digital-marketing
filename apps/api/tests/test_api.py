@@ -235,6 +235,7 @@ async def test_trends_returns_the_ladder_in_rank_order(client: httpx.AsyncClient
     assert [t["rank"] for t in body["trends"]] == [1, 2, 3, 5]
 
     first = body["trends"][0]
+    assert first["id"] > 0, "the studio posts this id back to create a job"
     assert first["topic"] == "Topic 1"
     assert first["category"] == "Sports"
     assert first["hashtags"] == ["#Topic1"]

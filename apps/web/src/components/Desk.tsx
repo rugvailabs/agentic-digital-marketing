@@ -1,7 +1,8 @@
-import type { Trend, TrendsResponse } from '@trendforge/types'
+import type { Brand, Trend, TrendsResponse } from '@trendforge/types'
 import { SOURCE_LABELS, type SourceName } from '@trendforge/types'
 
 import { Sparkline } from '@/components/Sparkline'
+import { Studio } from '@/components/Studio'
 import { Empty, MetaCell, SectionLabel } from '@/components/primitives'
 import {
   formatCompactVolume,
@@ -20,9 +21,11 @@ import {
 export function Desk({
   region,
   trend,
+  brands,
 }: {
   region: TrendsResponse['region']
   trend: Trend | null
+  brands: Brand[]
 }) {
   if (!trend) {
     return (
@@ -97,17 +100,7 @@ export function Desk({
         )}
       </div>
 
-      {/*
-        Plain text under a rule, not a card: a bordered box here would claim
-        the one visual role reserved for a rendered image or video.
-      */}
-      <div className="border-t border-rule pt-4">
-        <p className="text-sm text-ink">Content studio arrives in step 2.</p>
-        <p className="mt-1.5 text-sm text-slate">
-          Captions, square images and 9:16 reels will be generated here from this topic, using
-          its hashtags and the sources above as the brief.
-        </p>
-      </div>
+      <Studio trend={trend} brands={brands} />
     </section>
   )
 }

@@ -67,6 +67,10 @@ remotion-out/
 Thumbs.db
 desktop.ini
 
+# Scratch probes used to interrogate a live API; never part of the build.
+_probe.py
+apps/*/_probe.py
+
 # ---- Logs / temp ----
 logs/
 *.log

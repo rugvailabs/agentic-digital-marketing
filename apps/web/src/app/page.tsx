@@ -1,7 +1,7 @@
 import { Board } from '@/components/Board'
 import { TopBar } from '@/components/TopBar'
 import { Code, Empty } from '@/components/primitives'
-import { ApiUnavailable, fetchHealth, fetchRegions, fetchTrends } from '@/lib/api'
+import { ApiUnavailable, fetchBrands, fetchHealth, fetchRegions, fetchTrends } from '@/lib/api'
 
 const DEFAULT_REGION = 'IN'
 const LADDER_LIMIT = 20
@@ -17,12 +17,13 @@ export default async function BoardPage({ searchParams }: Props) {
   let content
   let regionName: string | undefined
   try {
-    const [regions, board] = await Promise.all([
+    const [regions, board, brands] = await Promise.all([
       fetchRegions(),
       fetchTrends(region, clampLimit(limit)),
+      fetchBrands(),
     ])
     regionName = board.region.name
-    content = <Board regions={regions} board={board} />
+    content = <Board regions={regions} board={board} brands={brands} />
   } catch (error) {
     if (!(error instanceof ApiUnavailable)) throw error
     content = (

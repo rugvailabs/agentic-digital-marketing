@@ -154,12 +154,39 @@ over it; the ladder itself never reflows into cards.
 - **Focus** is a 2px chilli ring with a 2px offset, visible on every
   interactive element, never suppressed.
 
-## Known gap, visible in the UI
+## The content studio (step 2)
 
-Source chips almost always show a single source. The step-1 merge dedupes by
-normalised title, and Google Trends emits short keywords ("eng vs sl") while
-Google News emits full headlines, so the two never collide and the weighted sum
-never actually sums. This is the specified merge, so it stands; the cheap
-non-LLM fix is a containment pass (Trends keyword appearing inside a news
-headline), which is worth doing only if it survives the obvious failure mode of
-short keywords like "whatsapp" matching everything.
+The step-2 placeholder is gone. The Desk now ends with a one-line control row
+(brand, language, "Generate post"), a status line that polls the job, the
+caption as an editable textarea with its hashtags and alt text, and the
+rendered images.
+
+**Those image cards are the only cards in the app.** That is what the border
+was reserved for from the start: a bordered box means "a rendered asset lives
+here", never "some content lives here". Nothing else gained a border, a
+shadow or a colour.
+
+Post templates follow the same rules as the board — flat colour, no gradient,
+no shadow, type and rules carrying the hierarchy — so a post looks like the
+desk it came from. Three of them: bold type on paper, a split brand panel, and
+full-bleed flat colour. Headlines autofit by measured bounding box rather than
+character count, because Tamil and Devanagari advance widths have nothing to
+do with Latin ones and a single long Tamil word cannot wrap.
+
+## Known gaps, visible in the UI
+
+**Multi-source topics are real but uncommon.** The curator clusters in
+embedding space, so a Trends keyword and a news headline about the same story
+do now merge — but only when they genuinely are the same story, which across
+these three sources is a minority of the time. Measured on real vectors, true
+cross-source matches score 0.686-0.693 and unrelated same-genre titles
+0.54-0.67. Loosening the threshold would manufacture corroboration rather than
+find it.
+
+**Re-curation can orphan a generated post.** Topics are keyed on the
+normalised title, so when the curator rewords one ("Rafale Marine trials
+underway in Goa" becoming "Rafale Marine fighter begins flight trials in
+Goa") a new row appears and the old one drops to rank 0 — taking its content
+job with it. The board also shows the two side by side for a cycle. The fix is
+to match across runs on `cluster_id` or the stored centroid instead of on the
+title, which is why both are already on the row.

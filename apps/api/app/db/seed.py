@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.core.logging import get_logger
 from app.db.regions_data import CITY_COUNT, STATE_COUNT, UT_COUNT, all_regions
 from app.db.session import SessionLocal, engine
-from app.models import Region, RegionKind
+from app.models import Brand, Language, Region, RegionKind
 
 log = get_logger("seed")
 
@@ -64,8 +64,44 @@ async def seed_regions() -> dict[str, int]:
     return totals
 
 
+DEFAULT_BRAND = {
+    "slug": "trendforge-demo",
+    "name": "TrendForge demo",
+    "voice_prompt": (
+        "Plain, confident, Indian. Short sentences. No hype words, no emoji, "
+        "no exclamation marks. Say the useful thing first and stop."
+    ),
+    "primary_color": "#1B2230",
+    "secondary_color": "#D8322B",
+    "languages": [lang.value for lang in Language],
+    "font_choice": "display",
+}
+
+
+async def seed_brands() -> dict[str, int]:
+    """One demo brand so the studio works on a clean checkout."""
+    created = updated = 0
+    async with SessionLocal() as session:
+        brand = await session.scalar(select(Brand).where(Brand.slug == DEFAULT_BRAND["slug"]))
+        if brand is None:
+            brand = Brand(slug=str(DEFAULT_BRAND["slug"]))
+            session.add(brand)
+            created = 1
+        else:
+            updated = 1
+
+        for field, value in DEFAULT_BRAND.items():
+            if field != "slug":
+                setattr(brand, field, value)
+        await session.commit()
+
+    log.info("brands seeded", created=created, updated=updated)
+    return {"created": created, "updated": updated}
+
+
 async def _main() -> None:
     await seed_regions()
+    await seed_brands()
     await engine.dispose()
 
 

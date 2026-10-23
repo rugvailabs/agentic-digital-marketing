@@ -14,6 +14,15 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql+asyncpg://trendforge:trendforge@postgres:5432/trendforge"
     redis_url: str = "redis://redis:6379/0"
+
+    # ── Object storage (MinIO locally, Cloudflare R2 in prod) ─────────────
+    s3_endpoint_url: str = "http://minio:9000"
+    #: Browser-reachable base; the container endpoint is not resolvable there.
+    s3_public_url: str = "http://localhost:9020"
+    s3_access_key_id: str = "trendforge"
+    s3_secret_access_key: str = "trendforge-secret"
+    s3_bucket: str = "trendforge-assets"
+    s3_region: str = "auto"
     celery_broker_url: str = "redis://redis:6379/1"
     celery_result_backend: str = "redis://redis:6379/2"
 
@@ -34,16 +43,29 @@ class Settings(BaseSettings):
     # the 2.5 family are 404s. See .env.example for the probe results.
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.5-flash"
-    #: Tried in order when the primary returns 503/429. This tier throws 503
-    #: "high demand" often enough that a single model id is not dependable.
-    gemini_model_fallbacks: str = "gemini-flash-latest,gemini-3.6-flash,gemini-3-flash-preview"
+    #: Tried in order when the primary returns 503/429. Long on purpose: this
+    #: tier throws 503 "high demand" routinely, and the daily request budget is
+    #: per model id, so each entry carries its own allowance.
+    gemini_model_fallbacks: str = ",".join(
+        (
+            "gemini-flash-latest",
+            "gemini-3-flash-preview",
+            "gemini-3.7-flash",
+            "gemini-3.8-flash",
+            "gemini-3.5-flash-lite",
+            "gemini-3.1-flash-lite",
+            "gemini-flash-lite-latest",
+        )
+    )
     gemini_embed_model: str = "gemini-embedding-001"
     gemini_embed_dim: int = 768
     #: Blank => GeminiImageProvider is not configured and Pillow renders all.
     gemini_image_model: str = ""
     #: Free-tier budgets, enforced locally so we rarely see a 429 at all.
     gemini_rpm: int = 10
-    gemini_rpd: int = 250
+    #: Per model, not per project: the free tier allows 20 generate_content
+    #: requests per day for each model id, which is why the chain is long.
+    gemini_rpd: int = 20
     gemini_embed_rpm: int = 100
     gemini_timeout_seconds: float = 90.0
 

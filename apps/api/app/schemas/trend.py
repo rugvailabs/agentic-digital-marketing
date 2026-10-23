@@ -35,6 +35,8 @@ class RegionOut(BaseModel):
 class TrendOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    #: Database id. The content studio posts this back to create a job.
+    id: int = Field(examples=[168])
     rank: int = Field(ge=1, examples=[1])
     topic: str = Field(examples=["Asia cup final"])
     category: str | None = Field(examples=["Sports"])

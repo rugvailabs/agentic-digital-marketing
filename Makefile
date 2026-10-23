@@ -51,6 +51,9 @@ seed: ## Seed regions (idempotent)
 ingest: ## Run one ingest cycle now (synchronous, no worker needed)
 	$(API) python -m app.tasks.run_once
 
+curate: ## Cluster and name the latest snapshot with Gemini
+	$(API) python -m app.tasks.curate
+
 reset-db: ## Drop volumes and rebuild the database from scratch
 	$(COMPOSE) down -v
 	$(MAKE) up

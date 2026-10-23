@@ -35,7 +35,13 @@ from app.models import (
 )
 from app.prompts import render_prompt
 from app.tasks.cluster import assignments, cluster_vectors
-from app.tasks.merge import display_topic, hashtags_for, next_velocity, normalise_topic
+from app.tasks.merge import (
+    clean_hashtags,
+    display_topic,
+    hashtags_for,
+    next_velocity,
+    normalise_topic,
+)
 
 log = get_logger("curate")
 
@@ -404,18 +410,8 @@ async def _write(
 
 
 def _clean_hashtags(raw: Any, title: str) -> list[str]:
-    tags: list[str] = []
-    for tag in raw or []:
-        text = str(tag).strip()
-        if not text:
-            continue
-        if not text.startswith("#"):
-            text = f"#{text}"
-        text = "#" + text[1:].replace(" ", "")
-        if len(text) > 1 and text not in tags:
-            tags.append(text)
     # A model that returns nothing usable must not leave a topic tagless.
-    return tags[:6] or hashtags_for(title)
+    return clean_hashtags(raw, 6) or hashtags_for(title)
 
 
 def _clean_flag(raw: Any) -> str:

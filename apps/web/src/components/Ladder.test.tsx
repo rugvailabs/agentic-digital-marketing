@@ -6,6 +6,7 @@ import { Ladder } from './Ladder'
 
 function trend(rank: number, over: Partial<Trend> = {}): Trend {
   return {
+    id: 100 + rank,
     rank,
     topic: `Topic ${rank}`,
     category: 'Sports',
@@ -15,6 +16,8 @@ function trend(rank: number, over: Partial<Trend> = {}): Trend {
     sources: ['google_trends'],
     score: 100 - rank,
     updated_at: '2026-10-23T06:15:00Z',
+    summary: null,
+    safety_flag: null,
     evidence: [],
     ...over,
   }

@@ -96,6 +96,9 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    # One image for api, worker and beat: they share a Dockerfile, and letting
+    # compose build three meant `build api` left the worker on stale code.
+    image: trendforge-api:latest
     restart: unless-stopped
     environment: *api-env
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
@@ -119,6 +122,7 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    image: trendforge-api:latest
     restart: unless-stopped
     environment: *api-env
     # solo pool keeps logs readable in dev; prefork in prod
@@ -137,6 +141,7 @@ services:
     build:
       context: ./apps/api
       dockerfile: Dockerfile
+    image: trendforge-api:latest
     restart: unless-stopped
     environment: *api-env
     command: ["celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]

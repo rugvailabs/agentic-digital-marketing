@@ -17,6 +17,11 @@ export type Trend = Schemas['TrendOut']
 export type TrendsResponse = Schemas['TrendsResponse']
 export type IngestRunResponse = Schemas['IngestRunResponse']
 export type Health = Schemas['Health']
+export type Brand = Schemas['BrandOut']
+export type ContentJob = Schemas['JobOut']
+export type ContentAsset = Schemas['AssetOut']
+export type Language = Schemas['Language']
+export type JobStatus = Schemas['JobStatus']
 
 /** Query parameters accepted by `GET /trends`. */
 export type TrendsQuery = NonNullable<paths['/trends']['get']['parameters']['query']>

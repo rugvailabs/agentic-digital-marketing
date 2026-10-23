@@ -75,6 +75,7 @@ async def list_trends(
         count=total,
         trends=[
             TrendOut(
+                id=t.id,
                 rank=t.rank,
                 topic=t.topic,
                 category=t.category,

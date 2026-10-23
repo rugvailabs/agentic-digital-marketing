@@ -99,6 +99,30 @@ def camel_hashtag(text: str, *, keep_stopwords: bool = False) -> str | None:
     return f"#{tag}" if tag else None
 
 
+def clean_hashtags(raw: object, limit: int) -> list[str]:
+    """Normalise whatever the model called a hashtag list.
+
+    Gemini sometimes returns all of them as one string —
+    `["#A','#B','#C"]` — so items are split on quotes, commas and whitespace
+    before being tidied. Splitting on whitespace too is the safer default:
+    three short tags beat one unusable one, and the prompt already asks for
+    no spaces inside a tag.
+    """
+    tags: list[str] = []
+    for item in raw if isinstance(raw, (list, tuple)) else []:
+        if item is None:
+            # str(None) would otherwise become the tag "#None".
+            continue
+        for part in re.split(r"[\s,;'\"]+", str(item)):
+            token = part.strip().lstrip("#")
+            if not token:
+                continue
+            tag = f"#{token}"
+            if tag not in tags:
+                tags.append(tag)
+    return tags[:limit]
+
+
 def hashtags_for(topic: str, category: str | None = None) -> list[str]:
     """Primary camel-cased tag, then cheap variants, deduped and capped."""
     tags: list[str] = []

@@ -188,9 +188,10 @@ class GeminiProvider(LLMProvider):
         last_error: str = ""
         try:
             for attempt in range(1, MAX_ATTEMPTS + 1):
-                if count_daily and not self._daily.spend():
+                if count_daily and not self._daily.spend(model):
                     raise RateLimited(
-                        f"{prompt_id}: daily budget of {settings.gemini_rpd} calls is spent"
+                        f"{prompt_id}: {model} has spent its daily budget of "
+                        f"{settings.gemini_rpd} calls"
                     )
                 await bucket.acquire()
 
@@ -270,7 +271,7 @@ class GeminiProvider(LLMProvider):
                 total_tokens=call.total_tokens,
                 latency_ms=call.latency_ms,
                 attempts=call.attempts,
-                daily_remaining=self._daily.remaining(),
+                daily_remaining=self._daily.remaining(model),
             )
         return call
 

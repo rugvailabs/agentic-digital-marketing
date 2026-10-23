@@ -112,7 +112,7 @@ they're Python. Python tasks go through the task runner, not through Turborepo.
 
 ## Data sources
 
-| Source             | Credential        | Status in step 1                        |
+| Source             | Credential        | Status                                  |
 | ------------------ | ----------------- | --------------------------------------- |
 | Google Trends      | none              | on, via `trendspy`                      |
 | Google News RSS    | none              | on, en-IN national + per-state queries  |
@@ -125,8 +125,40 @@ data on a clean checkout with no keys at all.
 
 ---
 
+## Step 2: curator and content studio
+
+`GEMINI_API_KEY` turns on the curator and the writer. Without it everything
+still runs — the curator falls back to the step-1 title merge and the studio
+says it is not configured.
+
+```powershell
+.	f.ps1 ingest                 # pull trends
+.	f.ps1 curate                 # cluster + name them with Gemini
+```
+
+Then open a topic on the board, pick a brand and a language, and press
+**Generate post**. The job writes a caption and renders six images (three
+templates x two sizes) into MinIO.
+
+### Gemini free tier, measured on 2026-10-23
+
+| Thing | Finding |
+| ----- | ------- |
+| `gemini-embedding-001` | works, 768 dims, ~0.6s per text |
+| `gemini-3.5-flash` | works for structured JSON, ~6-85s per call |
+| `text-embedding-004` | 404, not served |
+| `gemini-2.5-flash`, `-flash-lite` | 404, closed to new keys |
+| image models | 429 quota-exceeded, so `GEMINI_IMAGE_MODEL` stays blank |
+| request budget | **20 generate_content calls per day, per model id** |
+
+That last line drives several decisions: `GEMINI_MODEL_FALLBACKS` lists seven
+model ids because each carries its own 20, the daily budget is counted per
+model, and `CURATE_REGIONS` defaults to `IN` alone — curating all 53 regions
+on the beat would be ~80 calls a cycle. Everything else curates when opened.
+
+503 "high demand" is routine on this tier; the provider walks the chain.
+
 ## Next
 
-Step 2 adds the content studio: the agent pipeline
-(`plan → write → render_image → render_video → review → publish`), prompts under
-`apps/api/app/prompts/`, and the Remotion templates.
+Step 3 adds video: Remotion templates, the `render_video` stage, TTS and the
+publish step.

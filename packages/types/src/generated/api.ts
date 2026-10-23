@@ -72,10 +72,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/brands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Brands */
+        get: operations["list_brands_brands_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Latest Job
+         * @description The most recent job for a topic, or null.
+         *
+         *     Without this a generated post disappears on reload, which makes the studio
+         *     feel like it lost your work even though the assets are still stored.
+         */
+        get: operations["latest_job_content_jobs_get"];
+        put?: never;
+        /** Create Job */
+        post: operations["create_job_content_jobs_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/jobs/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job */
+        get: operations["get_job_content_jobs__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/assets/{asset_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Asset */
+        patch: operations["patch_asset_content_assets__asset_id__patch"];
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * AssetKind
+         * @enum {string}
+         */
+        AssetKind: "caption" | "image";
+        /** AssetOut */
+        AssetOut: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["AssetKind"];
+            /** Variant */
+            variant: string;
+            /** Url */
+            url: string | null;
+            /** Meta Json */
+            meta_json: {
+                [key: string]: unknown;
+            };
+            /** Edited */
+            edited: boolean;
+        };
+        /**
+         * AssetPatch
+         * @description Only a caption's text fields are editable.
+         */
+        AssetPatch: {
+            /** Caption */
+            caption?: string | null;
+            /** Hook */
+            hook?: string | null;
+            /** Hashtags */
+            hashtags?: string[] | null;
+            /** Alt Text */
+            alt_text?: string | null;
+        };
         /** Body_run_ingest_ingest_run_post */
         Body_run_ingest_ingest_run_post: {
             /**
@@ -89,6 +199,27 @@ export interface components {
              * @default true
              */
             wait: boolean;
+        };
+        /** BrandOut */
+        BrandOut: {
+            /** Id */
+            id: number;
+            /** Slug */
+            slug: string;
+            /** Name */
+            name: string;
+            /** Voice Prompt */
+            voice_prompt: string;
+            /** Logo Url */
+            logo_url: string | null;
+            /** Primary Color */
+            primary_color: string;
+            /** Secondary Color */
+            secondary_color: string;
+            /** Languages */
+            languages: string[];
+            /** Font Choice */
+            font_choice: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -133,6 +264,44 @@ export interface components {
             /** Inline */
             inline: boolean;
         };
+        /** JobCreate */
+        JobCreate: {
+            /** Trend Id */
+            trend_id: number;
+            /** Brand Id */
+            brand_id: number;
+            /** @default english */
+            language: components["schemas"]["Language"];
+            /** Formats */
+            formats?: string[];
+        };
+        /** JobOut */
+        JobOut: {
+            /** Id */
+            id: number;
+            /** Trend Id */
+            trend_id: number;
+            /** Brand Id */
+            brand_id: number;
+            language: components["schemas"]["Language"];
+            /** Formats */
+            formats: string[];
+            status: components["schemas"]["JobStatus"];
+            /** Error */
+            error: string | null;
+            /** Assets */
+            assets: components["schemas"]["AssetOut"][];
+        };
+        /**
+         * JobStatus
+         * @enum {string}
+         */
+        JobStatus: "queued" | "writing" | "rendering" | "ready" | "failed";
+        /**
+         * Language
+         * @enum {string}
+         */
+        Language: "english" | "hinglish" | "hindi" | "tamil" | "telugu" | "bengali" | "marathi";
         /**
          * RegionKind
          * @enum {string}
@@ -158,6 +327,8 @@ export interface components {
         };
         /** TrendOut */
         TrendOut: {
+            /** Id */
+            id: number;
             /** Rank */
             rank: number;
             /** Topic */
@@ -329,6 +500,156 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["IngestRunResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_brands_brands_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"][];
+                };
+            };
+        };
+    };
+    latest_job_content_jobs_get: {
+        parameters: {
+            query: {
+                trend_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"] | null;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_job_content_jobs_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_job_content_jobs__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_asset_content_assets__asset_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                asset_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AssetPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AssetOut"];
                 };
             };
             /** @description Validation Error */

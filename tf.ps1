@@ -38,6 +38,7 @@ TrendForge targets
   revision   New migration:  .\tf.ps1 revision -m "add trends table"
   seed       Seed regions (idempotent)
   ingest     Run one ingest cycle now, synchronously
+  curate     Cluster and name the latest snapshot with Gemini
   reset-db   Drop volumes and rebuild from scratch
   test       pytest + vitest
   test-api   pytest only
@@ -81,6 +82,7 @@ TrendForge targets
   'revision'  { Api alembic revision --autogenerate -m $m }
   'seed'      { Api python -m app.db.seed }
   'ingest'    { Api python -m app.tasks.run_once }
+  'curate'    { Api python -m app.tasks.curate }
   'reset-db'  { Compose down -v; & $PSCommandPath up }
   'test'      { & $PSCommandPath test-api; & $PSCommandPath test-web }
   'test-api'  { Api pytest -q }
