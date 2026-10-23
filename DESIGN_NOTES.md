@@ -75,11 +75,10 @@ which arrives with the planner in step 2. Nothing else may claim it in the
 meantime — a reserved colour that leaks into an unrelated state stops being
 reserved.
 
-> One place still contradicts this: the top bar's pipeline dot uses neem for
-> healthy and turmeric for degraded. Those are system states, not velocity or
-> sensitivity, so both want their own treatment — likely slate for healthy and
-> chilli for degraded, since a broken ingest *is* the urgent case. Worth
-> settling before step 2 claims turmeric for real.
+The top bar's pipeline dot carries a system state rather than a velocity, so
+it uses neither: slate when the ingest is healthy, chilli when it is degraded
+or unreachable. A working pipeline is not news; a broken one is the most
+urgent thing on the screen.
 
 ## Wireframe
 

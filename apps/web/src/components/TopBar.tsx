@@ -41,16 +41,22 @@ export function TopBar({ health, regionName }: { health: Health | null; regionNa
   )
 }
 
+/**
+ * Colours per the reconciled palette: neem and turmeric carry velocity and
+ * sensitivity, so neither belongs on a system-health dot. A working pipeline
+ * is not news — slate. A broken one is the single most urgent thing on the
+ * screen, which is what chilli is for.
+ */
 function pipelineState(health: Health | null): { label: string; color: string } {
   if (!health) {
-    return { label: 'API unreachable', color: 'var(--color-slate)' }
+    return { label: 'API unreachable', color: 'var(--color-chilli)' }
   }
   if (health.status !== 'ok' || !health.database) {
-    return { label: 'Degraded', color: 'var(--color-turmeric)' }
+    return { label: 'Degraded', color: 'var(--color-chilli)' }
   }
   const sources = health.sources_configured.length
   return {
     label: `Ingest ok, ${sources} ${sources === 1 ? 'source' : 'sources'}`,
-    color: 'var(--color-neem)',
+    color: 'var(--color-slate)',
   }
 }
