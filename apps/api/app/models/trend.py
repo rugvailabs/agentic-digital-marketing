@@ -140,11 +140,18 @@ class Trend(Base, TimestampMixin):
     safety_flag: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
     # ── curator output (step 2) ──────────────────────────────────────────
-    #: Stable id of the cluster this topic came from, within its ingest run.
+    #: Durable topic id, minted once and carried forward on every match.
     cluster_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    #: Normalised keys of every source item ever folded into this topic —
+    #: "google_news:<url>" or "google_trends:h<hash of title>". This is what
+    #: identity is actually matched on: headlines get reworded and centroids
+    #: drift, but the same article URL is the same article.
+    member_keys: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     #: One-line summary written by the curator; the writer's brief.
     summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     #: Cluster centroid, kept so a later run can match topics across cycles.
+    #: Updated as an exponential moving average, so it drifts with the story
+    #: rather than snapping to the most recent run.
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM), nullable=True)
     curated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

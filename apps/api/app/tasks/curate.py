@@ -14,10 +14,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
@@ -26,6 +27,7 @@ from app.core.time import utcnow
 from app.db.session import SessionLocal, engine
 from app.llm import LLMError, LLMProvider, get_llm
 from app.models import (
+    ContentJob,
     PipelineStatus,
     Region,
     SafetyFlag,
@@ -45,6 +47,9 @@ from app.tasks.merge import (
 )
 
 log = get_logger("curate")
+
+#: Weight given to this run's centroid when blending with the stored one.
+CENTROID_ALPHA = 0.3
 
 PROMPT_ID = "curate_v2"
 
@@ -254,7 +259,15 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
     run_id, rows = await latest_rows(session, region)
     if not rows:
         log.info("nothing to curate", region=region.code)
-        return {"items": 0, "clusters": 0, "multi_source": 0, "carried": 0, "dropped": 0}
+        return {
+            "items": 0,
+            "clusters": 0,
+            "multi_source": 0,
+            "carried": 0,
+            "dropped": 0,
+            "merged": 0,
+            "stranded": 0,
+        }
 
     vectors: list[list[float]] = []
     if llm.is_configured():
@@ -289,20 +302,56 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
     return stats
 
 
-def topic_identity(cluster: Any, rows: list[RawRow]) -> str:
-    """A stable id for the story a cluster is about.
+def item_key(source: str, url: str | None, title: str) -> str:
+    """A stable name for one source item.
 
-    Derived from the *source* title of the cluster's most trusted member, not
-    from the curated title. The curated title is written fresh by the model
-    every run — "Rafale Marine trials underway in Goa" one cycle, "Rafale
-    Marine fighter begins flight trials in Goa" the next — so keying a topic on
-    it spawns a second row and strands the first one's content jobs. The
-    underlying headline does not move.
+    The URL where there is one: the same article is the same article however
+    often a model rewrites the headline above it. Trends keywords have no URL,
+    so they fall back to a hash of the normalised keyword, which is equally
+    stable because the keyword *is* the item.
     """
-    members = sorted(cluster.members, key=lambda i: (-rows[i].weight, rows[i].rank))
-    anchor = normalise_topic(rows[members[0]].title) if members else cluster.key
-    # sha1 is a shortener here, not a security primitive: this names a topic.
-    return hashlib.sha1(anchor.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+    if url and url.strip():
+        return f"{source}:{url.strip()}"
+    # sha1 names an item here; it is not hashing a secret.
+    digest = hashlib.sha1(
+        normalise_topic(title).encode("utf-8"), usedforsecurity=False
+    ).hexdigest()[:12]
+    return f"{source}:h{digest}"
+
+
+def member_key(row: RawRow) -> str:
+    return item_key(row.source.value, row.url, row.title)
+
+
+def cluster_member_keys(cluster: Any, rows: list[RawRow]) -> set[str]:
+    return {member_key(rows[i]) for i in cluster.members}
+
+
+def evidence_member_keys(row: Trend) -> set[str]:
+    """Member keys for a row written before the column existed.
+
+    Every curated row already records the items it was built from, in
+    `evidence`, so the keys do not have to be backfilled by a migration or
+    guessed at: they can be derived from the row itself, with the same function
+    that names a live item. Without this, the first run after the change finds
+    nothing to match against and the matching degrades to exact titles — which
+    is the behaviour the whole mechanism replaces.
+    """
+    keys = set()
+    for item in row.evidence or ():
+        if not isinstance(item, dict):
+            continue
+        source = str(item.get("source") or "").strip()
+        title = str(item.get("title") or "")
+        if not source or not (item.get("url") or title.strip()):
+            continue
+        keys.add(item_key(source, item.get("url"), title))
+    return keys
+
+
+def new_topic_id() -> str:
+    """A durable id minted once per topic and carried forward on every match."""
+    return uuid.uuid4().hex[:16]
 
 
 def _usable(vector: list[float] | None) -> list[float] | None:
@@ -317,44 +366,102 @@ def _usable(vector: list[float] | None) -> list[float] | None:
     return list(vector)
 
 
-def match_existing(
+def blend_centroid(
+    previous: list[float] | None, observed: list[float] | None, alpha: float = CENTROID_ALPHA
+) -> list[float] | None:
+    """Exponential moving average of a topic's centroid.
+
+    A topic's meaning drifts as the story develops — the first day's headlines
+    are not the third day's. Replacing the centroid each run snaps identity to
+    whatever was published most recently; keeping the first one freezes it. An
+    EMA lets it move at the speed the story moves.
+    """
+    if observed is None:
+        return previous
+    if previous is None or len(previous) != len(observed):
+        return list(observed)
+    return [
+        alpha * now + (1 - alpha) * before for now, before in zip(observed, previous, strict=True)
+    ]
+
+
+@dataclass(slots=True)
+class Match:
+    """One existing row a cluster might be a continuation of."""
+
+    row: Trend
+    overlap: int
+    cosine: float
+    reason: str
+
+    @property
+    def sort_key(self) -> tuple[int, float]:
+        return (self.overlap, self.cosine)
+
+
+def find_matches(
     *,
-    identity: str,
-    topic_key: str,
+    keys: set[str],
     centroid: list[float] | None,
-    by_identity: dict[str, Trend],
-    by_key: dict[str, Trend],
-    with_vectors: list[tuple[Trend, list[float]]],
+    topic_key: str,
+    rows: list[Trend],
     claimed: set[int],
     threshold: float,
-) -> Trend | None:
-    """The row this cluster is a continuation of, if any.
+    has_content: set[int],
+) -> list[Match]:
+    """Every unclaimed row this cluster could be a continuation of, best first.
 
-    Three rules, strongest first: the same story identity, then a centroid that
-    is all but the same vector, then an identical title. Each candidate must be
-    unclaimed — two clusters in one run must never collide on one row.
+    Three rules in order of how much they prove:
+
+    1. **Shared source items.** If this cluster and that row both contain the
+       same article, they are the same story — nothing a model writes can
+       change that. This is the rule that makes identity durable.
+    2. **Centroid.** For a run where membership churned completely but the
+       story is the same.
+    3. **Exact title.** The last resort, and the only one available to rows
+       that predate member keys.
+
+    A row carrying content outranks one that does not at equal evidence: the
+    whole point is that a generated post keeps its topic.
     """
-    candidate = by_identity.get(identity)
-    if candidate is not None and id(candidate) not in claimed:
-        return candidate
+    # Guarded here rather than trusted from the caller: cosine() raises on a
+    # width mismatch, and the no-LLM path builds one-hot title vectors as wide
+    # as the run has distinct titles.
+    centroid = _usable(centroid)
+    matches: list[Match] = []
+
+    for row in rows:
+        if id(row) in claimed:
+            continue
+
+        overlap = len(keys & set(row.member_keys or ()))
+        if overlap:
+            matches.append(Match(row, overlap, 0.0, "member_keys"))
+
+    if matches:
+        matches.sort(key=lambda m: (m.sort_key, id(m.row) in has_content), reverse=True)
+        return matches
 
     if centroid:
-        best: Trend | None = None
-        best_score = threshold
-        for row, vector in with_vectors:
+        scored: list[Match] = []
+        for row in rows:
             if id(row) in claimed:
                 continue
+            vector = _usable(row.embedding)
+            if vector is None:
+                continue
             score = cosine(centroid, vector)
-            if score >= best_score:
-                best, best_score = row, score
-        if best is not None:
-            return best
+            if score >= threshold:
+                scored.append(Match(row, 0, score, "centroid"))
+        if scored:
+            scored.sort(key=lambda m: (m.cosine, id(m.row) in has_content), reverse=True)
+            return scored[:1]
 
-    candidate = by_key.get(topic_key)
-    if candidate is not None and id(candidate) not in claimed:
-        return candidate
+    for row in rows:
+        if id(row) not in claimed and row.topic_key == topic_key:
+            return [Match(row, 0, 0.0, "title")]
 
-    return None
+    return []
 
 
 def _title_match_vectors(rows: list[RawRow]) -> list[list[float]]:
@@ -370,6 +477,59 @@ def _title_match_vectors(rows: list[RawRow]) -> list[list[float]]:
         vec[keys[normalise_topic(row.title)]] = 1.0
         vectors.append(vec)
     return vectors
+
+
+def _history_strength(row: Trend) -> tuple[int, float]:
+    """How much velocity history a row is carrying."""
+    series = [float(v) for v in (row.velocity or [])]
+    return (sum(1 for v in series if v > 0), max(series, default=0.0))
+
+
+async def _absorb(
+    session: AsyncSession, *, winner: Trend | None, loser: Trend, with_content: set[int]
+) -> None:
+    """Fold a duplicate row into the row that won the match.
+
+    Content jobs move first: a post must never be left pointing at a row that
+    is about to disappear. The winner takes the union of both member key sets
+    — that is what stops the two drifting apart again — the earlier
+    first_seen_at, and whichever velocity history is longer, because the
+    sparkline should show the story's life rather than the fork's.
+    """
+    if winner is None or winner is loser:
+        return
+
+    moved_jobs = loser.id in with_content
+    if moved_jobs:
+        await session.execute(
+            update(ContentJob).where(ContentJob.trend_id == loser.id).values(trend_id=winner.id)
+        )
+        with_content.discard(loser.id)
+        with_content.add(winner.id)
+
+    winner.member_keys = sorted(set(winner.member_keys or ()) | set(loser.member_keys or ()))
+    earlier = loser.first_seen_at and (
+        not winner.first_seen_at or loser.first_seen_at < winner.first_seen_at
+    )
+    if earlier:
+        winner.first_seen_at = loser.first_seen_at
+    if _history_strength(loser) > _history_strength(winner):
+        winner.velocity = list(loser.velocity or [])
+
+    log.info(
+        "merged duplicate topic",
+        kept=winner.topic_key[:60],
+        absorbed=loser.topic_key[:60],
+        moved_jobs=moved_jobs,
+    )
+    await session.delete(loser)
+    # Flushed here, not left pending: SQLAlchemy orders deletes after updates
+    # within one flush, so a winner that is about to be reworded into the
+    # title the loser still holds would hit uq_trends_region_id_topic_key
+    # before the delete that frees it. Which is not hypothetical — a merge
+    # usually happens precisely because the two rows describe one story under
+    # near-identical titles.
+    await session.flush()
 
 
 async def _write(
@@ -392,10 +552,33 @@ async def _write(
         (await session.scalars(select(Trend).where(Trend.region_id == region.id))).all()
     )
     by_key = {t.topic_key: t for t in existing_rows}
-    by_identity = {t.cluster_id: t for t in existing_rows if t.cluster_id}
-    with_vectors = [
-        (t, vector) for t in existing_rows if (vector := _usable(t.embedding)) is not None
-    ]
+
+    # Rows carrying a generated post are the ones identity exists to protect,
+    # so they are tracked by id and never dropped, merged away or duplicated.
+    with_content = set(
+        (
+            await session.scalars(
+                select(ContentJob.trend_id).where(
+                    ContentJob.trend_id.in_([t.id for t in existing_rows if t.id])
+                )
+            )
+        ).all()
+    )
+    has_content = {id(t) for t in existing_rows if t.id in with_content}
+
+    # Rows from before member_keys existed start empty, which would leave them
+    # matchable by title alone on this one run — long enough to fork every
+    # topic on the board. Seeding from their own evidence costs nothing and
+    # makes the change retroactive.
+    seeded = 0
+    for prior in existing_rows:
+        if not prior.member_keys:
+            derived = evidence_member_keys(prior)
+            if derived:
+                prior.member_keys = sorted(derived)
+                seeded += 1
+    if seeded:
+        log.info("seeded member keys from evidence", region=region.code, rows=seeded)
 
     scored: list[tuple[float, Any, dict[str, Any]]] = []
     pool = len(rows)
@@ -416,6 +599,8 @@ async def _write(
     claimed: set[int] = set()
     multi_source = 0
     carried = 0
+    merged = 0
+    stranded = 0
 
     for position, (score, cluster, fields) in enumerate(scored, start=1):
         members = cluster.members
@@ -439,18 +624,34 @@ async def _write(
             topic_key = f"{topic_key} {cluster.key}"
         seen.add(topic_key)
 
-        identity = topic_identity(cluster, rows)
+        # Not `keys` — that is the per-item cluster assignment parameter.
+        cluster_keys = cluster_member_keys(cluster, rows)
         centroid = _usable(cluster.centroid)
-        row = match_existing(
-            identity=identity,
-            topic_key=topic_key,
+        matches = find_matches(
+            keys=cluster_keys,
             centroid=centroid,
-            by_identity=by_identity,
-            by_key=by_key,
-            with_vectors=with_vectors,
+            topic_key=topic_key,
+            rows=existing_rows,
             claimed=claimed,
             threshold=settings.topic_match_similarity,
+            has_content=has_content,
         )
+        row = matches[0].row if matches else None
+
+        # Several rows sharing source items with this cluster means earlier
+        # runs forked one story. Fold them into the winner now rather than
+        # leaving the board to show the same thing three times.
+        duplicates = [m.row for m in matches[1:] if m.reason == "member_keys"]
+        for loser in duplicates:
+            await _absorb(session, winner=row, loser=loser, with_content=with_content)
+            existing_rows.remove(loser)
+            by_key.pop(loser.topic_key, None)
+            has_content.discard(id(loser))
+            if row is not None and row.id in with_content:
+                # The winner may have taken on the loser's post, which later
+                # clusters in this run need to know when they break a tie.
+                has_content.add(id(row))
+            merged += 1
 
         # (region, topic_key) is unique, so taking a key another row still
         # physically holds would fail on flush. If that row is free, it is the
@@ -481,14 +682,16 @@ async def _write(
                 region=region.code,
                 was=row.topic_key[:60],
                 now=topic_key[:60],
-                matched_on="identity" if by_identity.get(identity) is row else "centroid",
+                matched_on=matches[0].reason if matches else "new",
+                overlap=matches[0].overlap if matches else 0,
             )
 
         claimed.add(id(row))
+        if row not in existing_rows:
+            existing_rows.append(row)
         by_key.pop(row.topic_key, None)
         row.topic_key = topic_key
         by_key[topic_key] = row
-        by_identity[identity] = row
 
         row.topic = title
         row.category = _clean_category(fields.get("category"))
@@ -514,10 +717,12 @@ async def _write(
         ]
         row.summary = fields.get("summary")
         row.safety_flag = _clean_flag(fields.get("safety_flag"))
-        # The stable story id, not the within-run position, so the next run can
-        # find this row again.
-        row.cluster_id = identity
-        row.embedding = centroid
+        row.cluster_id = row.cluster_id or new_topic_id()
+        # Unioned, never replaced: a run that happens to see only two of a
+        # topic's five articles must not forget the other three.
+        row.member_keys = sorted(set(row.member_keys or ()) | cluster_keys)
+        # Blended, not overwritten, so identity drifts with the story.
+        row.embedding = blend_centroid(_usable(row.embedding), centroid)
         row.status = PipelineStatus.curated
         row.curated_at = now
         row.last_seen_at = now
@@ -538,13 +743,27 @@ async def _write(
                     url=raw.url,
                     volume=raw.volume,
                     extra=raw.extra,
-                    cluster_id=identity,
+                    cluster_id=row.cluster_id,
                     embedding=_usable(vectors[index]) if vectors else None,
                 )
             )
 
     for row in existing_rows:
-        if id(row) not in claimed and row.rank != 0:
+        if id(row) in claimed:
+            continue
+        if row.id in with_content:
+            # Never silently: a topic carrying a post that finds no match this
+            # run keeps its row and drops to rank 0, and says so. Recreating it
+            # as a parallel row is the failure this whole mechanism exists to
+            # prevent.
+            stranded += 1
+            log.warning(
+                "topic with content found no match",
+                region=region.code,
+                topic=row.topic_key[:60],
+                member_keys=len(row.member_keys or ()),
+            )
+        if row.rank != 0:
             row.rank = 0
             row.velocity = next_velocity(row.velocity, 0.0)
 
@@ -554,6 +773,8 @@ async def _write(
         "multi_source": multi_source,
         "carried": carried,
         "dropped": dropped,
+        "merged": merged,
+        "stranded": stranded,
     }
 
 
@@ -599,6 +820,8 @@ async def run_curate(region_codes: list[str] | None = None, sessions: Any = None
         "multi_source": 0,
         "carried": 0,
         "dropped": 0,
+        "merged": 0,
+        "stranded": 0,
     }
 
     async with factory() as session:
@@ -610,7 +833,15 @@ async def run_curate(region_codes: list[str] | None = None, sessions: Any = None
         for region in regions:
             stats = await curate_region(session, region, llm)
             totals["regions"] += 1
-            for key in ("items", "clusters", "multi_source", "carried", "dropped"):
+            for key in (
+                "items",
+                "clusters",
+                "multi_source",
+                "carried",
+                "dropped",
+                "merged",
+                "stranded",
+            ):
                 totals[key] += stats[key]
 
     log.info("curate finished", **totals, llm_configured=llm.is_configured())
