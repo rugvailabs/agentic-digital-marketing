@@ -1,0 +1,168 @@
+# TrendForge local stack.
+#
+# Windows note: api, worker and beat run in Linux containers because Celery
+# has no supported Windows worker pool. The Next.js app runs on the host
+# (`pnpm dev`) for fast HMR; the `web` service exists behind a profile for
+# the rare case you want the whole stack containerised.
+name: trendforge
+
+x-api-env: &api-env
+  DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://trendforge:trendforge@postgres:5432/trendforge}
+  REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+  CELERY_BROKER_URL: ${CELERY_BROKER_URL:-redis://redis:6379/1}
+  CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/2}
+  S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-http://minio:9000}
+  S3_PUBLIC_URL: ${S3_PUBLIC_URL:-http://localhost:9000}
+  S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-trendforge}
+  S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-trendforge-secret}
+  S3_BUCKET: ${S3_BUCKET:-trendforge-assets}
+  ENV: ${ENV:-dev}
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  TZ: ${TZ:-Asia/Kolkata}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+  INGEST_INTERVAL_MINUTES: ${INGEST_INTERVAL_MINUTES:-30}
+  INGEST_MAX_CONCURRENCY: ${INGEST_MAX_CONCURRENCY:-4}
+  YOUTUBE_API_KEY: ${YOUTUBE_API_KEY:-}
+  X_BEARER_TOKEN: ${X_BEARER_TOKEN:-}
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-trendforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-trendforge}
+      POSTGRES_DB: ${POSTGRES_DB:-trendforge}
+      TZ: ${TZ:-Asia/Kolkata}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-trendforge} -d ${POSTGRES_DB:-trendforge}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-trendforge}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-trendforge-secret}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # One-shot: create the assets bucket so step 2 has somewhere to write.
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 ${S3_ACCESS_KEY_ID:-trendforge} ${S3_SECRET_ACCESS_KEY:-trendforge-secret} &&
+      mc mb --ignore-existing local/${S3_BUCKET:-trendforge-assets} &&
+      mc anonymous set download local/${S3_BUCKET:-trendforge-assets} &&
+      echo 'minio bucket ready'"
+    restart: "no"
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment: *api-env
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      - ./apps/api:/srv/api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status==200 else 1)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  worker:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment: *api-env
+    # solo pool keeps logs readable in dev; prefork in prod
+    command: ["celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]
+    volumes:
+      - ./apps/api:/srv/api
+    depends_on:
+      api:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  beat:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment: *api-env
+    command: ["celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    volumes:
+      - ./apps/api:/srv/api
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Opt-in only: `docker compose --profile web up web`.
+  # Default dev loop runs the web app on the Windows host via `pnpm dev`.
+  web:
+    profiles: ["web"]
+    image: node:22-alpine
+    working_dir: /srv/repo
+    command: ["sh", "-c", "corepack enable pnpm && pnpm install --frozen-lockfile=false && pnpm --filter @trendforge/web dev --port 3000"]
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      WATCHPACK_POLLING: "true"
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    volumes:
+      - ./:/srv/repo
+    depends_on:
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
+  redisdata:
+  miniodata:
