@@ -107,6 +107,11 @@ function Row({
   // A single source is the norm, so a chip saying so is noise on every row. It
   // earns its place only when corroboration is the interesting fact.
   const corroborated = trend.sources.length > 1
+  // News and YouTube report no volume, so a news-only topic has no series to
+  // chart. Drawing a sparkline from its score would invent a trend line out of
+  // ranking noise, so the row says where it came from instead.
+  const hasSeries = trend.volume > 0
+  const origin = SOURCE_LABELS[trend.sources[0] as SourceName] ?? trend.sources[0] ?? ''
 
   return (
     <div
@@ -139,7 +144,15 @@ function Row({
       </span>
 
       <div className={cx('min-w-0', headline ? 'pt-2' : 'pt-0.5')}>
-        <p className="truncate text-base leading-snug text-ink" title={trend.topic}>
+        {/*
+          Two lines at 15px rather than one truncated line at 16px: a curated
+          headline carries the useful detail at the end ("…in Goa", "…ahead of
+          Navy induction"), which is exactly what an ellipsis removed.
+        */}
+        <p
+          className="text-[15px] leading-[1.3] text-ink [display:-webkit-box] [overflow:hidden] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
+          title={trend.topic}
+        >
           <span className="sr-only">Rank {trend.rank}: </span>
           {trend.topic}
         </p>
@@ -165,9 +178,14 @@ function Row({
       </div>
 
       <div className={cx('flex items-center gap-3', headline ? 'pt-3' : 'pt-1')}>
-        <Sparkline series={trend.velocity} />
-        <span className="num w-14 text-right text-sm text-slate">
-          {formatCompactVolume(trend.volume)}
+        {hasSeries ? <Sparkline series={trend.velocity} /> : null}
+        <span
+          className={cx(
+            'w-14 text-right text-sm',
+            hasSeries ? 'num text-slate' : 'truncate text-slate',
+          )}
+        >
+          {hasSeries ? formatCompactVolume(trend.volume) : origin}
         </span>
       </div>
     </div>

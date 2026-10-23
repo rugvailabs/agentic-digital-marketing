@@ -39,6 +39,9 @@ export function Desk({
   }
 
   const { label: direction } = velocity(trend.velocity)
+  // Same rule as the ladder: no volume means no series, so there is no
+  // direction to report and no colour that would mean anything.
+  const hasSeries = trend.volume > 0
 
   return (
     <section
@@ -71,10 +74,14 @@ export function Desk({
           {trend.volume ? formatNumber(trend.volume) : '—'}
         </MetaCell>
         <MetaCell label="Velocity">
-          <span className="flex items-center gap-2">
-            <Sparkline series={trend.velocity} width={56} height={14} />
-            {direction}
-          </span>
+          {hasSeries ? (
+            <span className="flex items-center gap-2">
+              <Sparkline series={trend.velocity} width={56} height={14} />
+              {direction}
+            </span>
+          ) : (
+            <span className="text-slate">Not tracked</span>
+          )}
         </MetaCell>
         <MetaCell label="Category">{trend.category ?? '—'}</MetaCell>
         {/*

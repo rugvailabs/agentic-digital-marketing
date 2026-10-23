@@ -140,13 +140,51 @@ describe('Ladder', () => {
     expect(tabbable).toHaveLength(1)
   })
 
-  it('compacts volume and dashes it when absent', () => {
-    render(
-      <Ladder trends={[trend(1), trend(2, { volume: 0 })]} selectedRank={1} onSelect={() => {}} />,
-    )
+  it('compacts volume when a series exists', () => {
+    render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} />)
 
     expect(screen.getByText('2L')).toBeDefined()
-    expect(screen.getByText('—')).toBeDefined()
+  })
+
+  it('names the source instead of a volume when there is no series', () => {
+    // News and YouTube report no volume; a sparkline drawn from score alone
+    // would invent a trend line out of ranking noise.
+    render(
+      <Ladder
+        trends={[trend(1, { volume: 0, sources: ['google_news'] })]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    expect(screen.getByText('News')).toBeDefined()
+    expect(screen.queryByText('—')).toBeNull()
+  })
+
+  it('draws no sparkline when there is no series', () => {
+    const { container } = render(
+      <Ladder
+        trends={[trend(1, { volume: 0, sources: ['google_news'] })]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    expect(container.querySelectorAll('polyline')).toHaveLength(0)
+  })
+
+  it('clamps a long title to two lines rather than truncating to one', () => {
+    const { container } = render(
+      <Ladder
+        trends={[trend(1, { topic: 'Rafale Marine fighter begins flight trials in Goa' })]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    const title = container.querySelector('p[title]')
+    expect(title?.className).toContain('line-clamp:2')
+    expect(title?.className).not.toContain('truncate')
   })
 
   it('gives every sparkline an accessible label naming the trend direction', () => {
