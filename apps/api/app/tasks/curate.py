@@ -46,25 +46,29 @@ from app.tasks.merge import (
 
 log = get_logger("curate")
 
-PROMPT_ID = "curate_v1"
+PROMPT_ID = "curate_v2"
 
+#: Short, mutually exclusive, and sized for a 420px ladder chip. "Other" is
+#: last in the list and last in the prompt's order of preference.
 CATEGORIES = [
     "Sports",
-    "Entertainment",
-    "Business and Finance",
     "Politics",
+    "Business",
+    "Entertainment",
     "Technology",
-    "Health",
-    "Science",
-    "Law and Government",
-    "Autos and Vehicles",
-    "Travel",
-    "Food and Drink",
+    "Weather",
+    "Civic",
+    "Festival",
     "Education",
-    "Shopping",
-    "Lifestyle",
+    "Health",
+    "Crime",
     "Other",
 ]
+FALLBACK_CATEGORY = "Other"
+
+#: A curator hashtag is a handle, not a headline: CamelCase of one to three
+#: words, at most this many characters including the "#".
+MAX_HASHTAG_CHARS = 20
 
 #: Response schema handed to Gemini. Keeping it strict is what makes the output
 #: safe to write straight into the database.
@@ -79,8 +83,17 @@ CURATE_SCHEMA: dict[str, Any] = {
             "hashtags": {"type": "ARRAY", "items": {"type": "STRING"}},
             "summary": {"type": "STRING"},
             "safety_flag": {"type": "STRING", "enum": ["none", "sensitive", "skip"]},
+            "drop": {"type": "BOOLEAN"},
         },
-        "required": ["cluster_id", "title", "category", "hashtags", "summary", "safety_flag"],
+        "required": [
+            "cluster_id",
+            "title",
+            "category",
+            "hashtags",
+            "summary",
+            "safety_flag",
+            "drop",
+        ],
     },
 }
 
@@ -229,7 +242,7 @@ def fallback_fields(cluster: Any, rows: list[RawRow]) -> dict[str, Any]:
     best = rows[members[0]]
     return {
         "title": display_topic(best.title),
-        "category": best.extra.get("category"),
+        "category": _clean_category(best.extra.get("category")),
         "hashtags": hashtags_for(best.title),
         "summary": None,
         "safety_flag": SafetyFlag.none.value,
@@ -241,7 +254,7 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
     run_id, rows = await latest_rows(session, region)
     if not rows:
         log.info("nothing to curate", region=region.code)
-        return {"items": 0, "clusters": 0, "multi_source": 0, "carried": 0}
+        return {"items": 0, "clusters": 0, "multi_source": 0, "carried": 0, "dropped": 0}
 
     vectors: list[list[float]] = []
     if llm.is_configured():
@@ -386,8 +399,15 @@ async def _write(
 
     scored: list[tuple[float, Any, dict[str, Any]]] = []
     pool = len(rows)
+    dropped = 0
     for cluster in clusters:
         fields = described.get(cluster.key) or fallback_fields(cluster, rows)
+        if fields.get("drop") or not str(fields.get("title") or "").strip():
+            # The curator judged this a bare search keyword with no evidence
+            # behind it — "weather", "news". A dropped cluster beats a board
+            # row that says nothing.
+            dropped += 1
+            continue
         score = sum(rows[i].rank_points(pool) for i in cluster.members) * 100
         scored.append((round(score, 2), cluster, fields))
     scored.sort(key=lambda s: (-s[0], s[1].key))
@@ -467,7 +487,7 @@ async def _write(
         by_identity[identity] = row
 
         row.topic = title
-        row.category = fields.get("category")
+        row.category = _clean_category(fields.get("category"))
         row.rank = position
         row.score = score
         row.volume = max((rows[i].volume or 0) for i in members)
@@ -529,12 +549,30 @@ async def _write(
         "clusters": len(clusters),
         "multi_source": multi_source,
         "carried": carried,
+        "dropped": dropped,
     }
 
 
 def _clean_hashtags(raw: Any, title: str) -> list[str]:
-    # A model that returns nothing usable must not leave a topic tagless.
-    return clean_hashtags(raw, 6) or hashtags_for(title)
+    """Curator hashtags are handles, not headlines.
+
+    The model occasionally camel-cases the entire title —
+    #RafaleMarineFighterBeginsFlightTrials — which is unusable on any network
+    and dwarfs the Desk heading. Anything over MAX_HASHTAG_CHARS is dropped
+    rather than truncated, because a truncated hashtag is a different word.
+    """
+    tags = [t for t in clean_hashtags(raw, 12) if len(t) <= MAX_HASHTAG_CHARS]
+    if not tags:
+        # Nothing usable: build short ones from the title instead of leaving a
+        # topic tagless.
+        tags = [t for t in hashtags_for(title) if len(t) <= MAX_HASHTAG_CHARS]
+    return tags[:6]
+
+
+def _clean_category(raw: Any) -> str:
+    """Every topic carries a category; an unrecognised one becomes Other."""
+    value = str(raw or "").strip()
+    return value if value in CATEGORIES else FALLBACK_CATEGORY
 
 
 def _clean_flag(raw: Any) -> str:
@@ -549,7 +587,14 @@ async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
     """Curate the named regions, or the configured default set."""
     codes = region_codes or settings.curate_region_list
     llm = get_llm()
-    totals = {"regions": 0, "items": 0, "clusters": 0, "multi_source": 0, "carried": 0}
+    totals = {
+        "regions": 0,
+        "items": 0,
+        "clusters": 0,
+        "multi_source": 0,
+        "carried": 0,
+        "dropped": 0,
+    }
 
     async with SessionLocal() as session:
         regions = (
@@ -560,7 +605,7 @@ async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
         for region in regions:
             stats = await curate_region(session, region, llm)
             totals["regions"] += 1
-            for key in ("items", "clusters", "multi_source", "carried"):
+            for key in ("items", "clusters", "multi_source", "carried", "dropped"):
                 totals[key] += stats[key]
 
     log.info("curate finished", **totals, llm_configured=llm.is_configured())

@@ -15,7 +15,13 @@ from app.images.fonts import font_file, missing_fonts, script_of
 from app.images.gemini_image import GeminiImageProvider
 from app.images.pillow import TEMPLATES, _contrasting_ink
 from app.llm import GeminiProvider
-from app.tasks.content import WRITE_SCHEMA, Post, _strip_hashtags, write_post
+from app.tasks.content import (
+    WRITE_SCHEMA,
+    Post,
+    _clean_token,
+    _strip_hashtags,
+    write_post,
+)
 
 GENERATE = respx.patterns.M(url__regex=r".*:generateContent")
 KEY = "test-key"
@@ -26,6 +32,7 @@ WRITER_OUTPUT = {
     "hashtags": ["#GoaAIPolicy", "#TechHub"],
     "image_headline": "Goa AI Policy 2026",
     "image_subline": "Hackathon opens next month",
+    "display_token": "2026",
     "alt_text": "A graphic announcing Goa's AI policy.",
 }
 
@@ -260,5 +267,43 @@ def test_post_round_trips_through_its_dict_form() -> None:
         "hashtags",
         "image_headline",
         "image_subline",
+        "display_token",
         "alt_text",
     }
+
+
+class TestDisplayToken:
+    """The Split template sets this at roughly 200px, so length is a hard rule."""
+
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("2026", "2026"),
+            ("₹1.2L", "₹1.2L"),
+            ("ENG 212/4", "ENG 212/4"),
+            ("மழை", "மழை"),
+            ("  AI  ", "AI"),
+        ],
+    )
+    def test_short_tokens_pass_through(self, raw: str, expected: str) -> None:
+        assert _clean_token(raw, "some topic") == expected
+
+    def test_a_sentence_falls_back_to_a_word_rather_than_truncating(self) -> None:
+        # Truncation would put a fragment on a poster at 200px.
+        assert _clean_token("Goa unveils its AI policy for 2026", "topic") == "Goa"
+
+    def test_an_empty_token_falls_back_to_the_topic(self) -> None:
+        assert _clean_token("", "Weather forecast") == "Weather"
+
+    def test_a_token_with_no_short_word_anywhere_is_empty(self) -> None:
+        assert _clean_token("Supercalifragilistic", "Supercalifragilistic") == ""
+
+    @respx.mock
+    async def test_the_writer_returns_a_token(self, client) -> None:
+        payload = {**WRITER_OUTPUT, "display_token": "2026"}
+        respx.route(GENERATE).mock(return_value=httpx.Response(200, json=envelope(payload)))
+
+        post = await write_post(GeminiProvider(client=client, api_key=KEY, model="m"), BRIEF)
+
+        assert post.display_token == "2026"
+        assert post.as_dict()["display_token"] == "2026"

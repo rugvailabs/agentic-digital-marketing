@@ -37,7 +37,7 @@ from app.tasks.merge import clean_hashtags
 
 log = get_logger("content")
 
-PROMPT_ID = "write_post_v1"
+PROMPT_ID = "write_post_v2"
 HASHTAG_COUNT = 8
 
 WRITE_SCHEMA: dict[str, Any] = {
@@ -48,6 +48,7 @@ WRITE_SCHEMA: dict[str, Any] = {
         "hashtags": {"type": "ARRAY", "items": {"type": "STRING"}},
         "image_headline": {"type": "STRING"},
         "image_subline": {"type": "STRING"},
+        "display_token": {"type": "STRING"},
         "alt_text": {"type": "STRING"},
     },
     "required": [
@@ -56,6 +57,7 @@ WRITE_SCHEMA: dict[str, Any] = {
         "hashtags",
         "image_headline",
         "image_subline",
+        "display_token",
         "alt_text",
     ],
 }
@@ -73,6 +75,8 @@ class Post:
     image_headline: str
     image_subline: str
     alt_text: str
+    #: One short, arresting string set very large by the Split template.
+    display_token: str = ""
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -81,8 +85,28 @@ class Post:
             "hashtags": self.hashtags,
             "image_headline": self.image_headline,
             "image_subline": self.image_subline,
+            "display_token": self.display_token,
             "alt_text": self.alt_text,
         }
+
+
+#: The Split template sets this at ~200px; anything longer is unreadable.
+MAX_TOKEN_CHARS = 12
+
+
+def _clean_token(raw: Any, topic: str) -> str:
+    """One short string for the Split template's colour block.
+
+    A model that returns a sentence gets its first word instead — truncating
+    mid-word would put a fragment on a poster at 200px.
+    """
+    text = " ".join(str(raw or "").split())
+    if text and len(text) <= MAX_TOKEN_CHARS:
+        return text
+    for word in (*text.split(), *topic.split()):
+        if len(word) <= MAX_TOKEN_CHARS:
+            return word
+    return ""
 
 
 def _strip_hashtags(caption: str) -> str:
@@ -156,6 +180,7 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
         hashtags=clean_hashtags(data.get("hashtags"), HASHTAG_COUNT),
         image_headline=str(data.get("image_headline") or brief["topic"]).strip(),
         image_subline=str(data.get("image_subline") or "").strip(),
+        display_token=_clean_token(data.get("display_token"), brief["topic"]),
         alt_text=str(data.get("alt_text") or "").strip(),
     )
 
