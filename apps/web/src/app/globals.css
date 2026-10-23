@@ -1,0 +1,173 @@
+@import 'tailwindcss';
+
+/*
+ * One @theme block, per CLAUDE.md. Light is the base; the dark block redefines
+ * the same token names so no component ever branches on theme.
+ */
+@theme {
+  --color-paper: #eef1f6;
+  --color-surface: #ffffff;
+  --color-ink: #1b2230;
+  --color-slate: #5b6578;
+  --color-rule: #d5dae3;
+  --color-chilli: #d8322b;
+  --color-turmeric: #e3a51d;
+  --color-neem: #1e7d5a;
+
+  /* Row ground on hover/selection — a tint, never a lift or a shadow. */
+  --color-row-hover: #e4e9f1;
+  --color-row-active: #dfe5ef;
+
+  /* The two --font-* variables come from next/font in layout.tsx. */
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-ui: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+
+  --text-xs: 0.75rem; /* 12 */
+  --text-sm: 0.875rem; /* 14 */
+  --text-base: 1rem; /* 16 */
+  --text-lg: 1.25rem; /* 20 */
+  --text-xl: 1.75rem; /* 28 */
+  --text-2xl: 2.5rem; /* 40 */
+  --text-rank: 4rem; /* 64 — rank numerals only */
+
+  --spacing-topbar: 3.5rem; /* 56px fixed top bar */
+  --spacing-wire: 26.25rem; /* 420px Wire column */
+}
+
+/*
+ * Dark mode lifts chilli/turmeric/neem: the light values sit under 4.5:1 on
+ * #121722. Hues are unchanged, only lightness.
+ */
+@layer theme {
+  :root {
+    color-scheme: light dark;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-paper: #121722;
+      --color-surface: #1a2130;
+      --color-ink: #edf0f5;
+      --color-slate: #9aa6ba;
+      --color-rule: #2a3344;
+      --color-chilli: #ff6459;
+      --color-turmeric: #f0b94a;
+      --color-neem: #3fa87e;
+      --color-row-hover: #212a3b;
+      --color-row-active: #273145;
+    }
+  }
+
+  /* Playwright and manual QA force a theme; the media query stays the default. */
+  :root[data-theme='dark'] {
+    --color-paper: #121722;
+    --color-surface: #1a2130;
+    --color-ink: #edf0f5;
+    --color-slate: #9aa6ba;
+    --color-rule: #2a3344;
+    --color-chilli: #ff6459;
+    --color-turmeric: #f0b94a;
+    --color-neem: #3fa87e;
+    --color-row-hover: #212a3b;
+    --color-row-active: #273145;
+  }
+
+  :root[data-theme='light'] {
+    --color-paper: #eef1f6;
+    --color-surface: #ffffff;
+    --color-ink: #1b2230;
+    --color-slate: #5b6578;
+    --color-rule: #d5dae3;
+    --color-chilli: #d8322b;
+    --color-turmeric: #e3a51d;
+    --color-neem: #1e7d5a;
+    --color-row-hover: #e4e9f1;
+    --color-row-active: #dfe5ef;
+  }
+}
+
+@layer base {
+  html {
+    background-color: var(--color-paper);
+  }
+
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-ui);
+    font-size: var(--text-base);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Tabular figures everywhere numbers are compared down a column. */
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Rank numerals: display face, optical size on, tight. */
+  .rank-numeral {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    font-optical-sizing: auto;
+    letter-spacing: -0.04em;
+    line-height: 0.82;
+  }
+
+  /* 2px chilli focus ring with offset, per CLAUDE.md. Never suppressed. */
+  :focus-visible {
+    outline: 2px solid var(--color-chilli);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-chilli);
+    color: #fff;
+  }
+}
+
+/*
+ * The ladder's one load-in: rows settle top to bottom, 240ms for the whole
+ * list. The per-row delay is set inline from the row index.
+ */
+@layer utilities {
+  @keyframes row-settle {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .row-settle {
+    animation: row-settle 160ms ease-out both;
+  }
+
+  @keyframes desk-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .desk-in {
+    animation: desk-in 120ms ease-out both;
+  }
+
+  /* Dotted hairline between ladder rows — the wire-feed cue. */
+  .rule-dotted {
+    border-bottom: 1px dotted var(--color-rule);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .row-settle,
+    .desk-in {
+      animation: none !important;
+    }
+  }
+}

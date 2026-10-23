@@ -146,15 +146,12 @@ export interface components {
             name: string;
             kind: components["schemas"]["RegionKind"];
             /** Parent Code */
-            parent_code?: string | null;
+            parent_code: string | null;
             /** Google Trends Geo */
-            google_trends_geo?: string | null;
+            google_trends_geo: string | null;
             /** X Woeid */
-            x_woeid?: number | null;
-            /**
-             * Trend Count
-             * @default 0
-             */
+            x_woeid: number | null;
+            /** Trend Count */
             trend_count: number;
         };
         /** TrendOut */
@@ -164,22 +161,16 @@ export interface components {
             /** Topic */
             topic: string;
             /** Category */
-            category?: string | null;
+            category: string | null;
             /** Hashtags */
-            hashtags?: string[];
-            /**
-             * Volume
-             * @default 0
-             */
+            hashtags: string[];
+            /** Volume */
             volume: number;
             /** Velocity */
-            velocity?: number[];
+            velocity: number[];
             /** Sources */
-            sources?: string[];
-            /**
-             * Score
-             * @default 0
-             */
+            sources: string[];
+            /** Score */
             score: number;
             /**
              * Updated At
@@ -187,7 +178,7 @@ export interface components {
              */
             updated_at: string;
             /** Evidence */
-            evidence?: {
+            evidence: {
                 [key: string]: unknown;
             }[];
         };

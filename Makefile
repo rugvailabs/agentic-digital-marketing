@@ -60,7 +60,7 @@ test-api: ## pytest (adapters mocked, no network)
 	$(API) pytest -q
 
 test-web: ## Vitest
-	pnpm --filter @trendforge/web test -- --run
+	pnpm --filter @trendforge/web test
 
 lint: ## Ruff + ESLint
 	$(API) ruff check app

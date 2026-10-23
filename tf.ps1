@@ -62,7 +62,7 @@ TrendForge targets
   'reset-db'  { Compose down -v; & $PSCommandPath up }
   'test'      { & $PSCommandPath test-api; & $PSCommandPath test-web }
   'test-api'  { Api pytest -q }
-  'test-web'  { Pnpm --filter @trendforge/web test -- --run }
+  'test-web'  { Pnpm --filter @trendforge/web test }
   'lint'      { Api ruff check app; Api ruff format --check app; Pnpm --filter @trendforge/web lint }
   'typecheck' { Api mypy app; Pnpm --filter @trendforge/web typecheck }
   'fmt' {
