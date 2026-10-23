@@ -12,6 +12,7 @@ is never worse than step 1.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any
@@ -34,7 +35,7 @@ from app.models import (
     TrendSnapshot,
 )
 from app.prompts import render_prompt
-from app.tasks.cluster import assignments, cluster_vectors
+from app.tasks.cluster import assignments, cluster_vectors, cosine
 from app.tasks.merge import (
     clean_hashtags,
     display_topic,
@@ -240,7 +241,7 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
     run_id, rows = await latest_rows(session, region)
     if not rows:
         log.info("nothing to curate", region=region.code)
-        return {"items": 0, "clusters": 0, "multi_source": 0}
+        return {"items": 0, "clusters": 0, "multi_source": 0, "carried": 0}
 
     vectors: list[list[float]] = []
     if llm.is_configured():
@@ -275,6 +276,74 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
     return stats
 
 
+def topic_identity(cluster: Any, rows: list[RawRow]) -> str:
+    """A stable id for the story a cluster is about.
+
+    Derived from the *source* title of the cluster's most trusted member, not
+    from the curated title. The curated title is written fresh by the model
+    every run — "Rafale Marine trials underway in Goa" one cycle, "Rafale
+    Marine fighter begins flight trials in Goa" the next — so keying a topic on
+    it spawns a second row and strands the first one's content jobs. The
+    underlying headline does not move.
+    """
+    members = sorted(cluster.members, key=lambda i: (-rows[i].weight, rows[i].rank))
+    anchor = normalise_topic(rows[members[0]].title) if members else cluster.key
+    # sha1 is a shortener here, not a security primitive: this names a topic.
+    return hashlib.sha1(anchor.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
+
+
+def _usable(vector: list[float] | None) -> list[float] | None:
+    """Vectors only count when they are real embeddings.
+
+    The no-LLM path builds one-hot title vectors whose width is the number of
+    distinct titles, so they are neither comparable across runs nor valid for
+    a Vector(768) column.
+    """
+    if not vector or len(vector) != settings.gemini_embed_dim:
+        return None
+    return list(vector)
+
+
+def match_existing(
+    *,
+    identity: str,
+    topic_key: str,
+    centroid: list[float] | None,
+    by_identity: dict[str, Trend],
+    by_key: dict[str, Trend],
+    with_vectors: list[tuple[Trend, list[float]]],
+    claimed: set[int],
+    threshold: float,
+) -> Trend | None:
+    """The row this cluster is a continuation of, if any.
+
+    Three rules, strongest first: the same story identity, then a centroid that
+    is all but the same vector, then an identical title. Each candidate must be
+    unclaimed — two clusters in one run must never collide on one row.
+    """
+    candidate = by_identity.get(identity)
+    if candidate is not None and id(candidate) not in claimed:
+        return candidate
+
+    if centroid:
+        best: Trend | None = None
+        best_score = threshold
+        for row, vector in with_vectors:
+            if id(row) in claimed:
+                continue
+            score = cosine(centroid, vector)
+            if score >= best_score:
+                best, best_score = row, score
+        if best is not None:
+            return best
+
+    candidate = by_key.get(topic_key)
+    if candidate is not None and id(candidate) not in claimed:
+        return candidate
+
+    return None
+
+
 def _title_match_vectors(rows: list[RawRow]) -> list[list[float]]:
     """One-hot vectors over normalised titles: identical titles cluster, nothing
     else does. Keeps the no-LLM path equivalent to the step-1 merge."""
@@ -306,10 +375,14 @@ async def _write(
     # rather than trying to reconcile row by row.
     await session.execute(delete(TrendItem).where(TrendItem.region_id == region.id))
 
-    existing = {
-        t.topic_key: t
-        for t in (await session.scalars(select(Trend).where(Trend.region_id == region.id))).all()
-    }
+    existing_rows = list(
+        (await session.scalars(select(Trend).where(Trend.region_id == region.id))).all()
+    )
+    by_key = {t.topic_key: t for t in existing_rows}
+    by_identity = {t.cluster_id: t for t in existing_rows if t.cluster_id}
+    with_vectors = [
+        (t, vector) for t in existing_rows if (vector := _usable(t.embedding)) is not None
+    ]
 
     scored: list[tuple[float, Any, dict[str, Any]]] = []
     pool = len(rows)
@@ -320,7 +393,9 @@ async def _write(
     scored.sort(key=lambda s: (-s[0], s[1].key))
 
     seen: set[str] = set()
+    claimed: set[int] = set()
     multi_source = 0
+    carried = 0
 
     for position, (score, cluster, fields) in enumerate(scored, start=1):
         members = cluster.members
@@ -335,12 +410,37 @@ async def _write(
         title = str(fields.get("title") or "").strip() or rows[members[0]].title
         topic_key = normalise_topic(title) or cluster.key
         if topic_key in seen:
-            # Two clusters named identically: merge into the first rather than
+            # Two clusters named identically: keep them apart rather than
             # violating the (region, topic_key) unique constraint.
             topic_key = f"{topic_key} {cluster.key}"
         seen.add(topic_key)
 
-        row = existing.get(topic_key)
+        identity = topic_identity(cluster, rows)
+        centroid = _usable(cluster.centroid)
+        row = match_existing(
+            identity=identity,
+            topic_key=topic_key,
+            centroid=centroid,
+            by_identity=by_identity,
+            by_key=by_key,
+            with_vectors=with_vectors,
+            claimed=claimed,
+            threshold=settings.topic_match_similarity,
+        )
+
+        # (region, topic_key) is unique, so taking a key another row still
+        # physically holds would fail on flush. If that row is free, it is the
+        # better match anyway — an identical title is the strongest evidence
+        # two rows are one topic. If it is already claimed this run, the two
+        # clusters genuinely collide and have to stay apart.
+        holder = by_key.get(topic_key)
+        if holder is not None and holder is not row:
+            if id(holder) not in claimed:
+                row = holder
+            else:
+                topic_key = f"{topic_key} {cluster.key}"
+                seen.add(topic_key)
+
         if row is None:
             row = Trend(
                 region_id=region.id,
@@ -348,7 +448,23 @@ async def _write(
                 first_seen_at=now,
             )
             session.add(row)
-            existing[topic_key] = row
+        elif row.topic_key != topic_key:
+            # The model reworded it. Same row, new title — which is the whole
+            # point: content jobs hang off trend_id and must not be stranded.
+            carried += 1
+            log.info(
+                "topic renamed",
+                region=region.code,
+                was=row.topic_key[:60],
+                now=topic_key[:60],
+                matched_on="identity" if by_identity.get(identity) is row else "centroid",
+            )
+
+        claimed.add(id(row))
+        by_key.pop(row.topic_key, None)
+        row.topic_key = topic_key
+        by_key[topic_key] = row
+        by_identity[identity] = row
 
         row.topic = title
         row.category = fields.get("category")
@@ -374,8 +490,10 @@ async def _write(
         ]
         row.summary = fields.get("summary")
         row.safety_flag = _clean_flag(fields.get("safety_flag"))
-        row.cluster_id = cluster.key
-        row.embedding = cluster.centroid or None
+        # The stable story id, not the within-run position, so the next run can
+        # find this row again.
+        row.cluster_id = identity
+        row.embedding = centroid
         row.status = PipelineStatus.curated
         row.curated_at = now
         row.last_seen_at = now
@@ -396,17 +514,22 @@ async def _write(
                     url=raw.url,
                     volume=raw.volume,
                     extra=raw.extra,
-                    cluster_id=cluster.key,
-                    embedding=vectors[index] if vectors and len(vectors[index]) > 3 else None,
+                    cluster_id=identity,
+                    embedding=_usable(vectors[index]) if vectors else None,
                 )
             )
 
-    for key, row in existing.items():
-        if key not in seen and row.rank != 0:
+    for row in existing_rows:
+        if id(row) not in claimed and row.rank != 0:
             row.rank = 0
             row.velocity = next_velocity(row.velocity, 0.0)
 
-    return {"items": len(rows), "clusters": len(clusters), "multi_source": multi_source}
+    return {
+        "items": len(rows),
+        "clusters": len(clusters),
+        "multi_source": multi_source,
+        "carried": carried,
+    }
 
 
 def _clean_hashtags(raw: Any, title: str) -> list[str]:
@@ -426,7 +549,7 @@ async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
     """Curate the named regions, or the configured default set."""
     codes = region_codes or settings.curate_region_list
     llm = get_llm()
-    totals = {"regions": 0, "items": 0, "clusters": 0, "multi_source": 0}
+    totals = {"regions": 0, "items": 0, "clusters": 0, "multi_source": 0, "carried": 0}
 
     async with SessionLocal() as session:
         regions = (
@@ -437,7 +560,7 @@ async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
         for region in regions:
             stats = await curate_region(session, region, llm)
             totals["regions"] += 1
-            for key in ("items", "clusters", "multi_source"):
+            for key in ("items", "clusters", "multi_source", "carried"):
                 totals[key] += stats[key]
 
     log.info("curate finished", **totals, llm_configured=llm.is_configured())

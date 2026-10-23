@@ -183,10 +183,15 @@ cross-source matches score 0.686-0.693 and unrelated same-genre titles
 0.54-0.67. Loosening the threshold would manufacture corroboration rather than
 find it.
 
-**Re-curation can orphan a generated post.** Topics are keyed on the
-normalised title, so when the curator rewords one ("Rafale Marine trials
-underway in Goa" becoming "Rafale Marine fighter begins flight trials in
-Goa") a new row appears and the old one drops to rank 0 — taking its content
-job with it. The board also shows the two side by side for a cycle. The fix is
-to match across runs on `cluster_id` or the stored centroid instead of on the
-title, which is why both are already on the row.
+**Topic identity is separate from the topic's title.** The curator writes the
+display title fresh every run, so the same story comes back worded differently
+and a title-keyed row forks: a second row appears, the first drops to rank 0,
+and any content job hanging off it is stranded. Rows are therefore matched
+across runs on a stable `cluster_id` derived from the *source* headline of the
+cluster's most trusted member, falling back to centroid cosine above 0.9 — far
+above the 0.68 used for grouping, because this decides identity rather than
+similarity. A reworded topic updates its row, keeps its rank, its velocity
+history and its posts.
+
+Rows that forked before this existed stay where they are, at rank 0. They are
+not retroactively merged; they simply stop being produced.

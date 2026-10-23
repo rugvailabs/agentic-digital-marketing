@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     #: so the useful band is narrow. See the step 2 notes in DESIGN_NOTES.
     cluster_similarity: float = 0.68
     curate_batch_size: int = 10
+    #: Cosine above which a cluster is judged to be the *same topic* as an
+    #: existing row from an earlier run, so a reworded title updates it rather
+    #: than forking a second row. Deliberately far above cluster_similarity:
+    #: this decides identity, not grouping.
+    topic_match_similarity: float = 0.9
     #: Regions curated on the beat. Everything else curates when opened.
     curate_regions: str = "IN"
 
