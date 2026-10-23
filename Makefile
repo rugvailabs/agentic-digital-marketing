@@ -19,7 +19,7 @@ install: ## Install JS deps
 	pnpm install
 
 up: ## Start infra + api + worker + beat (detached), then migrate & seed
-	$(COMPOSE) up -d --build postgres redis minio minio-init api worker beat
+	$(COMPOSE) up -d --build postgres redis minio api worker beat
 	$(COMPOSE) exec -T api alembic upgrade head
 	$(COMPOSE) exec -T api python -m app.db.seed
 

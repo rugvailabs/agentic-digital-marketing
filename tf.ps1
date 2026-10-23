@@ -44,10 +44,10 @@ TrendForge targets
   }
   'install'   { Pnpm install }
   'up' {
-    Compose up -d --build postgres redis minio minio-init api worker beat
+    Compose up -d --build postgres redis minio api worker beat
     Api alembic upgrade head
     Api python -m app.db.seed
-    Write-Host "`nStack is up. API http://localhost:8000/health  MinIO http://localhost:9001" -ForegroundColor Green
+    Write-Host "`nStack is up. API http://localhost:8020/health  MinIO http://localhost:9021" -ForegroundColor Green
     Write-Host "Next:  .\tf.ps1 ingest   then   .\tf.ps1 dev" -ForegroundColor Green
   }
   'down'      { Compose down }

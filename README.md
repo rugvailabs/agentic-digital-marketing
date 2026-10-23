@@ -43,15 +43,18 @@ pnpm install
 .\tf.ps1 dev
 ```
 
-Then open <http://localhost:3000>.
+Then open <http://localhost:3020>.
+
+Ports are deliberately off the usual defaults (5432/6379/9000/8000/3000 are
+commonly already taken on a dev box); change them in `.env` if you like.
 
 | Surface        | URL                                      |
 | -------------- | ---------------------------------------- |
-| Board (web)    | http://localhost:3000                    |
-| API health     | http://localhost:8000/health             |
-| API docs       | http://localhost:8000/docs               |
-| MinIO console  | http://localhost:9001 (trendforge / trendforge-secret) |
-| Postgres       | localhost:5432 (trendforge / trendforge) |
+| Board (web)    | http://localhost:3020                    |
+| API health     | http://localhost:8020/health             |
+| API docs       | http://localhost:8020/docs               |
+| MinIO console  | http://localhost:9021 (trendforge / trendforge-secret) |
+| Postgres       | localhost:5452 (trendforge / trendforge) |
 
 Shut down with `.\tf.ps1 down` (volumes kept) or `.\tf.ps1 reset-db` to wipe
 and rebuild the database.
