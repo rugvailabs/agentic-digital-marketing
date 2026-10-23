@@ -48,6 +48,11 @@ quote-style = "double"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+# One loop for the whole session. The api tests share a module-scoped engine,
+# and a per-test loop leaves asyncpg connections bound to a dead loop
+# ("another operation is in progress" on the second test).
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 filterwarnings = ["ignore::DeprecationWarning"]
 addopts = "-ra"
 
