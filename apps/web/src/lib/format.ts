@@ -103,14 +103,36 @@ export function velocityTrend(series: readonly number[]): VelocityTrend {
   return 'settled'
 }
 
+/**
+ * Colour per direction. Chilli is spent *only* here, on rising — that is what
+ * keeps the one accent meaningful everywhere else on the board.
+ *
+ * Note this departs from the CLAUDE.md palette note, which reads neem as
+ * "settled" and turmeric as "watch": here neem marks falling and turmeric is
+ * unused. Keep the two in step if the palette note is revised.
+ */
 export const TREND_COLOR: Record<VelocityTrend, string> = {
   rising: 'var(--color-chilli)',
-  settled: 'var(--color-neem)',
-  cooling: 'var(--color-turmeric)',
+  settled: 'var(--color-slate)',
+  cooling: 'var(--color-neem)',
 }
 
 export const TREND_LABEL: Record<VelocityTrend, string> = {
   rising: 'Rising',
-  settled: 'Settled',
-  cooling: 'Cooling',
+  settled: 'Flat',
+  cooling: 'Falling',
+}
+
+/**
+ * The single place a velocity series turns into something you can render.
+ * Label and colour are read off one derivation, so the written direction and
+ * the line colour cannot disagree.
+ */
+export function velocity(series: readonly number[]): {
+  trend: VelocityTrend
+  color: string
+  label: string
+} {
+  const trend = velocityTrend(series)
+  return { trend, color: TREND_COLOR[trend], label: TREND_LABEL[trend] }
 }

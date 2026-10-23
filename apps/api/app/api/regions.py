@@ -24,14 +24,20 @@ async def list_regions(
     # rank 0 means "dropped off the board but keep the history", so it must not
     # count towards a region looking populated.
     counts = (
-        select(Trend.region_id, func.count().label("n"))
+        select(
+            Trend.region_id,
+            func.count().label("n"),
+            # Drives the region strip's ordering: busiest states first. Summed
+            # over the live board only, for the same reason as the count.
+            func.coalesce(func.sum(Trend.volume), 0).label("volume"),
+        )
         .where(Trend.rank > 0)
         .group_by(Trend.region_id)
         .subquery()
     )
 
     query = (
-        select(Region, parent.code, func.coalesce(counts.c.n, 0))
+        select(Region, parent.code, func.coalesce(counts.c.n, 0), func.coalesce(counts.c.volume, 0))
         .join(parent, Region.parent_id == parent.id, isouter=True)
         .join(counts, counts.c.region_id == Region.id, isouter=True)
         .where(Region.is_active.is_(True))
@@ -51,6 +57,7 @@ async def list_regions(
             google_trends_geo=region.google_trends_geo,
             x_woeid=region.x_woeid,
             trend_count=int(count),
+            total_volume=int(volume),
         )
-        for region, parent_code, count in (await session.execute(query)).all()
+        for region, parent_code, count, volume in (await session.execute(query)).all()
     ]

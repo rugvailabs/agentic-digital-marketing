@@ -2,23 +2,24 @@ import type { ReactNode } from 'react'
 
 /**
  * Our own primitives — no component kit, per CLAUDE.md. Everything here is
- * flat: no shadows, no radii beyond 2px, no gradients. Grouping comes from
- * rules and spacing.
+ * flat: no shadows, no radii, no gradients, no fills. Grouping comes from
+ * rules and spacing, and colour is spent only on rising velocity.
  */
 
 export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-/** A small capsule naming a source or state. Text only, never an icon. */
+/**
+ * A small capsule naming a source or a category. Slate text on a 1px rule
+ * border, never filled and never accented — a chip is a label, not a signal.
+ */
 export function Chip({
   children,
-  tone = 'neutral',
   className,
   title,
 }: {
   children: ReactNode
-  tone?: 'neutral' | 'accent'
   /** For the ladder's category chip, which has to truncate inside its border. */
   className?: string
   /** Full text when the label is shortened or truncated. */
@@ -28,8 +29,7 @@ export function Chip({
     <span
       title={title}
       className={cx(
-        'inline-flex items-center border px-1.5 py-px text-xs leading-5 whitespace-nowrap',
-        tone === 'accent' ? 'border-chilli/40 text-chilli' : 'border-rule text-slate',
+        'inline-flex items-center border border-rule px-1.5 py-px text-xs leading-5 whitespace-nowrap text-slate',
         className,
       )}
     >
@@ -39,11 +39,14 @@ export function Chip({
 }
 
 /**
- * A labelled value. Replaces the middle-dot meta string the avoid-list
- * rejects: the label is always visible, so nothing has to be inferred from
- * position.
+ * One cell of the Desk's meta row: a label above its value.
+ *
+ * On the wide layout the cells sit on one line divided by hairline rules, so
+ * the group reads as a single sentence of facts rather than four boxes. The
+ * rules are dropped below the Desk breakpoint, where the row has to wrap and a
+ * leading rule on the wrapped cell is an orphan.
  */
-export function Field({
+export function MetaCell({
   label,
   numeric = false,
   children,
@@ -54,7 +57,7 @@ export function Field({
   children: ReactNode
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="desk:pr-5 desk:pl-5 desk:first:pl-0 desk:last:pr-0 desk:not-first:border-l flex flex-col gap-0.5 border-rule">
       <span className="text-xs text-slate">{label}</span>
       <span className={cx('text-sm text-ink', numeric && 'num')}>{children}</span>
     </div>
@@ -66,20 +69,10 @@ export function SectionLabel({ children }: { children: ReactNode }) {
   return <h2 className="text-xs font-medium text-slate">{children}</h2>
 }
 
-/**
- * The only boxed container in the app. Reserved for generated assets and the
- * studio placeholder, so a border means "asset" rather than "content".
- */
-export function AssetFrame({ children }: { children: ReactNode }) {
-  return (
-    <div className="border border-rule bg-surface p-5">{children}</div>
-  )
-}
-
 /** Empty state. Always says what to do next. */
 export function Empty({ title, hint }: { title: string; hint?: ReactNode }) {
   return (
-    <div className="border border-dashed border-rule px-5 py-8">
+    <div className="border-t border-rule pt-4">
       <p className="text-sm text-ink">{title}</p>
       {hint ? <p className="mt-1.5 text-sm text-slate">{hint}</p> : null}
     </div>

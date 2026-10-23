@@ -42,13 +42,14 @@ async def list_trends(
         )
     ).all()
 
-    total = (
-        await session.scalar(
-            select(func.count())
+    totals = (
+        await session.execute(
+            select(func.count(), func.coalesce(func.sum(Trend.volume), 0))
             .select_from(Trend)
             .where(Trend.region_id == region_row.id, Trend.rank > 0)
         )
-    ) or 0
+    ).one()
+    total, total_volume = int(totals[0] or 0), int(totals[1] or 0)
     # Board freshness, not row freshness: the newest last_seen_at in the region.
     updated_at = await session.scalar(
         select(func.max(Trend.last_seen_at)).where(Trend.region_id == region_row.id)
@@ -62,10 +63,11 @@ async def list_trends(
             parent_code=parent_code,
             google_trends_geo=region_row.google_trends_geo,
             x_woeid=region_row.x_woeid,
-            trend_count=int(total),
+            trend_count=total,
+            total_volume=total_volume,
         ),
         updated_at=updated_at,
-        count=int(total),
+        count=total,
         trends=[
             TrendOut(
                 rank=t.rank,

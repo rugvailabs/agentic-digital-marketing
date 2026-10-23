@@ -2,18 +2,33 @@
 
 import type { Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 
 import { cx } from '@/components/primitives'
 
 /**
- * Horizontally scrollable region selector.
+ * Order: India, then states by today's total topic volume, then union
+ * territories, then cities.
  *
- * A tablist rather than a <select>: there are 53 regions and switching between
- * neighbours is the main motion of the board, so arrow keys have to work. The
- * selected region is marked with a 2px chilli underline — a pill would turn
- * this into the row of identical rounded chips the avoid-list rejects.
+ * Volume rather than alphabetical because the strip is a work queue — the
+ * states with the most happening are the ones a marketer opens first, and
+ * alphabetical buries Tamil Nadu and Maharashtra behind Andaman and Nicobar.
+ * Within each tier a zero-volume region falls back to its name, so the tail
+ * stays predictable instead of shuffling on every ingest.
  */
+function order(regions: Region[]): Region[] {
+  const tier: Record<string, number> = { country: 0, state: 1, union_territory: 2, city: 3 }
+  return [...regions].sort((a, b) => {
+    const byTier = (tier[a.kind] ?? 9) - (tier[b.kind] ?? 9)
+    if (byTier !== 0) return byTier
+    // Coalesce: a response that predates total_volume would otherwise compare
+    // undefined to undefined and silently fall back to alphabetical.
+    const volume = (b.total_volume ?? 0) - (a.total_volume ?? 0)
+    if (volume !== 0) return volume
+    return a.name.localeCompare(b.name)
+  })
+}
+
 export function RegionStrip({
   regions,
   selected,
@@ -23,9 +38,10 @@ export function RegionStrip({
 }) {
   const router = useRouter()
   const listRef = useRef<HTMLDivElement>(null)
+  const ordered = useMemo(() => order(regions), [regions])
   const index = Math.max(
     0,
-    regions.findIndex((r) => r.code === selected),
+    ordered.findIndex((r) => r.code === selected),
   )
 
   const select = useCallback(
@@ -35,7 +51,8 @@ export function RegionStrip({
     [router],
   )
 
-  // Keep the active tab in view when the region changes from anywhere.
+  // Keep the active tab in view when the region changes from anywhere,
+  // including from the jump menu below.
   useEffect(() => {
     listRef.current
       ?.querySelector<HTMLElement>('[aria-selected="true"]')
@@ -57,27 +74,26 @@ export function RegionStrip({
       move === 'first'
         ? 0
         : move === 'last'
-          ? regions.length - 1
-          : Math.min(regions.length - 1, Math.max(0, index + move))
+          ? ordered.length - 1
+          : Math.min(ordered.length - 1, Math.max(0, index + move))
 
-    const code = regions[next]?.code
+    const code = ordered[next]?.code
     if (!code) return
-    const target = listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]
-    target?.focus()
+    listRef.current?.querySelectorAll<HTMLElement>('[role="tab"]')[next]?.focus()
     select(code)
   }
 
   return (
-    <div className="border-b border-rule bg-surface">
+    <div className="flex items-center gap-2 border-b border-rule bg-surface pr-3">
       <div
         ref={listRef}
         role="tablist"
         aria-label="Region"
         aria-orientation="horizontal"
         onKeyDown={onKeyDown}
-        className="flex gap-1 overflow-x-auto px-4 py-2 [scrollbar-width:thin]"
+        className="flex min-w-0 flex-1 gap-2 overflow-x-auto py-2 pr-1 pl-4 [scrollbar-width:thin]"
       >
-        {regions.map((region, i) => {
+        {ordered.map((region, i) => {
           const isSelected = region.code === selected
           return (
             <button
@@ -94,9 +110,9 @@ export function RegionStrip({
                   : `${region.name} — no topics yet`
               }
               className={cx(
-                'shrink-0 border-b-2 px-2.5 py-1 text-sm whitespace-nowrap transition-colors',
+                'shrink-0 border-b-2 px-1 py-1 text-sm whitespace-nowrap transition-colors',
                 isSelected
-                  ? 'border-chilli font-medium text-ink'
+                  ? 'border-ink font-medium text-ink'
                   : 'border-transparent hover:bg-row-hover',
                 // A region with no board reads quieter rather than disappearing:
                 // the strip must always show all 36 states and UTs.
@@ -109,6 +125,51 @@ export function RegionStrip({
           )
         })}
       </div>
+
+      <JumpTo regions={ordered} onSelect={select} />
     </div>
+  )
+}
+
+/**
+ * The strip scrolls, so the 40th region is reachable only by arrowing through
+ * 39 others. A native select is the one control that gives keyboard and screen
+ * reader users direct access without inventing a combobox.
+ *
+ * It holds no value of its own — it always reads "Jump to…" — because the
+ * strip already shows the current region, and a select bound to the selection
+ * sizes itself to its longest option ("Andaman and Nicobar Islands") and eats
+ * the 420px column.
+ */
+function JumpTo({ regions, onSelect }: { regions: Region[]; onSelect: (code: string) => void }) {
+  const groups: Array<[string, Region[]]> = [
+    ['India', regions.filter((r) => r.kind === 'country')],
+    ['States', regions.filter((r) => r.kind === 'state')],
+    ['Union territories', regions.filter((r) => r.kind === 'union_territory')],
+    ['Cities', regions.filter((r) => r.kind === 'city')],
+  ]
+
+  return (
+    <select
+      aria-label="Jump to region"
+      value=""
+      onChange={(event) => {
+        if (event.target.value) onSelect(event.target.value)
+      }}
+      className="w-24 shrink-0 border border-rule bg-surface px-1.5 py-1 text-xs text-slate"
+    >
+      <option value="">Jump to…</option>
+      {groups.map(([label, members]) =>
+        members.length === 0 ? null : (
+          <optgroup key={label} label={label}>
+            {members.map((r) => (
+              <option key={r.code} value={r.code}>
+                {r.name}
+              </option>
+            ))}
+          </optgroup>
+        ),
+      )}
+    </select>
   )
 }

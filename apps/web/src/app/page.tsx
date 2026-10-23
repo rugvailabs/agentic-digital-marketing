@@ -15,11 +15,13 @@ export default async function BoardPage({ searchParams }: Props) {
   const health = await fetchHealth()
 
   let content
+  let regionName: string | undefined
   try {
     const [regions, board] = await Promise.all([
       fetchRegions(),
       fetchTrends(region, clampLimit(limit)),
     ])
+    regionName = board.region.name
     content = <Board regions={regions} board={board} />
   } catch (error) {
     if (!(error instanceof ApiUnavailable)) throw error
@@ -40,7 +42,7 @@ export default async function BoardPage({ searchParams }: Props) {
 
   return (
     <main>
-      <TopBar health={health} />
+      <TopBar health={health} regionName={regionName} />
       {content}
     </main>
   )

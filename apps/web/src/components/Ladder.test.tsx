@@ -38,7 +38,7 @@ describe('Ladder', () => {
     expect(screen.getByText('Rank 2:')).toBeDefined()
   })
 
-  it('labels source chips rather than showing raw enum values', () => {
+  it('shows source chips only once a topic is corroborated', () => {
     render(
       <Ladder
         trends={[trend(1, { sources: ['google_trends', 'google_news', 'youtube'] })]}
@@ -50,6 +50,44 @@ describe('Ladder', () => {
     expect(screen.getByText('Trends')).toBeDefined()
     expect(screen.getByText('News')).toBeDefined()
     expect(screen.getByText('YouTube')).toBeDefined()
+  })
+
+  it('hides the source chip on a single-source row, where it says nothing', () => {
+    render(
+      <Ladder
+        trends={[trend(1, { sources: ['google_trends'] })]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    expect(screen.queryByText('Trends')).toBeNull()
+    // The category chip is unaffected.
+    expect(screen.getByText('Sports')).toBeDefined()
+  })
+
+  it('gives the top three ranks the headline numeral and the rest the small one', () => {
+    const { container } = render(
+      <Ladder trends={[trend(1), trend(3), trend(4)]} selectedRank={1} onSelect={() => {}} />,
+    )
+
+    const numerals = [...container.querySelectorAll('.rank-numeral')]
+    expect(numerals[0]?.className).toContain('text-rank')
+    expect(numerals[0]?.className).not.toContain('text-rank-sm')
+    expect(numerals[1]?.className).not.toContain('text-rank-sm')
+    expect(numerals[2]?.className).toContain('text-rank-sm')
+  })
+
+  it('never tints a rank numeral with the accent, including the selected row', () => {
+    const { container } = render(
+      <Ladder trends={[trend(1), trend(2)]} selectedRank={1} onSelect={() => {}} />,
+    )
+
+    // Chilli belongs to rising velocity alone.
+    for (const numeral of container.querySelectorAll('.rank-numeral')) {
+      expect(numeral.className).toContain('text-ink')
+      expect(numeral.className).not.toContain('chilli')
+    }
   })
 
   it('selects a row on click', () => {
@@ -112,5 +150,28 @@ describe('Ladder', () => {
     render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} />)
 
     expect(screen.getByRole('img', { name: /Rising/ })).toBeDefined()
+  })
+
+  it('colours the sparkline to match the direction it reports', () => {
+    const { container } = render(
+      <Ladder
+        trends={[
+          trend(1, { velocity: [0, 0, 0, 0, 10, 90] }), // rising
+          trend(2, { velocity: [50, 50, 50, 50, 50, 50] }), // flat
+          trend(3, { velocity: [90, 80, 70, 60, 50, 5] }), // falling
+        ]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    const strokes = [...container.querySelectorAll('polyline')].map((p) =>
+      p.getAttribute('stroke'),
+    )
+    expect(strokes).toEqual([
+      'var(--color-chilli)',
+      'var(--color-slate)',
+      'var(--color-neem)',
+    ])
   })
 })

@@ -6,6 +6,7 @@ import {
   formatIstTime,
   formatNumber,
   shortCategory,
+  velocity,
   velocityTrend,
 } from './format'
 
@@ -88,5 +89,33 @@ describe('shortCategory', () => {
     expect(shortCategory('Sports')).toBe('Sports')
     expect(shortCategory('Politics')).toBe('Politics')
     expect(shortCategory('Something New')).toBe('Something New')
+  })
+})
+
+describe('velocity()', () => {
+  it('derives label and colour together so they cannot disagree', () => {
+    expect(velocity([0, 0, 0, 0, 10, 90])).toEqual({
+      trend: 'rising',
+      color: 'var(--color-chilli)',
+      label: 'Rising',
+    })
+    expect(velocity([50, 50, 50, 50, 50, 50])).toEqual({
+      trend: 'settled',
+      color: 'var(--color-slate)',
+      label: 'Flat',
+    })
+    expect(velocity([90, 80, 70, 60, 50, 5])).toEqual({
+      trend: 'cooling',
+      color: 'var(--color-neem)',
+      label: 'Falling',
+    })
+  })
+
+  it('spends chilli on rising and nothing else', () => {
+    const colors = [
+      velocity([50, 50, 50, 50, 50, 50]).color,
+      velocity([90, 80, 70, 60, 50, 5]).color,
+    ]
+    expect(colors).not.toContain('var(--color-chilli)')
   })
 })

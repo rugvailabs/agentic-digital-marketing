@@ -28,6 +28,8 @@ class RegionOut(BaseModel):
     x_woeid: int | None = Field(examples=[2295411])
     #: Rows currently on this region's board. 0 => never ingested, or all stale.
     trend_count: int = Field(examples=[40])
+    #: Summed volume of those rows. Orders the region strip: busiest first.
+    total_volume: int = Field(examples=[4200000])
 
 
 class TrendOut(BaseModel):

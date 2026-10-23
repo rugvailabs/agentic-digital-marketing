@@ -13,8 +13,9 @@ card mean "asset" instead of "any content at all". Hierarchy comes from the
 64px Bricolage rank numeral hanging outside the text column — the way a
 newspaper folio sits in the margin — so your eye lands on position before it
 lands on words, and no stat tiles or eyebrow labels are needed to tell you what
-matters. Chilli red is spent only on heat, focus and the live dot, which means a
-single glance separates rising from settled without reading a legend.
+matters. Chilli red is spent on one thing only — a topic whose velocity is
+rising — so a single glance separates what is climbing from what is holding,
+with no legend to read and no second meaning to learn.
 
 ## Checked against the CLAUDE.md avoid-list
 
@@ -26,7 +27,7 @@ single glance separates rising from settled without reading a legend.
 | All-caps tracked eyebrow labels             | Sentence-case section headings at 12/14px in slate        |
 | "01/02/03" where nothing is a sequence      | Numerals are the actual rank — a real ordering            |
 | Gradient blobs                              | Flat surfaces only                                        |
-| Middle-dot meta strings                     | Meta sits in labelled columns and chips                   |
+| Middle-dot meta strings                     | One meta line of labelled values divided by hairline rules |
 | Arrows appended to buttons                  | Verb-only labels: "Generate post", "Render reel"          |
 | Inter                                       | Bricolage Grotesque (display), Schibsted Grotesk (UI)     |
 | Stat tiles across the top                   | Top bar is app name, IST clock, pipeline dot — nothing else |
@@ -45,69 +46,96 @@ names, so no component ever branches on theme.
 | `--color-ink`     | `#1B2230` | `#EDF0F5` | Primary text, rank numerals           |
 | `--color-slate`   | `#5B6578` | `#9AA6BA` | Secondary text, meta, labels          |
 | `--color-rule`    | `#D5DAE3` | `#2A3344` | Hairlines, dotted ladder separators   |
-| `--color-chilli`  | `#D8322B` | `#FF6459` | Heat / rising, focus ring, live dot   |
-| `--color-turmeric`| `#E3A51D` | `#F0B94A` | Watch                                 |
-| `--color-neem`    | `#1E7D5A` | `#3FA87E` | Settled                               |
+| `--color-chilli`  | `#D8322B` | `#FF6459` | Rising velocity, focus ring           |
+| `--color-turmeric`| `#E3A51D` | `#F0B94A` | Degraded pipeline dot only            |
+| `--color-neem`    | `#1E7D5A` | `#3FA87E` | Falling velocity, healthy dot         |
 
 Dark mode lifts chilli/turmeric/neem because the CLAUDE.md light values fall
 under 4.5:1 on `#121722`; the hues are unchanged.
 
-Type: `--font-display` Bricolage Grotesque (500/700/800, optical size on),
-`--font-ui` Schibsted Grotesk (400/500/600). Scale `12 14 16 20 28 40 64`.
-Rank numerals are 64px display; nothing else goes above 28px.
+**Chilli is spent on rising velocity and the focus ring, nothing else.** Source
+chips, hashtags, rank numerals and the selected region tab are all ink or
+slate. One accent used in one place stays readable; used in five it is
+decoration. (The focus ring keeps chilli because CLAUDE.md requires it by
+name.)
+
+Type: `--font-display` Bricolage Grotesque (variable, optical size on),
+`--font-ui` Schibsted Grotesk (variable). Scale `12 14 16 20 28 40 64`.
+Rank numerals are ink at 800: 64px for ranks 1-3, 48px from rank 4. The Desk
+title is 40px; nothing else goes above 28px.
 
 Velocity colour is derived, not stored: last point vs the mean of the previous
-five — above +10% is chilli (rising), within ±10% is neem (settled), below is
-turmeric (cooling).
+five, with a ±10% dead band. Rising is chilli, flat is slate, falling is neem.
+`velocity()` returns the label and the colour from one derivation, so the word
+and the line cannot disagree.
+
+> This departs from the CLAUDE.md palette note, which reads neem as "settled"
+> and turmeric as "watch". Here neem marks falling and turmeric is unused.
+> Keep the two in step if the palette note is revised.
 
 ## Wireframe
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ TrendForge                                      14:32 IST   ● ingest ok      │  56px fixed
+│ TrendForge  Trend desk India               14:32 IST   ● Ingest ok, 3 sources│ 56px
 ├────────────────────────────────┬─────────────────────────────────────────────┤
-│ WIRE                           │ DESK                                        │
-│                                │                                             │
-│ ┌ region strip ──────────────┐ │  Maharashtra · rank 1                       │
-│ │ India  Andhra  Assam  Bih… │ │  ┌───────────────────────────────────────┐  │
-│ │ ◀ scrolls, ←/→ + Home/End  │ │  │ Eng vs sl                         28px│  │
-│ └────────────────────────────┘ │  └───────────────────────────────────────┘  │
+│ India Tamil Nadu Maha… [Jump▾] │  India · rank 1                             │
+│ 20 of 40 topics   updated 14:30│  Eng vs sl                             40px │
 │                                │  #EngSl  #EngVsSl  #Sports                  │
-│ 40 topics · updated 14:30 IST  │                                             │
-│                                │  Volume   2,00,000      Score      100.0    │
-│ ╭──╮                           │  Sources  Trends        Category   Sports   │
-│ │ 1│ Eng vs sl          ╱╲_╱   │  Velocity ▁▁▁▃▇█        First seen 11:30    │
-│ ╰──╯ Sports · Trends     2.0L  │                                             │
-│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │  Evidence                                   │
-│ ╭──╮                           │   1  Trends   eng vs sl                     │
-│ │ 2│ Gold rate today   _╱‾╲_   │   2  News     The Hindu — Gold prices…      │
-│ ╰──╯ Business · Trends   1.0L  │                                             │
-│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │  ┌───────────────────────────────────────┐  │
-│ ╭──╮                           │  │  Content studio arrives in step 2.    │  │
-│ │ 3│ नेहा बोरा          ╱‾‾‾   │  │  Captions, images and reels will be   │  │
-│ ╰──╯ Law · Trends        50K   │  │  generated here from this topic.      │  │
-│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │  └───────────────────────────────────────┘  │
-│  …                             │                                             │
+│ ╭──╮                           │  ─────────────────────────────────────────  │
+│ │ 1│ Eng vs sl       ────  10L │  Volume    │ Velocity   │ Category │ Updated│
+│ ╰──╯ Sports                    │  10,00,000 │ ╱╲ Rising  │ Sports   │ 14:30  │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │  ─────────────────────────────────────────  │
+│ ╭──╮                           │                                             │
+│ │ 2│ Gold rate today ╱╲    1L  │  Evidence                                   │
+│ ╰──╯ Business                  │   1  Trends  eng vs sl · +1K%               │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │   2  News    The Hindu — Gold prices…       │
+│ ╭─╮                            │  ─────────────────────────────────────────  │
+│ │3│ नेहा बोरा        ────  50K │  Content studio arrives in step 2.          │
+│ ╰─╯ Law                        │  Captions, images and reels will be         │
+│ ┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄ │  generated here from this topic.            │
+│  …  48px numerals from rank 4  │                                             │
 └────────────────────────────────┴─────────────────────────────────────────────┘
-   Wire: 420px fixed              Desk: fills remaining width
+   Ladder: 420px fixed            Desk: 760px measure, left-aligned
 ```
 
 The `╭──╮` box is drawn here only to show the numeral's bounds — there is no box
 in the UI. The numeral hangs into the left gutter, partly outside the text
 column.
 
-Below 900px the Desk moves under the Wire and the rank numeral drops to 40px;
-the ladder itself never reflows into cards.
+Below 800px the ladder takes the full width and the Desk arrives as a panel
+over it; the ladder itself never reflows into cards.
 
 ## Behaviour
 
-- **Region strip**: horizontally scrollable, `role="tablist"`. `←`/`→` move,
-  `Home`/`End` jump, `Enter`/`Space` select; the selected region gets a 2px
-  chilli underline, not a pill. Regions with no board show their name in slate.
+- **Region strip**: 14px type, 8px gaps, horizontally scrollable,
+  `role="tablist"`. `←`/`→` move, `Home`/`End` jump; the selected region gets a
+  2px ink underline, not a pill. Regions with no board show their name in
+  slate. Order is India, then states by today's total topic volume, then UTs,
+  then cities — the strip is a work queue, and alphabetical buries Maharashtra
+  behind Andaman and Nicobar. A compact "Jump to…" select sits at the end of
+  the strip for direct keyboard access to any of the 53 regions; it holds no
+  value of its own, because a select bound to the selection sizes itself to its
+  longest option and eats the column.
 - **Ladder**: `role="listbox"`, one row per topic, `↑`/`↓` move the selection
-  and the Desk follows. Rows are separated by a 1px dotted rule. Hover/focus
-  tints the row ground only — no lift, no shadow.
-- **Sparkline**: inline SVG, 6 points, 56×18, 1.5px stroke, no axes, no dots.
+  and the Desk follows. Rows are separated by a 1px dotted rule in `--rule`
+  and run 75px (ranks 1-3) / 69px (rank 4+), down from a uniform 87px. Hover
+  and selection tint the row ground only — no lift, no shadow.
+- **Source chips** appear only when a topic has two or more sources, which is
+  the only case where the fact is worth the ink. The category chip always
+  shows, shortened ("Business", "Law") to fit the 420px column.
+- **Sparkline**: inline SVG, 6 points, 56×18, 1.5px stroke, no axes, one dot
+  marking "now". Coloured by direction (see above).
+- **Desk**: held to a 760px measure, left-aligned. Heading block (region +
+  rank, 40px title, hashtags) / one meta line — volume, velocity, category,
+  updated — divided by hairline rules rather than grid cells / evidence list /
+  the step-2 note as plain text under a rule. The only bordered box in the app
+  is reserved for a rendered asset, so the note does not get one.
+- **Below 800px** (`--breakpoint-desk`) the ladder takes the full width and the
+  Desk arrives as a panel over it, opened by picking a topic and dismissed with
+  "Back to ladder" or Escape. The panel starts below the 56px top bar: the bar
+  is sticky at a higher z-index and would otherwise cover the panel's own way
+  out.
 - **Motion**: one ladder load-in, rows settling top to bottom over 240ms total
   (`translateY(4px)` + opacity, 18ms stagger). Desk panel cross-fades in 120ms
   when the selection changes. Nothing else animates. All of it collapses under

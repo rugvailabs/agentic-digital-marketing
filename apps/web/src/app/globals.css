@@ -27,11 +27,16 @@
   --text-base: 1rem; /* 16 */
   --text-lg: 1.25rem; /* 20 */
   --text-xl: 1.75rem; /* 28 */
-  --text-2xl: 2.5rem; /* 40 */
-  --text-rank: 4rem; /* 64 — rank numerals only */
+  --text-2xl: 2.5rem; /* 40 — Desk title */
+  --text-rank: 4rem; /* 64 — rank numerals, ranks 1-3 */
+  --text-rank-sm: 3rem; /* 48 — rank numerals, rank 4 and below */
 
   --spacing-topbar: 3.5rem; /* 56px fixed top bar */
-  --spacing-wire: 26.25rem; /* 420px Wire column */
+  --spacing-wire: 26.25rem; /* 420px ladder column */
+  --spacing-desk: 47.5rem; /* 760px max Desk measure */
+
+  /* The Desk stops being a column and becomes a slide-in panel below this. */
+  --breakpoint-desk: 800px;
 }
 
 /*
@@ -104,7 +109,9 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Rank numerals: display face, optical size on, tight. */
+  /* Rank numerals: display face, optical size on, tight. Ink at 800 for every
+     rank — the accent is reserved for rising velocity, so selection is carried
+     by the row ground instead of by colouring the numeral. */
   .rank-numeral {
     font-family: var(--font-display);
     font-weight: 800;
@@ -164,9 +171,27 @@
     border-bottom: 1px dotted var(--color-rule);
   }
 
+  /* Below --breakpoint-desk the Desk arrives over the ladder, so it needs to
+     come from somewhere rather than simply appear. */
+  @keyframes panel-in {
+    from {
+      opacity: 0;
+      transform: translateX(12px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .panel-in {
+    animation: panel-in 160ms ease-out both;
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .row-settle,
-    .desk-in {
+    .desk-in,
+    .panel-in {
       animation: none !important;
     }
   }

@@ -1,4 +1,4 @@
-import { TREND_COLOR, TREND_LABEL, velocityTrend } from '@/lib/format'
+import { velocity } from '@/lib/format'
 
 type Props = {
   series: readonly number[]
@@ -11,13 +11,14 @@ type Props = {
  * Six-point velocity line. Hand-drawn SVG rather than a chart library: it is
  * one polyline, and a library would ship axes, tooltips and a legend we spent
  * the design notes explicitly removing.
+ *
+ * Colour comes from the same `velocity()` derivation that produces the written
+ * label, so the line and the word next to it can never disagree.
  */
 export function Sparkline({ series, width = 56, height = 18, label }: Props) {
-  const trend = velocityTrend(series)
-  const color = TREND_COLOR[trend]
-
+  const { color, label: direction } = velocity(series)
   const points = toPoints(series, width, height)
-  const description = label ?? `${TREND_LABEL[trend]} — last ${series.length} snapshots`
+  const description = label ?? `${direction} — last ${series.length} snapshots`
 
   return (
     <svg
@@ -52,7 +53,9 @@ function toPoints(series: readonly number[], width: number, height: number): str
   if (series.length === 0) return ''
   const max = Math.max(...series, 1)
   const step = series.length > 1 ? width / (series.length - 1) : 0
-  return series.map((v, i) => `${(i * step).toFixed(2)},${scaleY(v, max, height).toFixed(2)}`).join(' ')
+  return series
+    .map((v, i) => `${(i * step).toFixed(2)},${scaleY(v, max, height).toFixed(2)}`)
+    .join(' ')
 }
 
 function lastX(width: number, count: number): number {

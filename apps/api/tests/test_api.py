@@ -168,8 +168,11 @@ async def test_regions_are_ordered_and_carry_parent_and_counts(client: httpx.Asy
     assert body[1]["parent_code"] == "IN"
     # Only rank > 0 rows count, so the dropped-off row is excluded.
     assert body[1]["trend_count"] == 3
+    # 1000 + 2000 + 3000; the rank 0 row contributes nothing.
+    assert body[1]["total_volume"] == 6000
     # Never ingested, but still listed — the strip shows all 36 states/UTs.
     assert body[2]["trend_count"] == 0
+    assert body[2]["total_volume"] == 0
 
 
 async def test_regions_filters(client: httpx.AsyncClient) -> None:

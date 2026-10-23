@@ -11,6 +11,12 @@ import { formatCompactVolume, shortCategory } from '@/lib/format'
 /** Whole-list load-in budget is 240ms, so the stagger shrinks as rows grow. */
 const SETTLE_BUDGET_MS = 240
 
+/**
+ * Ranks above this drop to the smaller numeral. The top of the board earns the
+ * 64px folio; past third place the rank is reference, not headline.
+ */
+const HEADLINE_RANKS = 3
+
 export function Ladder({
   trends,
   selectedRank,
@@ -97,6 +103,11 @@ function Row({
   animate: boolean
   delayMs: number
 }) {
+  const headline = trend.rank <= HEADLINE_RANKS
+  // A single source is the norm, so a chip saying so is noise on every row. It
+  // earns its place only when corroboration is the interesting fact.
+  const corroborated = trend.sources.length > 1
+
   return (
     <div
       role="option"
@@ -104,9 +115,7 @@ function Row({
       tabIndex={tabIndex}
       onClick={onSelect}
       className={cx(
-        // 4.75rem fits a two-digit numeral at 64px tabular; a narrower column
-        // lets rank 10+ run into the topic text.
-        'rule-dotted group grid cursor-pointer grid-cols-[4.75rem_1fr_auto] items-start gap-x-3 py-3 pr-4 pl-1 transition-colors',
+        'rule-dotted group grid cursor-pointer grid-cols-[4.5rem_1fr_auto] items-start gap-x-3 py-2 pr-4 pl-1 transition-colors',
         animate ? 'row-settle' : '',
         selected ? 'bg-row-active' : 'hover:bg-row-hover',
       )}
@@ -116,29 +125,29 @@ function Row({
         The rank numeral hangs into the gutter, partly outside the text column —
         a newspaper folio. The negative margin against the row padding is what
         produces the overhang; it is not a nudge. Right-aligned so one- and
-        two-digit ranks share an edge.
+        two-digit ranks share an edge. Ink at every rank: the accent belongs to
+        rising velocity, and selection is carried by the row ground.
       */}
       <span
         aria-hidden
         className={cx(
-          'rank-numeral -ml-2 block text-right text-rank select-none',
-          selected ? 'text-chilli' : 'text-ink/15 group-hover:text-ink/30',
+          'rank-numeral -ml-2 block text-right text-ink select-none',
+          headline ? 'text-rank' : 'text-rank-sm',
         )}
       >
         {trend.rank}
       </span>
 
-      <div className="min-w-0 pt-2.5">
+      <div className={cx('min-w-0', headline ? 'pt-2' : 'pt-0.5')}>
         <p className="truncate text-base leading-snug text-ink" title={trend.topic}>
           <span className="sr-only">Rank {trend.rank}: </span>
           {trend.topic}
         </p>
         {/*
-          No wrapping: a long category like "Business and Finance" would push
-          the source chips onto a second line and give that row a taller box,
-          breaking the ladder's rhythm. The category truncates instead.
+          No wrapping: a long category would push the chips onto a second line
+          and give that row a taller box, breaking the ladder's rhythm.
         */}
-        <div className="mt-1.5 flex items-center gap-1.5 overflow-hidden">
+        <div className="mt-1 flex items-center gap-1.5 overflow-hidden">
           {trend.category ? (
             // The inner block span is what truncates: text-overflow does not
             // apply to the inline-flex chip itself, so an ellipsis set there
@@ -147,15 +156,15 @@ function Row({
               <span className="block truncate">{shortCategory(trend.category)}</span>
             </Chip>
           ) : null}
-          {trend.sources.map((source) => (
-            <Chip key={source} tone="accent">
-              {SOURCE_LABELS[source as SourceName] ?? source}
-            </Chip>
-          ))}
+          {corroborated
+            ? trend.sources.map((source) => (
+                <Chip key={source}>{SOURCE_LABELS[source as SourceName] ?? source}</Chip>
+              ))
+            : null}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-3.5">
+      <div className={cx('flex items-center gap-3', headline ? 'pt-3' : 'pt-1')}>
         <Sparkline series={trend.velocity} />
         <span className="num w-14 text-right text-sm text-slate">
           {formatCompactVolume(trend.volume)}

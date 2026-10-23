@@ -1,5 +1,5 @@
 /**
- * Screenshot the board in light and dark mode.
+ * Screenshot the board in light and dark at desktop and phone widths.
  *
  *   pnpm --filter @trendforge/web shot            # all shots
  *   pnpm --filter @trendforge/web shot -- --region IN-MH
@@ -19,33 +19,73 @@ const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = resolve(HERE, '..', 'screenshots')
 
 const BASE_URL = process.env.TRENDFORGE_WEB_URL ?? 'http://localhost:3020'
-const VIEWPORT = { width: 1680, height: 1050 }
 /** Blocks the one load-in animation from smearing a shot. */
 const SETTLE_MS = 500
+
+type Viewport = { width: number; height: number }
+
+/** 1440 is the common laptop; 390 is below the 800px Desk breakpoint. */
+const DESKTOP: Viewport = { width: 1440, height: 900 }
+const PHONE: Viewport = { width: 390, height: 844 }
 
 type Shot = {
   name: string
   region: string
   theme: 'light' | 'dark'
+  viewport: Viewport
   /** Pick a lower row so the Desk shows a different topic than rank 1. */
   selectRank?: number
+  /** Phone: tapping a row opens the Desk panel, which is the state worth seeing. */
+  openPanel?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
   const national = regionOverride ?? 'IN'
   const state = regionOverride ?? 'IN-MH'
   return [
-    { name: 'board-light', region: national, theme: 'light' },
-    { name: 'board-dark', region: national, theme: 'dark' },
-    { name: 'board-state-light', region: state, theme: 'light', selectRank: 3 },
-    { name: 'board-state-dark', region: state, theme: 'dark', selectRank: 3 },
+    { name: 'board-1440-light', region: national, theme: 'light', viewport: DESKTOP },
+    { name: 'board-1440-dark', region: national, theme: 'dark', viewport: DESKTOP },
+    {
+      name: 'board-state-1440-light',
+      region: state,
+      theme: 'light',
+      viewport: DESKTOP,
+      selectRank: 3,
+    },
+    {
+      name: 'board-state-1440-dark',
+      region: state,
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectRank: 3,
+    },
+    { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
+    { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },
+    {
+      name: 'panel-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      selectRank: 2,
+      openPanel: true,
+    },
+    {
+      name: 'panel-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      selectRank: 2,
+      openPanel: true,
+    },
   ]
 }
 
 async function capture(page: Page, shot: Shot): Promise<string> {
+  await page.setViewportSize(shot.viewport)
   // data-theme wins over prefers-color-scheme in globals.css; emulating the
   // media feature too keeps next/font and ::selection consistent.
   await page.emulateMedia({ colorScheme: shot.theme })
+
   const response = await page.goto(`${BASE_URL}/?region=${encodeURIComponent(shot.region)}`, {
     waitUntil: 'networkidle',
   })
@@ -54,10 +94,6 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   if (response && !response.ok()) {
     throw new Error(`${BASE_URL} returned ${response.status()} — is \`.\\tf.ps1 dev\` ready?`)
   }
-  await page.evaluate(
-    (theme) => document.documentElement.setAttribute('data-theme', theme),
-    shot.theme,
-  )
 
   // The dev overlay badge sits over the bottom-left of the ladder. Hiding its
   // custom element works regardless of Next version; `devIndicators: false` in
@@ -66,6 +102,14 @@ async function capture(page: Page, shot: Shot): Promise<string> {
 
   // Fail loudly rather than shipping a screenshot of an empty board.
   await page.waitForSelector('[role="option"]', { timeout: 15_000 })
+
+  // The IST clock mounts empty and fills in from an effect, so without this a
+  // shot can catch the bar mid-hydration and ship a board with no clock.
+  await page.waitForFunction(
+    () => document.querySelector('header')?.textContent?.includes('IST') ?? false,
+    undefined,
+    { timeout: 10_000 },
+  )
   const rows = await page.locator('[role="option"]').count()
   if (rows === 0) {
     throw new Error(`no topics for ${shot.region}: run \`.\\tf.ps1 ingest\` first`)
@@ -74,11 +118,17 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   if (shot.selectRank) {
     await page.locator('[role="option"]').nth(shot.selectRank - 1).click()
   }
+  if (!shot.openPanel) {
+    // Clicking a row opens the panel below the Desk breakpoint; close it again
+    // so the narrow shots show the ladder rather than the panel covering it.
+    const close = page.getByRole('button', { name: 'Back to ladder' })
+    if (await close.isVisible().catch(() => false)) await close.click()
+  }
 
   await page.waitForTimeout(SETTLE_MS)
   const path = join(OUT_DIR, `${shot.name}.png`)
   await page.screenshot({ path, fullPage: false })
-  return `${shot.name}.png (${shot.region}, ${rows} rows)`
+  return `${shot.name}.png (${shot.region}, ${shot.viewport.width}px, ${rows} rows)`
 }
 
 async function main(): Promise<void> {
@@ -89,12 +139,10 @@ async function main(): Promise<void> {
 
   const browser = await chromium.launch()
   const context = await browser.newContext({
-    viewport: VIEWPORT,
+    viewport: DESKTOP,
     deviceScaleFactor: 2,
     locale: 'en-IN',
     timezoneId: 'Asia/Kolkata',
-    // Freeze the clock so a re-shot diff isn't just the IST minute changing.
-    reducedMotion: 'no-preference',
   })
   const page = await context.newPage()
 
@@ -114,7 +162,11 @@ async function main(): Promise<void> {
       '# Board screenshots',
       '',
       'Generated by `pnpm --filter @trendforge/web shot` against live ingested data.',
-      `Viewport ${VIEWPORT.width}x${VIEWPORT.height} @2x, locale en-IN, timezone Asia/Kolkata.`,
+      'Captured at 2x, locale en-IN, timezone Asia/Kolkata.',
+      '',
+      '- `board-1440-*` — the two-column board at 1440px.',
+      '- `board-390-*` — the ladder full width below the 800px Desk breakpoint.',
+      '- `panel-390-*` — the Desk as a slide-in panel over the ladder.',
       '',
       ...written.map((w) => `- ${w}`),
       '',

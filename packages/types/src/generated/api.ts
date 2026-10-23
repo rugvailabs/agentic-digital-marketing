@@ -153,6 +153,8 @@ export interface components {
             x_woeid: number | null;
             /** Trend Count */
             trend_count: number;
+            /** Total Volume */
+            total_volume: number;
         };
         /** TrendOut */
         TrendOut: {
