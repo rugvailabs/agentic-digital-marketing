@@ -71,7 +71,7 @@ function shots(regionOverride?: string): Shot[] {
       region: 'IN-GA',
       theme: 'light',
       viewport: DESKTOP,
-      selectTopic: 'AI policy',
+      selectTopic: 'Al-Faisaly',
       studio: true,
     },
     {
@@ -79,7 +79,7 @@ function shots(regionOverride?: string): Shot[] {
       region: 'IN-GA',
       theme: 'light',
       viewport: DESKTOP,
-      selectTopic: 'Rafale',
+      selectTopic: 'Navy Weighs',
       studio: true,
     },
     {
@@ -87,7 +87,7 @@ function shots(regionOverride?: string): Shot[] {
       region: 'IN-GA',
       theme: 'dark',
       viewport: DESKTOP,
-      selectTopic: 'Weather',
+      selectTopic: 'Goa weather',
       studio: true,
     },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
@@ -117,11 +117,17 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   // media feature too keeps next/font and ::selection consistent.
   await page.emulateMedia({ colorScheme: shot.theme })
 
-  const response = await page.goto(`${BASE_URL}/?region=${encodeURIComponent(shot.region)}`, {
-    waitUntil: 'networkidle',
-  })
-  // A dev-server recompile can briefly 500. Say so, rather than letting it
-  // surface later as an unexplained "selector never appeared" timeout.
+  // The dev server compiles a route on first request, which can take long
+  // enough under networkidle to come back 500. Retry once; a second failure
+  // is real and worth naming here rather than surfacing later as an
+  // unexplained "selector never appeared".
+  const url = `${BASE_URL}/?region=${encodeURIComponent(shot.region)}`
+  let response = await page.goto(url, { waitUntil: 'networkidle' })
+  if (response && !response.ok()) {
+    console.log(`  ! ${shot.name}: ${response.status()} on a cold route, retrying`)
+    await page.waitForTimeout(3000)
+    response = await page.goto(url, { waitUntil: 'networkidle' })
+  }
   if (response && !response.ok()) {
     throw new Error(`${BASE_URL} returned ${response.status()} — is \`.\\tf.ps1 dev\` ready?`)
   }

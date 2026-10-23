@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
+from app.core.time import utcnow
 from app.db.base import Base
 from app.models import (
     AssetKind,
@@ -32,6 +33,7 @@ from app.models import (
 )
 from app.tasks.cluster import Cluster
 from app.tasks.curate import RawRow, _write, match_existing, topic_identity
+from app.tasks.merge import normalise_topic as normalise
 
 TEST_DB = "trendforge_recurate_test"
 DIM = settings.gemini_embed_dim
@@ -398,3 +400,68 @@ class TestRecurateKeepsContent:
             # No crash, and no duplicate key.
             assert len(keys) == len(set(keys))
             assert any(t.topic == SECOND_TITLE and t.rank == 1 for t in trends)
+
+
+class TestIngestDoesNotClobberCuration:
+    """The merge and the curator key topics differently, so only one may own
+    a region's board. Running both produced duplicate rows under raw headlines
+    and blanked the categories and summaries the curator had written."""
+
+    async def test_an_uncurated_region_still_gets_the_merge_board(
+        self, session_factory, goa
+    ) -> None:
+        from app.tasks.ingest import upsert_trends
+        from app.tasks.merge import MergedTopic
+
+        topic = MergedTopic(
+            topic="Gold rate today",
+            topic_key="gold rate today",
+            score=90.0,
+            volume=1000,
+            category=None,
+            sources=["google_trends"],
+            hashtags=["#GoldRate"],
+            evidence=[],
+        )
+
+        async with session_factory() as session:
+            wrote = await upsert_trends(session, goa, [topic], utcnow())
+            await session.commit()
+
+        assert wrote is True
+        async with session_factory() as session:
+            keys = {t.topic_key for t in (await session.scalars(select(Trend))).all()}
+        assert keys == {"gold rate today"}
+
+    async def test_a_curated_region_is_left_alone(self, session_factory, goa) -> None:
+        from app.tasks.ingest import upsert_trends
+        from app.tasks.merge import MergedTopic
+
+        await curate_once(session_factory, goa, FIRST_TITLE, vector(0.25))
+
+        raw = MergedTopic(
+            topic=SOURCE_HEADLINE,
+            topic_key=normalise(SOURCE_HEADLINE),
+            score=90.0,
+            volume=0,
+            category=None,
+            sources=["google_news"],
+            hashtags=[],
+            evidence=[],
+        )
+
+        async with session_factory() as session:
+            wrote = await upsert_trends(session, goa, [raw], utcnow())
+            await session.commit()
+
+        assert wrote is False
+        async with session_factory() as session:
+            trends = list(
+                (await session.scalars(select(Trend).where(Trend.region_id == goa.id))).all()
+            )
+
+        # One row, still the curated one, with its category intact.
+        assert len(trends) == 1
+        assert trends[0].topic == FIRST_TITLE
+        assert trends[0].category == "Technology"
+        assert trends[0].summary

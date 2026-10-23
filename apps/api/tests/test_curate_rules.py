@@ -15,6 +15,7 @@ from app.tasks.curate import (
     _clean_category,
     _clean_hashtags,
 )
+from app.tasks.merge import display_topic
 
 
 class TestCategory:
@@ -63,3 +64,18 @@ class TestHashtags:
         tags = _clean_hashtags(["#नयागाना", "#கோவா"], "नया गाना")
 
         assert tags == ["#नयागाना", "#கோவா"]
+
+
+class TestTitleCasing:
+    """The prompt asks for it; the code enforces it."""
+
+    def test_an_all_lowercase_title_gains_a_capital(self) -> None:
+        assert display_topic("zimbabwe vs afghanistan") == "Zimbabwe vs afghanistan"
+
+    def test_a_deliberately_cased_title_is_untouched(self) -> None:
+        # "ENG vs SL" is how the source wrote it and how it must stay.
+        assert display_topic("ENG vs SL standings") == "ENG vs SL standings"
+        assert display_topic("Gold rate today in India") == "Gold rate today in India"
+
+    def test_indic_scripts_are_unaffected(self) -> None:
+        assert display_topic("नेहा बोरा") == "नेहा बोरा"

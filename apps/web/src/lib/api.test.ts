@@ -36,18 +36,26 @@ describe('get()', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1)
   })
 
-  it('retries past the fetch cache when the cached body is truncated', async () => {
+  it('retries once when a body comes back truncated', async () => {
     fetchMock
-      .mockResolvedValueOnce(jsonResponse('')) // poisoned cache entry
+      .mockResolvedValueOnce(jsonResponse(''))
       .mockResolvedValueOnce(jsonResponse(JSON.stringify(REGIONS)))
 
     await expect(fetchRegions()).resolves.toEqual(REGIONS)
     expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 
-    // First attempt is cacheable; the retry must bypass the cache or it would
-    // just read the same poisoned entry again.
-    expect(fetchMock.mock.calls[0]?.[1]).toMatchObject({ next: { revalidate: 60 } })
-    expect(fetchMock.mock.calls[1]?.[1]).toMatchObject({ cache: 'no-store' })
+  it('never stores responses in the on-disk fetch cache', () => {
+    // That cache returned truncated bodies and threw inside Next, upstream of
+    // anything this module can catch, which rendered as a blank 500.
+    fetchMock.mockImplementation(async () => jsonResponse(JSON.stringify(REGIONS)))
+
+    return fetchRegions().then(() => {
+      for (const call of fetchMock.mock.calls) {
+        expect(call[1]).toMatchObject({ cache: 'no-store' })
+        expect(call[1]).not.toHaveProperty('next')
+      }
+    })
   })
 
   it('surfaces ApiUnavailable, not SyntaxError, when the retry is also unparseable', async () => {

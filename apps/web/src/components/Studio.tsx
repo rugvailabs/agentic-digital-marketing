@@ -262,20 +262,25 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
                     loading="lazy"
                   />
                 ) : null}
-                <figcaption className="mt-2 flex items-baseline justify-between gap-2">
-                  <span className="truncate text-xs text-ink" title={dimensions(asset)}>
-                    {templateLabel(asset)}
-                    <span className="num ml-1.5 text-slate">{dimensions(asset)}</span>
+                {/*
+                  Two lines, so the template name is never abbreviated: at
+                  three cards per row there is not enough width for a name,
+                  its dimensions and a link side by side.
+                */}
+                <figcaption className="mt-2 flex flex-col gap-0.5">
+                  <span className="text-xs text-ink">{templateLabel(asset)}</span>
+                  <span className="flex items-baseline justify-between gap-2">
+                    <span className="num text-xs text-slate">{dimensions(asset)}</span>
+                    {asset.url ? (
+                      <a
+                        href={asset.url}
+                        download
+                        className="shrink-0 text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
+                      >
+                        Save PNG
+                      </a>
+                    ) : null}
                   </span>
-                  {asset.url ? (
-                    <a
-                      href={asset.url}
-                      download
-                      className="shrink-0 text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
-                    >
-                      Save PNG
-                    </a>
-                  ) : null}
                 </figcaption>
               </figure>
             ))}

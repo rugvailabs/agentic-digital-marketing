@@ -236,9 +236,9 @@ class TestPillowTemplates:
         inked = Image.open(io.BytesIO(PillowTemplateProvider().render(with_text).png)).convert(
             "RGB"
         )
-        blank = Image.open(
-            io.BytesIO(PillowTemplateProvider().render(without_text).png)
-        ).convert("RGB")
+        blank = Image.open(io.BytesIO(PillowTemplateProvider().render(without_text).png)).convert(
+            "RGB"
+        )
         safe = int(inked.width * 0.04)
 
         for y in range(0, inked.height, 3):

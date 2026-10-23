@@ -7,17 +7,25 @@ import type { Brand, Health, Region, TrendsResponse } from '@trendforge/types'
  */
 const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'
 
-/** Boards change on a 30-minute beat; 60s keeps dev feeling live. */
-const REVALIDATE = 60
+/**
+ * No disk cache, deliberately.
+ *
+ * `next: { revalidate }` stores responses under `.next/cache`, and that cache
+ * has repeatedly handed back truncated bodies — a SyntaxError thrown inside
+ * Next's own cache layer, upstream of anything this module can guard, which
+ * renders as a blank 500. It buys almost nothing here: the API is local and
+ * answers in ~100ms, and the board only changes on a 30-minute beat, so a
+ * stale-by-60s read was never the win.
+ */
+const NO_CACHE: RequestInit = { cache: 'no-store' }
 
 /** Reaching the API failed, or it answered with something unusable. */
 class ApiUnavailable extends Error {}
 
 /**
  * A 200 whose body would not parse. Separate from ApiUnavailable because it
- * is retryable: the usual cause is Next's on-disk fetch cache handing back a
- * truncated body after `.next/cache` was deleted or half-written, and the API
- * itself is perfectly healthy.
+ * is worth one retry: a truncated read is transient where an unreachable API
+ * is not.
  */
 class MalformedResponse extends Error {}
 
@@ -47,15 +55,16 @@ async function fetchJson<T>(path: string, init: RequestInit): Promise<T> {
 
 async function get<T>(path: string): Promise<T> {
   try {
-    return await fetchJson<T>(path, { next: { revalidate: REVALIDATE } })
+    return await fetchJson<T>(path, NO_CACHE)
   } catch (error) {
     if (!(error instanceof MalformedResponse)) throw error
 
-    // Re-fetch past the cache. A poisoned cache entry would otherwise keep
-    // failing for the whole revalidate window while the API is fine.
-    console.warn(`[api] ${error.message} — retrying without the fetch cache`)
+    // One retry, for a genuinely truncated response rather than a cache
+    // artefact. If it fails twice the board says the API is unavailable,
+    // which is a page a user can read.
+    console.warn(`[api] ${error.message} — retrying once`)
     try {
-      return await fetchJson<T>(path, { cache: 'no-store' })
+      return await fetchJson<T>(path, NO_CACHE)
     } catch (retryError) {
       if (retryError instanceof MalformedResponse) {
         throw new ApiUnavailable(retryError.message, { cause: retryError })

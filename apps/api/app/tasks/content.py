@@ -244,11 +244,12 @@ def render_assets(
     return out
 
 
-async def run_job(job_id: int) -> dict[str, Any]:
+async def run_job(job_id: int, sessions: Any = None) -> dict[str, Any]:
     """Drive one job to completion. Never raises: failure lands on the row."""
     llm = get_llm()
+    factory = sessions or SessionLocal
 
-    async with SessionLocal() as session:
+    async with factory() as session:
         job = await session.get(ContentJob, job_id)
         if job is None:
             return {"job_id": job_id, "status": "missing"}

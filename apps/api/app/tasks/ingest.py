@@ -14,7 +14,7 @@ from datetime import datetime
 from typing import Any
 
 from celery import shared_task
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -126,12 +126,12 @@ async def ingest_region(
     ]
 
     merged = merge(contributions, limit=BOARD_LIMIT)
-    await upsert_trends(session, region, merged, captured_at)
+    wrote_board = await upsert_trends(session, region, merged, captured_at)
     await session.commit()
 
     counts = {
         "items": sum(int(r["item_count"]) for r in rows),
-        "topics": len(merged),
+        "topics": len(merged) if wrote_board else 0,
         "sources_ok": len(contributions),
     }
     log.info("region ingested", region=region.code, **counts)
@@ -140,8 +140,26 @@ async def ingest_region(
 
 async def upsert_trends(
     session: AsyncSession, region: Region, merged: list, captured_at: datetime
-) -> None:
-    """Rewrite one region's board, carrying velocity history forward."""
+) -> bool:
+    """Rewrite one region's board from the non-LLM merge.
+
+    Skipped entirely once a region has been curated. The merge keys topics on
+    the *source* title and the curator keys them on its own rewritten title,
+    so running both against one table is not a merge — it is two writers with
+    different primary keys. The beat was re-creating every curated topic under
+    its raw headline and blanking the categories and summaries the curator had
+    written. A curated region's board belongs to the curator; everything else
+    still gets the merge, which is what keeps the other 50 regions populated.
+    """
+    curated = await session.scalar(
+        select(func.count())
+        .select_from(Trend)
+        .where(Trend.region_id == region.id, Trend.curated_at.is_not(None))
+    )
+    if curated:
+        log.info("board is curated, leaving it alone", region=region.code, curated_rows=curated)
+        return False
+
     existing = {
         t.topic_key: t
         for t in (await session.scalars(select(Trend).where(Trend.region_id == region.id))).all()
@@ -179,6 +197,8 @@ async def upsert_trends(
         if key not in seen and row.rank != 0:
             row.rank = 0
             row.velocity = next_velocity(row.velocity, 0.0)
+
+    return True
 
 
 async def run_cycle(region_codes: list[str] | None = None) -> dict[str, Any]:
@@ -231,13 +251,13 @@ async def _run_cycle_and_release(region_codes: list[str] | None) -> dict[str, An
 def generate_content(self, job_id: int) -> dict[str, Any]:
     """Run one content job. No retries: run_job records failure on the row and
     the Desk offers "Try again", which is a clearer loop than a silent retry."""
+    from app.db.session import task_sessions
     from app.tasks.content import run_job
 
     async def _run() -> dict[str, Any]:
-        try:
-            return await run_job(job_id)
-        finally:
-            await engine.dispose()
+        # A per-task engine, not the shared one: see task_sessions().
+        async with task_sessions() as sessions:
+            return await run_job(job_id, sessions)
 
     return asyncio.run(_run())
 

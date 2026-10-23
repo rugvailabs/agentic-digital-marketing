@@ -427,7 +427,11 @@ async def _write(
         if len(sources) > 1:
             multi_source += 1
 
-        title = str(fields.get("title") or "").strip() or rows[members[0]].title
+        # display_topic is a no-op on anything already containing a capital,
+        # so it enforces the prompt's casing rule without overriding a title
+        # the model deliberately cased ("ENG vs SL"). The model does not always
+        # apply the rule itself.
+        title = display_topic(str(fields.get("title") or "").strip() or rows[members[0]].title)
         topic_key = normalise_topic(title) or cluster.key
         if topic_key in seen:
             # Two clusters named identically: keep them apart rather than
@@ -583,10 +587,11 @@ def _clean_flag(raw: Any) -> str:
         return SafetyFlag.sensitive.value
 
 
-async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
+async def run_curate(region_codes: list[str] | None = None, sessions: Any = None) -> dict[str, Any]:
     """Curate the named regions, or the configured default set."""
     codes = region_codes or settings.curate_region_list
     llm = get_llm()
+    factory = sessions or SessionLocal
     totals = {
         "regions": 0,
         "items": 0,
@@ -596,7 +601,7 @@ async def run_curate(region_codes: list[str] | None = None) -> dict[str, Any]:
         "dropped": 0,
     }
 
-    async with SessionLocal() as session:
+    async with factory() as session:
         regions = (
             await session.scalars(
                 select(Region).where(Region.code.in_(codes)).order_by(Region.sort_order)
