@@ -44,8 +44,11 @@ sequence; gradient blobs; middle-dot meta strings; arrows appended to buttons; I
 stat tiles across the top; icons or emoji next to every label; centered hero text.
 
 Direction: a newsroom wire desk for marketers. Dense, confident, Indian, fast to scan.
-- Palette: paper #EEF1F6, ink #1B2230, slate #5B6578, rule #D5DAE3,
-  chilli #D8322B (heat / rising), turmeric #E3A51D (watch), neem #1E7D5A (settled),
+- Palette: paper #EEF1F6, ink #1B2230, slate #5B6578 (secondary text; flat /
+  settled velocity), rule #D5DAE3, chilli #D8322B (rising velocity, and the
+  focus ring below — nothing else), neem #1E7D5A (falling velocity),
+  turmeric #E3A51D (watch — held for topics the curator flags as sensitive,
+  from step 2; nothing else may claim it meanwhile),
   surface #FFFFFF. Dark mode mirrors with paper #121722, surface #1A2130, ink #EDF0F5.
 - Type: Bricolage Grotesque for display and numerals (weights 500/700/800, use optical
   size), Schibsted Grotesk for body/UI (400/500/600). Scale: 12/14/16/20/28/40/64.

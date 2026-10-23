@@ -22,7 +22,7 @@ with no legend to read and no second meaning to learn.
 | Avoided                                     | What we do instead                                        |
 | ------------------------------------------- | --------------------------------------------------------- |
 | Cream + serif + terracotta                  | Cool paper `#EEF1F6`, two grotesks, chilli `#D8322B`      |
-| Black + neon green                          | Ink `#1B2230` on paper; neem green only as a settled state |
+| Black + neon green                          | Ink `#1B2230` on paper; neem green only marks falling velocity |
 | Identical rounded cards with grey shadows   | Rules and spacing; no shadow anywhere; cards only for assets |
 | All-caps tracked eyebrow labels             | Sentence-case section headings at 12/14px in slate        |
 | "01/02/03" where nothing is a sequence      | Numerals are the actual rank — a real ordering            |
@@ -44,11 +44,11 @@ names, so no component ever branches on theme.
 | `--color-paper`   | `#EEF1F6` | `#121722` | Page ground                           |
 | `--color-surface` | `#FFFFFF` | `#1A2130` | Asset cards, Desk panel, strip        |
 | `--color-ink`     | `#1B2230` | `#EDF0F5` | Primary text, rank numerals           |
-| `--color-slate`   | `#5B6578` | `#9AA6BA` | Secondary text, meta, labels          |
+| `--color-slate`   | `#5B6578` | `#9AA6BA` | Secondary text, meta, labels; flat velocity |
 | `--color-rule`    | `#D5DAE3` | `#2A3344` | Hairlines, dotted ladder separators   |
 | `--color-chilli`  | `#D8322B` | `#FF6459` | Rising velocity, focus ring           |
-| `--color-turmeric`| `#E3A51D` | `#F0B94A` | Degraded pipeline dot only            |
-| `--color-neem`    | `#1E7D5A` | `#3FA87E` | Falling velocity, healthy dot         |
+| `--color-neem`    | `#1E7D5A` | `#3FA87E` | Falling velocity                      |
+| `--color-turmeric`| `#E3A51D` | `#F0B94A` | Watch — sensitive topics, from step 2 |
 
 Dark mode lifts chilli/turmeric/neem because the CLAUDE.md light values fall
 under 4.5:1 on `#121722`; the hues are unchanged.
@@ -65,13 +65,21 @@ Rank numerals are ink at 800: 64px for ranks 1-3, 48px from rank 4. The Desk
 title is 40px; nothing else goes above 28px.
 
 Velocity colour is derived, not stored: last point vs the mean of the previous
-five, with a ±10% dead band. Rising is chilli, flat is slate, falling is neem.
-`velocity()` returns the label and the colour from one derivation, so the word
-and the line cannot disagree.
+five, with a ±10% dead band. Rising is chilli, flat is slate, falling is neem —
+matching the CLAUDE.md palette line. `velocity()` returns the label and the
+colour from one derivation, so the word and the line cannot disagree.
 
-> This departs from the CLAUDE.md palette note, which reads neem as "settled"
-> and turmeric as "watch". Here neem marks falling and turmeric is unused.
-> Keep the two in step if the palette note is revised.
+Turmeric is the one colour with no use on the board yet: it is held for topics
+the curator flags as sensitive (disaster, death, communal, election result),
+which arrives with the planner in step 2. Nothing else may claim it in the
+meantime — a reserved colour that leaks into an unrelated state stops being
+reserved.
+
+> One place still contradicts this: the top bar's pipeline dot uses neem for
+> healthy and turmeric for degraded. Those are system states, not velocity or
+> sensitivity, so both want their own treatment — likely slate for healthy and
+> chilli for degraded, since a broken ingest *is* the urgent case. Worth
+> settling before step 2 claims turmeric for real.
 
 ## Wireframe
 
