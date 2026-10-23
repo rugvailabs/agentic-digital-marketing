@@ -28,7 +28,13 @@ class ImageBrief:
     logo_url: str | None = None
     #: "square" | "portrait"
     size: str = "square"
-    template: str = "bold-type"
+    template: str = "poster"
+    #: Set very large by the Split template. At most 12 characters.
+    display_token: str = ""
+    #: Drawn large by the Wire template; empty means no sparkline.
+    velocity: list[float] = field(default_factory=list)
+    #: "Trending in {region}" on the Wire template.
+    region_name: str = ""
 
     @property
     def dimensions(self) -> tuple[int, int]:

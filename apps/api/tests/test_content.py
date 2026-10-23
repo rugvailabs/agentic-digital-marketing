@@ -8,12 +8,18 @@ import json
 import httpx
 import pytest
 import respx
-from PIL import Image
+from PIL import Image, ImageDraw
 
-from app.images import ImageBrief, PillowTemplateProvider, shaping_available
+from app.images import ImageBrief, PillowTemplateProvider, load_font, shaping_available
 from app.images.fonts import font_file, missing_fonts, script_of
 from app.images.gemini_image import GeminiImageProvider
-from app.images.pillow import TEMPLATES, _contrasting_ink
+from app.images.pillow import (
+    SUPERSAMPLE,
+    TEMPLATE_LABELS,
+    TEMPLATES,
+    contrasting_ink,
+    hashtag_line,
+)
 from app.llm import GeminiProvider
 from app.tasks.content import (
     WRITE_SCHEMA,
@@ -154,6 +160,9 @@ class TestPillowTemplates:
             primary_color="#1B2230",
             secondary_color="#D8322B",
             alt_text="alt",
+            display_token=kw.pop("display_token", "2026"),
+            velocity=kw.pop("velocity", [0.0, 0.0, 12.0, 40.0, 88.0, 100.0]),
+            region_name=kw.pop("region_name", "Goa"),
             **kw,
         )
 
@@ -168,32 +177,96 @@ class TestPillowTemplates:
         assert Image.open(io.BytesIO(image.png)).size == dims
         assert image.template == template
 
+    def test_the_three_templates_are_visually_distinct(self) -> None:
+        """Three names for one layout would be worse than one template."""
+        renders = {
+            t: PillowTemplateProvider().render(self.brief(template=t)).png for t in TEMPLATES
+        }
+
+        assert len(set(renders.values())) == len(TEMPLATES)
+
+    def test_each_template_carries_a_full_label(self) -> None:
+        # The Desk shows these; "Bold typ…" told a user nothing.
+        for template in TEMPLATES:
+            image = PillowTemplateProvider().render(self.brief(template=template))
+            assert image.meta["label"] == TEMPLATE_LABELS[template]
+            assert "…" not in image.meta["label"], "labels are words, not truncated slugs"
+
+    @pytest.mark.parametrize("template", TEMPLATES)
     @pytest.mark.parametrize(
-        "headline",
+        ("language", "headline", "subline", "token"),
         [
-            "सोने का भाव आज चढ़ा",
-            "கோவா செயற்கை நுண்ணறிவு",
-            "সোনার দাম বাড়ল আজ",
-            "A very long English headline that has to wrap onto several lines",
-            "Supercalifragilisticexpialidocious",
+            ("english", "Goa unveils AI policy 2026", "Hackathon opens next month", "2026"),
+            ("hindi", "सोने का भाव आज चढ़ा", "निवेशकों की नज़र बाज़ार पर टिकी", "₹1.2L"),
+            ("tamil", "கோவா செயற்கை நுண்ணறிவு கொள்கை", "புதிய அறிவிப்பு வெளியானது", "மழை"),
         ],
     )
-    def test_text_never_overflows_the_margin(self, headline: str) -> None:
-        """Autofit has to cope with unbreakable words and Indic advance widths."""
-        image = PillowTemplateProvider().render(self.brief(headline=headline))
-        canvas = Image.open(io.BytesIO(image.png)).convert("RGB")
+    def test_no_text_crosses_the_safe_margin(
+        self, template: str, language: str, headline: str, subline: str, token: str
+    ) -> None:
+        """Visual regression across every template and script we support.
 
-        # The 4%-wide strip down each edge must stay the background colour.
-        edge = int(canvas.width * 0.04)
-        background = canvas.getpixel((2, 2))
-        for y in range(0, canvas.height, 7):
-            assert canvas.getpixel((canvas.width - 2, y)) == background
-            assert canvas.getpixel((edge // 2, y)) == background
+        The same brief is rendered twice, once with text and once without, and
+        the 4% edge strips must be pixel-identical. Comparing against a
+        text-free render rather than counting colours is what lets this work
+        on full-bleed templates, where the edge legitimately carries a colour
+        block boundary of its own.
+
+        Autofit has to cope with unbreakable Tamil words, Devanagari advance
+        widths and a token set at poster scale, and the check is on pixels
+        rather than on the measurements the layout code itself used.
+        """
+        with_text = self.brief(
+            headline=headline,
+            subline=subline,
+            display_token=token,
+            template=template,
+            hashtags=["#GoaAIPolicy", "#TechHub", "#AIInGoa"],
+        )
+        without_text = self.brief(
+            headline="",
+            subline="",
+            display_token="",
+            template=template,
+            hashtags=[],
+            region_name="",
+        )
+        without_text.brand_name = ""
+
+        inked = Image.open(io.BytesIO(PillowTemplateProvider().render(with_text).png)).convert(
+            "RGB"
+        )
+        blank = Image.open(
+            io.BytesIO(PillowTemplateProvider().render(without_text).png)
+        ).convert("RGB")
+        safe = int(inked.width * 0.04)
+
+        for y in range(0, inked.height, 3):
+            for x in (*range(safe), *range(inked.width - safe, inked.width)):
+                assert inked.getpixel((x, y)) == blank.getpixel((x, y)), (
+                    f"{language}/{template}: ink at ({x}, {y}), inside the {safe}px margin"
+                )
+
+        for x in range(0, inked.width, 3):
+            for y in (*range(safe), *range(inked.height - safe, inked.height)):
+                assert inked.getpixel((x, y)) == blank.getpixel((x, y)), (
+                    f"{language}/{template}: ink at ({x}, {y}), inside the {safe}px margin"
+                )
+
+    def test_the_canvas_is_supersampled_then_downscaled(self) -> None:
+        # 1x leaves 14px hashtags and Tamil conjuncts visibly soft.
+        assert SUPERSAMPLE >= 2
 
     def test_an_unknown_template_falls_back_rather_than_failing(self) -> None:
         image = PillowTemplateProvider().render(self.brief(template="does-not-exist"))
 
         assert image.template == TEMPLATES[0]
+
+    def test_wire_without_a_velocity_series_still_renders(self) -> None:
+        # News-only topics have no series; the sparkline is simply absent.
+        image = PillowTemplateProvider().render(self.brief(template="wire", velocity=[]))
+
+        assert Image.open(io.BytesIO(image.png)).size == (1080, 1080)
 
     def test_the_provider_needs_no_configuration(self) -> None:
         assert PillowTemplateProvider().is_configured() is True
@@ -208,7 +281,36 @@ class TestPillowTemplates:
         ],
     )
     def test_text_colour_follows_luminance(self, background: str, expected: str) -> None:
-        assert _contrasting_ink(background) == expected
+        assert contrasting_ink(background) == expected
+
+
+class TestHashtagLine:
+    """The footer line must never overlap the brand name beside it."""
+
+    def line(self, tags: list[str], width: int) -> str:
+        canvas = Image.new("RGB", (1200, 100))
+        draw = ImageDraw.Draw(canvas)
+        font = load_font("#x", 28, "SemiBold")
+        return hashtag_line(draw, tags, font, width)
+
+    def test_at_most_three_tags(self) -> None:
+        result = self.line([f"#Tag{i}" for i in range(8)], 1200)
+
+        assert result.count("#") == 3
+
+    def test_tags_that_do_not_fit_are_left_out(self) -> None:
+        result = self.line(["#Short", "#AVeryMuchLongerHashtag"], 150)
+
+        assert "#AVeryMuchLongerHashtag" not in result
+
+    def test_a_single_oversized_tag_is_ellipsised_not_clipped(self) -> None:
+        result = self.line(["#AnExtremelyLongHashtagIndeed"], 120)
+
+        assert result.endswith("…")
+        assert len(result) < len("#AnExtremelyLongHashtagIndeed")
+
+    def test_no_tags_is_an_empty_line_not_a_stray_hash(self) -> None:
+        assert self.line([], 500) == ""
 
 
 class TestGeminiImageProvider:

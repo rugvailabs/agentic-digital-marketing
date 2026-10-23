@@ -185,7 +185,9 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
     )
 
 
-def render_assets(job: ContentJob, post: Post) -> list[tuple[str, str, bytes, dict[str, Any]]]:
+def render_assets(
+    job: ContentJob, post: Post, trend: Trend | None = None
+) -> list[tuple[str, str, bytes, dict[str, Any]]]:
     """Render every requested size in all three templates.
 
     Three templates rather than one: the marketer picks, and rendering is
@@ -210,6 +212,11 @@ def render_assets(job: ContentJob, post: Post) -> list[tuple[str, str, bytes, di
                 logo_url=job.brand.logo_url,
                 size=size,
                 template=template,
+                display_token=post.display_token,
+                # The Wire template draws the topic's own velocity, so a post
+                # carries the same series the ladder row shows.
+                velocity=list(trend.velocity or []) if trend else [],
+                region_name=trend.region.name if trend and trend.region else "",
             )
             if gemini.is_configured():
                 try:
@@ -272,7 +279,7 @@ async def run_job(job_id: int) -> dict[str, Any]:
             job.status = JobStatus.rendering
             await session.commit()
 
-            for size, template, png, meta in render_assets(job, post):
+            for size, template, png, meta in render_assets(job, post, brief.get("trend")):
                 key = f"jobs/{job.id}/{size}-{template}.png"
                 url = put_png(key, png)
                 session.add(

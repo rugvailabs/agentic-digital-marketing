@@ -23,13 +23,28 @@ const LANGUAGE_LABELS: Record<string, string> = {
   marathi: 'मराठी',
 }
 
-/** "square:bold-type" -> "Bold type · square". The raw variant truncates to
- *  "square:…" in a card footer, which tells the user nothing. */
-function variantLabel(variant: string): string {
-  const [size, template] = variant.split(':')
-  if (!template) return variant
-  const name = template.replace(/-/g, ' ')
-  return `${name.charAt(0).toUpperCase()}${name.slice(1)} · ${size}`
+/** Full template names. The renderer sends one in `meta.label`; this is the
+ *  fallback for assets rendered before it did. "square:…" told nobody
+ *  anything. */
+const TEMPLATE_LABELS: Record<string, string> = {
+  poster: 'Poster',
+  split: 'Split panel',
+  wire: 'Wire',
+  'bold-type': 'Bold type',
+  'split-panel': 'Split panel',
+  'flat-colour': 'Flat colour',
+}
+
+function templateLabel(asset: { variant: string; meta_json: Record<string, unknown> }): string {
+  const label = asset.meta_json?.label
+  if (typeof label === 'string' && label) return label
+  const template = asset.variant.split(':')[1] ?? asset.variant
+  return TEMPLATE_LABELS[template] ?? template.replace(/-/g, ' ')
+}
+
+function dimensions(asset: { meta_json: Record<string, unknown> }): string {
+  const { width, height } = asset.meta_json as { width?: number; height?: number }
+  return width && height ? `${width}×${height}` : ''
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -229,21 +244,28 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
             {images.length} images · {brand?.name}
           </h3>
           {/* The only cards on the page: a border here means "rendered asset". */}
-          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3">
+          {/* items-start so a portrait card keeps its height instead of
+              stretching its square neighbours to match. */}
+          <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
             {images.map((asset) => (
               <figure key={asset.id} className="border border-rule bg-surface p-3">
                 {asset.url ? (
+                  // Intrinsic size on the element, so a 1080x1350 post holds
+                  // its 4:5 shape instead of being squared off by the grid.
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={asset.url}
                     alt={String((asset.meta_json as Caption).alt_text ?? '')}
-                    className="w-full"
+                    width={Number((asset.meta_json as { width?: number }).width) || 1080}
+                    height={Number((asset.meta_json as { height?: number }).height) || 1080}
+                    className="h-auto w-full"
                     loading="lazy"
                   />
                 ) : null}
-                <figcaption className="mt-2 flex items-center justify-between gap-2">
-                  <span className="truncate text-xs text-slate" title={asset.variant}>
-                    {variantLabel(asset.variant)}
+                <figcaption className="mt-2 flex items-baseline justify-between gap-2">
+                  <span className="truncate text-xs text-ink" title={dimensions(asset)}>
+                    {templateLabel(asset)}
+                    <span className="num ml-1.5 text-slate">{dimensions(asset)}</span>
                   </span>
                   {asset.url ? (
                     <a
