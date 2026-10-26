@@ -88,8 +88,11 @@ class Settings(BaseSettings):
     #: Chromium, which has no business in the Python image. Blank => the
     #: provider reports not configured and reels are refused with a reason.
     renderer_url: str = "http://renderer:3100"
-    #: A 30s reel at 1080x1920 takes well over a minute on a laptop.
-    renderer_timeout_seconds: float = 300.0
+    #: Measured at roughly 11s of render per second of video on an 8-core
+    #: laptop, so a 12s reel is about two minutes and the 45s ceiling is
+    #: nearer nine. Generous rather than tight: a timeout here throws away a
+    #: render that was going to succeed.
+    renderer_timeout_seconds: float = 900.0
     #: Microsoft Neural voices via edge-tts. No key, but it is an unofficial
     #: endpoint, so it is allowed to be switched off.
     tts_enabled: bool = True

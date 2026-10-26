@@ -30,11 +30,47 @@ const SCRIPT_FILES: Record<string, string> = {
 const DISPLAY_FILE = 'BricolageGrotesque.ttf'
 const UI_FILE = 'SchibstedGrotesk.ttf'
 
+/**
+ * The weight range each file actually carries.
+ *
+ * Not optional. A FontFace registered without a `weight` descriptor defaults
+ * to `normal`, and the browser then treats a variable font as one static
+ * weight: `font-weight: 800` matches the face but changes nothing, so every
+ * headline in the reel came out at Regular. It also makes the measurement
+ * wrong, because the text is measured at a weight it will not be set in.
+ */
+const WEIGHTS: Record<string, string> = {
+  [DISPLAY_FILE]: '200 800',
+  [UI_FILE]: '400 900',
+}
+const INDIC_WEIGHTS = '100 900'
+
 export const DISPLAY_FAMILY = 'TrendForge Display'
 export const UI_FAMILY = 'TrendForge UI'
 export const SCRIPT_FAMILY = 'TrendForge Script'
 
-export type Families = { display: string; ui: string }
+export type Families = {
+  display: string
+  ui: string
+  /**
+   * False until the faces are in `document.fonts`.
+   *
+   * Text is measured to decide its size, and measuring against a fallback
+   * face gives the wrong answer — the layout would be built for a font that
+   * is not the one it renders in. Callers hold off drawing until this flips.
+   * Capture is already held by delayRender, so no frame is ever taken while
+   * it is false.
+   */
+  ready: boolean
+  /**
+   * True when the script is set in a Noto Indic face.
+   *
+   * Indic glyphs are taller than Latin ones — Tamil and Devanagari carry
+   * marks above and below the base character — so a leading that looks tight
+   * and confident in Bricolage has the lines colliding in Tamil.
+   */
+  indic: boolean
+}
 
 function filesFor(script: string): { family: string; file: string }[] {
   const indic = SCRIPT_FILES[script]
@@ -57,12 +93,15 @@ function filesFor(script: string): { family: string; file: string }[] {
 export function useFonts(script: string): Families {
   const indic = Boolean(SCRIPT_FILES[script])
   const [handle] = useState(() => delayRender(`fonts:${script}`))
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     void Promise.all(
       filesFor(script).map(async ({ family, file }) => {
-        const face = new FontFace(family, `url(${staticFile(`fonts/${file}`)})`)
+        const face = new FontFace(family, `url(${staticFile(`fonts/${file}`)})`, {
+          weight: WEIGHTS[file] ?? INDIC_WEIGHTS,
+        })
         await face.load()
         document.fonts.add(face)
       }),
@@ -74,7 +113,11 @@ export function useFonts(script: string): Families {
         console.error(`[remotion] font load failed for ${script}:`, error)
       })
       .finally(() => {
-        if (!cancelled) continueRender(handle)
+        if (cancelled) return
+        // Ready before continueRender: the measured layout has to exist in
+        // the tree before the frame is allowed to be captured.
+        setReady(true)
+        continueRender(handle)
       })
 
     return () => {
@@ -84,6 +127,6 @@ export function useFonts(script: string): Families {
   }, [handle, script])
 
   return indic
-    ? { display: SCRIPT_FAMILY, ui: SCRIPT_FAMILY }
-    : { display: DISPLAY_FAMILY, ui: UI_FAMILY }
+    ? { display: SCRIPT_FAMILY, ui: SCRIPT_FAMILY, ready, indic }
+    : { display: DISPLAY_FAMILY, ui: UI_FAMILY, ready, indic }
 }

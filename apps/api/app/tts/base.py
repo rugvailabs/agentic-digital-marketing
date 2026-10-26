@@ -47,9 +47,14 @@ class Speech:
     format: str
     duration_seconds: float
     voice: str
-    #: Per-word timings where the provider reports them, so beats can be cut
-    #: to the narration instead of to a guess.
-    word_boundaries: list[tuple[float, str]] = field(default_factory=list)
+    #: (offset in seconds, text) for each boundary the provider reports.
+    #:
+    #: The granularity is the provider's choice, not ours: edge-tts 7 reports
+    #: one SentenceBoundary per sentence where older versions reported a
+    #: WordBoundary per word. Nothing in the pipeline depends on these — the
+    #: card lengths come from the measured audio — but they are what captions
+    #: would be built from, so they are kept rather than discarded.
+    boundaries: list[tuple[float, str]] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
 

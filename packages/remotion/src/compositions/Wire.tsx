@@ -1,56 +1,93 @@
 /**
- * The wire desk as motion.
+ * The wire desk in motion.
  *
- * Paper ground, ink type, one chilli rule, and a thin chilli ticker along the
- * top that fills as the reel runs — the newsroom equivalent of a progress bar,
- * and the only thing on screen that is there purely to orient the viewer.
+ * Paper ground with a little tooth, ink type, one chilli accent, the same two
+ * faces and the same left-aligned column as the board. If a frame were
+ * printed it would be a post.
  *
- * Structure: an opening card with the region and the headline, one card per
- * beat, then a closing card with the sparkline, the hashtags and the brand.
- * The same component serves 9:16 and 1:1; every size is a fraction of the
- * width, so the square is the reel with less vertical room rather than a
- * second layout to keep in step.
+ * Three layers, in order of permanence:
+ *
+ *   Paper     the ground, with its grain tiled into the background. Under
+ *             everything, not over it — see texture.ts for what a blended
+ *             layer on top cost.
+ *   Chrome    the edition line, the masthead and the footer. On every frame,
+ *             so the reel always says where it came from and how far through
+ *             it is.
+ *   Cards     the title, one per beat, and the close. Each enters and leaves.
+ *
+ * Type is measured, never sized by a fixed fraction: a three-word beat is set
+ * enormous and a long one steps down and wraps. That is where the scale
+ * contrast comes from, and it is why a different topic does not need a
+ * different layout.
  */
 
+import { useMemo } from 'react'
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 
-import { Settle, Wipe } from '../components/Settle'
+import { Reveal, Wipe, outCubic } from '../components/Reveal'
 import { Sparkline } from '../components/Sparkline'
-import { useFonts } from '../fonts'
-import { OUTRO_FRAMES, TITLE_FRAMES, type ReelProps, withDefaults } from '../props'
-import { band, colours, motion, px, scale } from '../theme'
+import { Ticker } from '../components/Ticker'
+import { type Families, useFonts } from '../fonts'
+import { type BeatProps, type ReelProps, withDefaults } from '../props'
+import { grainUrl } from '../texture'
+import { type Format, colours, formatFor, leading, motion, px } from '../theme'
+import { fitLines } from '../typography'
+
+type Band = { top: number; height: number }
 
 export const Wire: React.FC<ReelProps> = (raw) => {
   // Guarded rather than trusted: these arrive from another process, and a
   // missing beats array is a stack trace in a headless Chromium log rather
   // than anything a user could act on.
   const props = withDefaults(raw)
-  const { width, height, durationInFrames } = useVideoConfig()
+  const { width, height } = useVideoConfig()
   const fonts = useFonts(props.script)
+  const format = formatFor(width, height)
 
-  const margin = px(width, scale.margin)
+  const segments = [props.titleFrames, ...props.beats.map((b) => b.frames), props.outroFrames]
+  const outroStart = segments.slice(0, -1).reduce((total, f) => total + f, 0)
+
+  const margin = px(width, format.margin)
+  const measure = px(width, format.measure)
   const travel = px(width, motion.travel)
-  // A square has roughly half the vertical room, so type that is comfortable
-  // on a reel has to come down. One factor rather than a second set of sizes.
-  const tall = height / width > 1.3
-  const squeeze = tall ? 1 : 0.76
-  const inset = tall ? band.reel : band.square
+  const band: Band = {
+    top: Math.round(height * format.band.top),
+    height: Math.round(height * (1 - format.band.top - format.band.bottom)),
+  }
 
-  let cursor = TITLE_FRAMES
+  let cursor = props.titleFrames
+
+  // Nothing is drawn until the faces are in: the layout is decided by
+  // measuring text, and measuring against a fallback builds a layout for a
+  // font that is not the one it renders in. Capture is held by delayRender
+  // until this flips, so no frame is ever taken of the bare ground.
+  if (!fonts.ready) {
+    return <AbsoluteFill style={{ backgroundColor: colours.paper }} />
+  }
 
   return (
-    <AbsoluteFill style={{ backgroundColor: colours.paper, fontKerning: 'normal' }}>
-      <Ticker width={width} height={px(width, 0.007)} duration={durationInFrames} />
+    <AbsoluteFill
+      style={{
+        backgroundColor: colours.paper,
+        backgroundImage: grainUrl,
+        backgroundRepeat: 'repeat',
+        fontKerning: 'normal',
+      }}
+    >
+      <Chrome props={props} format={format} fonts={fonts} segments={segments} />
 
-      <Sequence durationInFrames={TITLE_FRAMES} name="Title">
-        <Title
-          props={props}
-          margin={margin}
-          inset={inset}
-          travel={travel}
-          squeeze={squeeze}
-          fonts={fonts}
-        />
+      <Sequence durationInFrames={props.titleFrames} name="Title" layout="none">
+        <Card band={band} margin={margin}>
+          <Title
+            props={props}
+            format={format}
+            fonts={fonts}
+            measure={measure}
+            band={band}
+            travel={travel}
+            cardFrames={props.titleFrames}
+          />
+        </Card>
       </Sequence>
 
       {props.beats.map((beat, index) => {
@@ -64,258 +101,157 @@ export const Wire: React.FC<ReelProps> = (raw) => {
             from={from}
             durationInFrames={beat.frames}
             name={`Beat ${index + 1}`}
+            layout="none"
           >
-            <BeatCard
-              beat={beat}
-              index={index}
-              total={props.beats.length}
-              margin={margin}
-              inset={inset}
-              travel={travel}
-              squeeze={squeeze}
-              fonts={fonts}
-              accent={props.secondaryColor}
-            />
+            <Card band={band} margin={margin}>
+              <BeatCard
+                beat={beat}
+                format={format}
+                fonts={fonts}
+                measure={measure}
+                band={band}
+                travel={travel}
+                accent={props.secondaryColor}
+                cardFrames={beat.frames}
+              />
+            </Card>
           </Sequence>
         )
       })}
 
-      <Sequence from={cursor} durationInFrames={OUTRO_FRAMES} name="Outro">
-        <Outro
-          props={props}
-          margin={margin}
-          inset={inset}
-          travel={travel}
-          squeeze={squeeze}
-          fonts={fonts}
-        />
+      <Sequence from={outroStart} durationInFrames={props.outroFrames} name="Outro" layout="none">
+        <Card band={band} margin={margin}>
+          <Outro
+            props={props}
+            format={format}
+            fonts={fonts}
+            measure={measure}
+            band={band}
+            travel={travel}
+            cardFrames={props.outroFrames}
+          />
+        </Card>
       </Sequence>
-
-      <Footer props={props} margin={margin} fonts={fonts} />
     </AbsoluteFill>
   )
 }
 
-/** Fills across the top over the whole reel. Chilli, like rising velocity. */
-function Ticker({ width, height, duration }: { width: number; height: number; duration: number }) {
+/**
+ * The furniture: edition line, masthead, footer.
+ *
+ * It settles once, at the top of the reel, and then holds. Re-animating it
+ * per card would make the frame twitch on every edit — the same reason the
+ * ladder animates once on load and not on every selection.
+ */
+function Chrome({
+  props,
+  format,
+  fonts,
+  segments,
+}: {
+  props: ReelProps
+  format: Format
+  fonts: Families
+  segments: number[]
+}) {
+  const { width, height } = useVideoConfig()
   const frame = useCurrentFrame()
-  const grown = interpolate(frame, [0, duration], [0, width], {
+  const margin = px(width, format.margin)
+  const travel = px(width, motion.travel)
+
+  const outroStart = segments.slice(0, -1).reduce((total, f) => total + f, 0)
+  // The closing card makes the chart the subject. Two of them on screen at
+  // once is the same thing said twice, so the small one steps aside for it.
+  const markOpacity = interpolate(frame, [outroStart - 8, outroStart], [1, 0], {
     extrapolateLeft: 'clamp',
     extrapolateRight: 'clamp',
   })
 
+  const label = props.regionName ? `Trending in ${props.regionName}` : 'Trending now'
+
   return (
-    <div style={{ position: 'absolute', top: 0, left: 0, width, height }}>
-      <div style={{ width: grown, height, backgroundColor: colours.chilli }} />
-    </div>
+    <>
+      <div
+        style={{
+          position: 'absolute',
+          top: Math.round(height * format.ticker),
+          left: margin,
+          right: margin,
+        }}
+      >
+        <Reveal travel={travel}>
+          <Ticker
+            segments={segments}
+            height={Math.max(3, px(width, 0.006))}
+            gap={px(width, 0.008)}
+          />
+        </Reveal>
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: Math.round(height * format.masthead),
+          left: margin,
+          right: margin,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: px(width, 0.04),
+        }}
+      >
+        <Reveal delay={3} travel={travel}>
+          <span
+            style={{
+              fontFamily: fonts.ui,
+              fontSize: px(width, format.label),
+              fontWeight: 600,
+              color: colours.slate,
+              letterSpacing: '0.005em',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {label}
+          </span>
+        </Reveal>
+
+        {props.velocity.length > 1 ? (
+          <div style={{ opacity: markOpacity, lineHeight: 0 }}>
+            <Reveal delay={6} travel={travel}>
+              <Sparkline
+                series={props.velocity}
+                width={px(width, 0.17)}
+                height={px(width, 0.05)}
+                stroke={Math.max(2, px(width, 0.005))}
+                progress={interpolate(frame, [6, 26], [0, 1], {
+                  extrapolateLeft: 'clamp',
+                  extrapolateRight: 'clamp',
+                })}
+              />
+            </Reveal>
+          </div>
+        ) : null}
+      </div>
+
+      <Footer props={props} format={format} fonts={fonts} />
+    </>
   )
 }
 
-type Inset = { top: number; bottom: number }
-
-type CardProps = {
-  margin: number
-  inset: Inset
-  travel: number
-  squeeze: number
-  fonts: { display: string; ui: string }
-}
-
-function Title({ props, margin, inset, travel, squeeze, fonts }: CardProps & { props: ReelProps }) {
-  const { width } = useVideoConfig()
-  const eyebrow = props.regionName ? `Trending in ${props.regionName}` : 'Trending now'
-
-  return (
-    <Card margin={margin} inset={inset}>
-      <Settle travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: px(width, scale.eyebrow),
-            fontWeight: 600,
-            color: colours.slate,
-            letterSpacing: '0.01em',
-          }}
-        >
-          {eyebrow}
-        </div>
-      </Settle>
-
-      <div style={{ height: px(width, 0.03) }} />
-      <Wipe
-        delay={4}
-        width={px(width, 0.2)}
-        height={px(width, scale.rule)}
-        colour={colours.chilli}
-      />
-      <div style={{ height: px(width, 0.045) }} />
-
-      <Settle delay={6} travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.display,
-            fontSize: px(width, scale.headline * squeeze),
-            fontWeight: 800,
-            lineHeight: 1.05,
-            color: colours.ink,
-            // Long Tamil and Telugu words cannot be broken at a space, and a
-            // word running off the canvas is worse than a hyphen.
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {props.headline}
-        </div>
-      </Settle>
-    </Card>
-  )
-}
-
-function BeatCard({
-  beat,
-  index,
-  total,
-  margin,
-  inset,
-  travel,
-  squeeze,
-  fonts,
-  accent,
-}: CardProps & {
-  beat: { text: string; detail: string }
-  index: number
-  total: number
-  accent: string
-}) {
-  const { width } = useVideoConfig()
-
-  return (
-    <Card margin={margin} inset={inset}>
-      <Settle travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: px(width, scale.eyebrow * 0.9),
-            fontWeight: 600,
-            // Slate, not chilli: this is a position, not a velocity. The
-            // numerals are the display face, like the ladder's rank folio.
-            color: colours.slate,
-            fontVariantNumeric: 'tabular-nums',
-          }}
-        >
-          {index + 1} / {total}
-        </div>
-      </Settle>
-
-      <div style={{ height: px(width, 0.035) }} />
-
-      <Settle delay={3} travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.display,
-            fontSize: px(width, scale.beat * squeeze),
-            fontWeight: 800,
-            lineHeight: 1.04,
-            color: colours.ink,
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {beat.text}
-        </div>
-      </Settle>
-
-      {beat.detail ? (
-        <>
-          <div style={{ height: px(width, 0.022) }} />
-          <Wipe delay={8} width={px(width, 0.14)} height={px(width, scale.rule)} colour={accent} />
-          <div style={{ height: px(width, 0.026) }} />
-          <Settle delay={10} travel={travel}>
-            <div
-              style={{
-                fontFamily: fonts.ui,
-                fontSize: px(width, scale.detail * squeeze),
-                fontWeight: 400,
-                lineHeight: 1.3,
-                color: colours.slate,
-                overflowWrap: 'anywhere',
-              }}
-            >
-              {beat.detail}
-            </div>
-          </Settle>
-        </>
-      ) : null}
-    </Card>
-  )
-}
-
-function Outro({ props, margin, inset, travel, squeeze, fonts }: CardProps & { props: ReelProps }) {
-  const { width } = useVideoConfig()
-  const frame = useCurrentFrame()
-  const chartWidth = width - margin * 2
-  const chartHeight = px(width, 0.26 * squeeze)
-
-  return (
-    <Card margin={margin} inset={inset}>
-      <Settle travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.ui,
-            fontSize: px(width, scale.eyebrow),
-            fontWeight: 600,
-            color: colours.slate,
-          }}
-        >
-          {props.regionName ? `Trending in ${props.regionName}` : 'Trending now'}
-        </div>
-      </Settle>
-
-      <div style={{ height: px(width, 0.03) }} />
-
-      {props.velocity.length > 1 ? (
-        <Sparkline
-          series={props.velocity}
-          width={chartWidth}
-          height={chartHeight}
-          stroke={px(width, 0.012)}
-          progress={interpolate(frame, [4, OUTRO_FRAMES * 0.7], [0, 1], {
-            extrapolateLeft: 'clamp',
-            extrapolateRight: 'clamp',
-          })}
-        />
-      ) : null}
-
-      <div style={{ height: px(width, 0.04) }} />
-
-      <Settle delay={8} travel={travel}>
-        <div
-          style={{
-            fontFamily: fonts.display,
-            fontSize: px(width, scale.headline * 0.62 * squeeze),
-            fontWeight: 700,
-            lineHeight: 1.08,
-            color: colours.ink,
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {props.headline}
-        </div>
-      </Settle>
-    </Card>
-  )
-}
-
-/** Hashtags left, brand right, on every frame — the post templates' footer. */
-function Footer({
-  props,
-  margin,
-  fonts,
-}: {
-  props: ReelProps
-  margin: number
-  fonts: { display: string; ui: string }
-}) {
+/** Hashtags left, brand right — the post templates' footer, on every frame. */
+function Footer({ props, format, fonts }: { props: ReelProps; format: Format; fonts: Families }) {
   const { width, height } = useVideoConfig()
-  const size = px(width, scale.footer)
+  const frame = useCurrentFrame()
+  const margin = px(width, format.margin)
+
+  // A hairline above it, wiped in once. It is what separates the footer from
+  // the card, rather than a gap doing the work — the board groups by rules
+  // and spacing for the same reason.
+  const ruleWidth = interpolate(frame, [4, 4 + motion.wipe * 1.6], [0, width - margin * 2], {
+    extrapolateLeft: 'clamp',
+    extrapolateRight: 'clamp',
+    easing: outCubic,
+  })
 
   return (
     <div
@@ -323,56 +259,72 @@ function Footer({
         position: 'absolute',
         left: margin,
         right: margin,
-        // Clear of the safe area every platform crops into, and of the
-        // caption and profile furniture a reel player draws over the bottom.
-        bottom: px(height, 0.07),
+        bottom: Math.round(height * format.footerBottom),
         display: 'flex',
-        alignItems: 'baseline',
-        justifyContent: 'space-between',
-        gap: px(width, 0.04),
-        fontFamily: fonts.ui,
-        fontSize: size,
-        fontWeight: 600,
-        color: colours.slate,
+        flexDirection: 'column',
+        gap: px(width, 0.022),
       }}
     >
-      <span
+      <div
         style={{
-          overflow: 'hidden',
-          whiteSpace: 'nowrap',
-          textOverflow: 'ellipsis',
+          width: ruleWidth,
+          height: Math.max(1, px(width, 0.0015)),
+          backgroundColor: colours.rule,
         }}
-      >
-        {props.hashtags.slice(0, 3).join(' ')}
-      </span>
-      <span style={{ color: colours.ink, whiteSpace: 'nowrap', fontWeight: 700 }}>
-        {props.brandName}
-      </span>
+      />
+      <Reveal delay={5} travel={px(width, motion.travel)}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: px(width, 0.04),
+            fontFamily: fonts.ui,
+            fontSize: px(width, format.footer),
+            fontWeight: 600,
+            color: colours.slate,
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          <span style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+            {props.hashtags.slice(0, 3).join(' ')}
+          </span>
+          <span style={{ color: colours.ink, whiteSpace: 'nowrap', fontWeight: 700 }}>
+            {props.brandName}
+          </span>
+        </div>
+      </Reveal>
     </div>
   )
 }
 
 /**
- * The text column every card shares: left-aligned, centred inside the band
- * rather than inside the whole frame. See `band` in theme.ts for why.
+ * The text column every card shares.
+ *
+ * Centred inside the band, not inside the frame. The band is what keeps the
+ * block clear of the caption and account row a reel player draws over the
+ * bottom; centring within it is what stops a short card pooling all its white
+ * space at the top. Anchoring to the band's baseline instead held the
+ * baseline steady, which sounds better than it looks: "Gold is up" at 200px
+ * sat in the bottom third with half the frame empty above it.
  */
 function Card({
   children,
+  band,
   margin,
-  inset,
 }: {
   children: React.ReactNode
+  band: Band
   margin: number
-  inset: Inset
 }) {
-  const { height } = useVideoConfig()
   return (
-    <AbsoluteFill
+    <div
       style={{
-        paddingLeft: margin,
-        paddingRight: margin,
-        paddingTop: Math.round(height * inset.top),
-        paddingBottom: Math.round(height * inset.bottom),
+        position: 'absolute',
+        top: band.top,
+        height: band.height,
+        left: margin,
+        right: margin,
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -380,6 +332,288 @@ function Card({
       }}
     >
       {children}
-    </AbsoluteFill>
+    </div>
+  )
+}
+
+/* ── cards ───────────────────────────────────────────────────────────── */
+
+type CardShared = {
+  format: Format
+  fonts: Families
+  measure: number
+  band: Band
+  travel: number
+}
+
+/** A measured block, one Reveal per line so the type arrives as a sweep. */
+function Lines({
+  fitted,
+  fontFamily,
+  fontWeight,
+  colour,
+  travel,
+  cardFrames,
+  delay = 0,
+}: {
+  fitted: { lines: string[]; fontSize: number; lineHeight: number }
+  fontFamily: string
+  fontWeight: number
+  colour: string
+  travel: number
+  cardFrames?: number
+  delay?: number
+}) {
+  return (
+    <div>
+      {fitted.lines.map((line, index) => (
+        <Reveal
+          key={index}
+          delay={delay + index * motion.stagger}
+          travel={travel}
+          cardFrames={cardFrames}
+        >
+          <div
+            style={{
+              fontFamily,
+              fontWeight,
+              fontSize: fitted.fontSize,
+              lineHeight: `${fitted.lineHeight}px`,
+              color: colour,
+              letterSpacing: '-0.015em',
+              // Long Tamil and Telugu words cannot be broken at a space, and
+              // a word running off the canvas is worse than a hyphen.
+              overflowWrap: 'anywhere',
+            }}
+          >
+            {line}
+          </div>
+        </Reveal>
+      ))}
+    </div>
+  )
+}
+
+function Title({
+  props,
+  format,
+  fonts,
+  measure,
+  band,
+  travel,
+  cardFrames,
+}: CardShared & { props: ReelProps; cardFrames: number }) {
+  const { width } = useVideoConfig()
+  const ruleHeight = Math.max(3, px(width, 0.005))
+  const gap = px(width, 0.035)
+
+  const fitted = useMemo(
+    () =>
+      fitLines({
+        text: props.headline,
+        maxWidth: measure,
+        // The rule and the gap come out of the band before the type is sized, so
+        // a long headline shrinks rather than pushing the rule off the top.
+        maxHeight: band.height - ruleHeight - gap,
+        maxFontSize: px(width, format.headline.max),
+        minFontSize: px(width, format.headline.min),
+        fontFamily: fonts.display,
+        fontWeight: 800,
+        leading: fonts.indic ? leading.indic : leading.latin,
+        maxLines: format.maxLines,
+      }),
+    [props.headline, measure, band.height, ruleHeight, gap, width, format, fonts],
+  )
+
+  return (
+    <>
+      {/* The rule sits above the headline here and below the line on a beat
+          card. That is how the opening reads as the opening without a label
+          saying so. */}
+      <Wipe
+        width={px(width, 0.22)}
+        height={ruleHeight}
+        colour={colours.chilli}
+        cardFrames={cardFrames}
+      />
+      <div style={{ height: gap }} />
+      <Lines
+        fitted={fitted}
+        fontFamily={fonts.display}
+        fontWeight={800}
+        colour={colours.ink}
+        travel={travel}
+        cardFrames={cardFrames}
+        delay={3}
+      />
+    </>
+  )
+}
+
+function BeatCard({
+  beat,
+  format,
+  fonts,
+  measure,
+  band,
+  travel,
+  accent,
+  cardFrames,
+}: CardShared & { beat: BeatProps; accent: string; cardFrames: number }) {
+  const { width } = useVideoConfig()
+  const detailSize = px(width, format.detail)
+  const ruleHeight = Math.max(3, px(width, 0.005))
+  const gap = px(width, 0.026)
+
+  // The detail's rows are reserved before the beat is sized. Sized against
+  // the whole band, a beat that takes one line more than expected pushes the
+  // detail through the footer — which is exactly what happened to the Split
+  // post template when the Latin face changed.
+  const detailHeight = beat.detail ? Math.round(detailSize * 1.3) + ruleHeight + gap * 2 : 0
+
+  const fitted = useMemo(
+    () =>
+      fitLines({
+        text: beat.text,
+        maxWidth: measure,
+        maxHeight: band.height - detailHeight,
+        maxFontSize: px(width, format.beat.max),
+        minFontSize: px(width, format.beat.min),
+        fontFamily: fonts.display,
+        fontWeight: 800,
+        leading: fonts.indic ? leading.indic : leading.latin,
+        maxLines: format.maxLines,
+      }),
+    [beat.text, measure, band.height, detailHeight, width, format, fonts],
+  )
+
+  const after = motion.stagger * fitted.lines.length
+
+  return (
+    <>
+      <Lines
+        fitted={fitted}
+        fontFamily={fonts.display}
+        fontWeight={800}
+        colour={colours.ink}
+        travel={travel}
+        cardFrames={cardFrames}
+      />
+      {beat.detail ? (
+        <>
+          <div style={{ height: gap }} />
+          <Wipe
+            delay={after}
+            width={px(width, 0.16)}
+            height={ruleHeight}
+            colour={accent}
+            cardFrames={cardFrames}
+          />
+          <div style={{ height: gap }} />
+          <Reveal delay={after + 3} travel={travel} cardFrames={cardFrames}>
+            <div
+              style={{
+                fontFamily: fonts.ui,
+                fontSize: detailSize,
+                fontWeight: 400,
+                lineHeight: 1.3,
+                color: colours.slate,
+                maxWidth: measure,
+                overflowWrap: 'anywhere',
+              }}
+            >
+              {beat.detail}
+            </div>
+          </Reveal>
+        </>
+      ) : null}
+    </>
+  )
+}
+
+/**
+ * The close: the chart large, then the headline under it.
+ *
+ * The chart is the subject here rather than a mark, so it takes the full
+ * column and its end dot lands with a spring once the line has drawn. The
+ * headline is set smaller than on the title card — it is a reminder, not the
+ * opening statement, and giving it the same size would make the close read as
+ * a repeat of the open.
+ */
+function Outro({
+  props,
+  format,
+  fonts,
+  measure,
+  band,
+  travel,
+  cardFrames,
+}: CardShared & { props: ReelProps; cardFrames: number }) {
+  const { width } = useVideoConfig()
+  const frame = useCurrentFrame()
+  const hasChart = props.velocity.length > 1
+  const chartHeight = hasChart ? px(width, format.chart) : 0
+  const gap = px(width, 0.04)
+  // Half way through the close, not at the end: the line has to finish
+  // drawing and the dot has to land with time left to be seen.
+  const dotAt = Math.round(cardFrames * 0.5)
+
+  const fitted = useMemo(
+    () =>
+      fitLines({
+        text: props.headline,
+        maxWidth: measure,
+        maxHeight: band.height - chartHeight - gap,
+        maxFontSize: px(width, format.headline.max * 0.66),
+        minFontSize: px(width, format.headline.min),
+        fontFamily: fonts.display,
+        fontWeight: 700,
+        leading: fonts.indic ? leading.indic : leading.latin,
+        maxLines: format.maxLines,
+      }),
+    [props.headline, measure, band.height, chartHeight, gap, width, format, fonts],
+  )
+
+  return (
+    <>
+      {hasChart ? (
+        <>
+          <div style={{ lineHeight: 0 }}>
+            <Sparkline
+              series={props.velocity}
+              width={measure}
+              height={chartHeight}
+              stroke={px(width, 0.013)}
+              progress={interpolate(frame, [3, dotAt], [0, 1], {
+                extrapolateLeft: 'clamp',
+                extrapolateRight: 'clamp',
+                easing: outCubic,
+              })}
+              dotAt={dotAt}
+            />
+          </div>
+          {/* A baseline for the chart to sit on. Without it the line floats
+              in the middle of the frame with nothing to read it against —
+              the ladder gives its sparklines a row to sit in, and this is
+              the equivalent. Drawn with the line, not before it. */}
+          <Wipe
+            delay={3}
+            width={measure}
+            height={Math.max(1, px(width, 0.0015))}
+            colour={colours.rule}
+            frames={dotAt}
+          />
+          <div style={{ height: gap }} />
+        </>
+      ) : null}
+      <Lines
+        fitted={fitted}
+        fontFamily={fonts.display}
+        fontWeight={700}
+        colour={colours.ink}
+        travel={travel}
+        delay={6}
+      />
+    </>
   )
 }

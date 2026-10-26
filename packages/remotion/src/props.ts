@@ -34,6 +34,10 @@ export type ReelProps = {
   width: number
   height: number
   fps: number
+  /** How long the opening card holds. Measured from its narration. */
+  titleFrames: number
+  /** How long the closing card holds. Measured from its narration. */
+  outroFrames: number
   durationInFrames: number
 }
 
@@ -61,7 +65,9 @@ export const defaultProps: ReelProps = {
   width: 1080,
   height: 1920,
   fps: 30,
-  durationInFrames: 255,
+  titleFrames: 60,
+  outroFrames: 45,
+  durationInFrames: 360,
 }
 
 /**
@@ -87,6 +93,8 @@ export const REQUIRED_PROP_KEYS: readonly (keyof ReelProps)[] = [
   'width',
   'height',
   'fps',
+  'titleFrames',
+  'outroFrames',
   'durationInFrames',
 ]
 
@@ -96,10 +104,14 @@ export function missingPropKeys(props: Record<string, unknown> | undefined): str
   return REQUIRED_PROP_KEYS.filter((key) => !(key in given))
 }
 
-/** Frames the opening card holds before the first beat. */
-export const TITLE_FRAMES = 60
-/** Frames the closing card holds after the last beat. */
-export const OUTRO_FRAMES = 45
+/**
+ * What the opening and closing cards hold for when nothing says otherwise.
+ *
+ * Once a reel is narrated these come from the props instead: the voice over
+ * each card decides how long that card is, the same as a beat.
+ */
+export const DEFAULT_TITLE_FRAMES = 60
+export const DEFAULT_OUTRO_FRAMES = 45
 
 /**
  * Props arrive from another process, so every field is checked rather than
@@ -122,6 +134,8 @@ export function withDefaults(raw: Partial<ReelProps> | undefined): ReelProps {
   const fps = positive(props.fps, defaultProps.fps)
   const width = positive(props.width, defaultProps.width)
   const height = positive(props.height, defaultProps.height)
+  const titleFrames = positive(props.titleFrames, DEFAULT_TITLE_FRAMES)
+  const outroFrames = positive(props.outroFrames, DEFAULT_OUTRO_FRAMES)
   const beatFrames = beats.reduce((total, b) => total + b.frames, 0)
 
   return {
@@ -138,10 +152,13 @@ export function withDefaults(raw: Partial<ReelProps> | undefined): ReelProps {
     width,
     height,
     fps,
+    titleFrames: Math.round(titleFrames),
+    outroFrames: Math.round(outroFrames),
     // Derived rather than taken on trust: a durationInFrames shorter than the
-    // beats silently truncates the last one, and a longer one holds a frozen
-    // frame at the end. Both look like a broken render.
-    durationInFrames: TITLE_FRAMES + beatFrames + OUTRO_FRAMES,
+    // cards silently truncates the last one, and a longer one holds a frozen
+    // frame at the end. Both look like a broken render, and with a voiceover
+    // underneath, both also put the audio out of step with the picture.
+    durationInFrames: Math.round(titleFrames) + beatFrames + Math.round(outroFrames),
   }
 }
 

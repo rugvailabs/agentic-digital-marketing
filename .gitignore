@@ -80,3 +80,7 @@ tmp/
 # Local copy of the bundled faces for `remotion studio`; the real files
 # live in apps/api/app/assets/fonts and the renderer mounts them.
 packages/remotion/public/fonts/
+
+# Render previews for design review. Regenerate with the renderer; not
+# something to carry in git.
+previews/

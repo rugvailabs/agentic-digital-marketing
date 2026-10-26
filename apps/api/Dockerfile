@@ -6,12 +6,17 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/srv/api \
     TZ=Asia/Kolkata
 
+# ffmpeg is step 3: the voiceover is narrated in this image and mixed with
+# the silent mp4 the renderer returns. The renderer carries its own ffmpeg
+# inside Remotion's compositor, but reaching into another service's
+# node_modules for a binary is not a dependency, it is a liability.
+#
 # libraqm is what gives Pillow complex-text shaping. Without it Devanagari,
 # Tamil and Bengali render with detached vowel signs and no conjuncts, which
 # CLAUDE.md's Indic requirement rules out. Pillow loads it at runtime, so
 # installing the library is enough — Pillow itself needs no rebuild.
 RUN apt-get update \
- && apt-get install -y --no-install-recommends tzdata curl libraqm0 \
+ && apt-get install -y --no-install-recommends tzdata curl libraqm0 ffmpeg \
  && rm -rf /var/lib/apt/lists/*
 
 # uv per CLAUDE.md — copied from the official distroless image, no pip bootstrap.

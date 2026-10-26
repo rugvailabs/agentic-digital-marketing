@@ -45,13 +45,35 @@ class TestBeat:
 
 
 class TestVideoBrief:
-    def test_duration_is_the_sum_of_its_beats(self) -> None:
-        assert brief().duration_in_frames == 90 + 75
-        assert brief().duration_seconds == pytest.approx(5.5)
+    def test_duration_counts_every_card_not_just_the_beats(self) -> None:
+        """The opening and closing cards are cards.
 
-    def test_a_brief_with_no_beats_still_lasts_a_second(self) -> None:
+        This used to count the beats alone while the composition counted all
+        three, so the two halves of the contract disagreed and the renderer
+        quietly used its own number. With a voiceover underneath, that gap is
+        the audio running past the picture.
+        """
+        assert brief().duration_in_frames == 60 + 90 + 75 + 45
+        assert brief().duration_seconds == pytest.approx(9.0)
+
+    def test_narrated_cards_set_their_own_length(self) -> None:
+        """A measured voiceover overrides the defaults, one card at a time."""
+        measured = brief(title_seconds=3.0, outro_seconds=2.0)
+
+        assert measured.title_frames == 90
+        assert measured.outro_frames == 60
+        assert measured.duration_in_frames == 90 + 90 + 75 + 60
+
+    def test_an_unmeasured_card_falls_back_rather_than_vanishing(self) -> None:
+        assert brief(title_seconds=None).title_frames == 60
+        assert brief(outro_seconds=0).outro_frames == 45
+
+    def test_a_brief_with_no_beats_is_still_its_opening_and_close(self) -> None:
         """Zero frames is a render error rather than an empty video."""
-        assert brief(beats=[]).duration_in_frames == FPS
+        empty = brief(beats=[])
+
+        assert empty.duration_in_frames == empty.title_frames + empty.outro_frames
+        assert empty.duration_in_frames >= FPS
 
     def test_reel_is_nine_by_sixteen_and_square_is_one_by_one(self) -> None:
         assert brief(size="reel").dimensions == (1080, 1920)
@@ -80,6 +102,8 @@ class TestVideoBrief:
             "width",
             "height",
             "fps",
+            "titleFrames",
+            "outroFrames",
             "durationInFrames",
         }
 
@@ -88,7 +112,17 @@ class TestVideoBrief:
 
         assert (props["width"], props["height"]) == (1080, 1920)
         assert props["fps"] == FPS
-        assert props["durationInFrames"] == 165
+        assert props["durationInFrames"] == 270
+
+    def test_the_cards_in_the_props_add_up_to_the_duration(self) -> None:
+        """The renderer derives the same total from the same parts; if these
+        disagree the last card is truncated or a frozen frame is held."""
+        props = brief().as_props()
+
+        assert (
+            props["titleFrames"] + sum(b["frames"] for b in props["beats"]) + props["outroFrames"]
+            == props["durationInFrames"]
+        )
 
     def test_props_are_json_serialisable(self) -> None:
         """They are handed to another process as --props; anything exotic in

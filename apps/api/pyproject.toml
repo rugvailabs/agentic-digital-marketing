@@ -22,6 +22,9 @@ dependencies = [
   "pgvector>=0.3.6",
   "pillow>=11.0.0",
   "boto3>=1.35.0",
+  # step 3: Microsoft Neural voices for the reel voiceover. No key, and no
+  # official API either — hence TTS_ENABLED.
+  "edge-tts>=7.0.0",
 ]
 
 [project.optional-dependencies]

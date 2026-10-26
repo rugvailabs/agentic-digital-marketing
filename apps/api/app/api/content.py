@@ -24,6 +24,7 @@ from app.models import (
     SafetyFlag,
     Trend,
 )
+from app.video.base import SIZES as VIDEO_SIZES
 
 router = APIRouter(tags=["content"])
 log = get_logger("api.content")
@@ -71,9 +72,12 @@ class JobOut(BaseModel):
 class JobCreate(BaseModel):
     trend_id: int
     brand_id: int
+    #: "post" for captions and images, "reel" for a narrated video.
+    kind: JobKind = JobKind.post
     language: Language = Language.english
-    #: Any of SIZES; empty means square only.
-    formats: list[str] = Field(default_factory=lambda: ["square", "portrait"])
+    #: Image sizes for a post, video sizes for a reel. Empty falls back to the
+    #: one size that kind always supports.
+    formats: list[str] = Field(default_factory=list)
 
 
 class AssetPatch(BaseModel):
@@ -109,10 +113,16 @@ async def create_job(
     if brand is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="unknown brand")
 
-    formats = [f for f in payload.formats if f in SIZES] or ["square"]
+    reel = payload.kind is JobKind.reel
+    allowed = VIDEO_SIZES if reel else SIZES
+    formats = [f for f in payload.formats if f in allowed] or (
+        ["reel"] if reel else ["square", "portrait"]
+    )
+
     job = ContentJob(
         trend_id=trend.id,
         brand_id=brand.id,
+        kind=payload.kind,
         language=payload.language,
         formats=formats,
         status=JobStatus.queued,
@@ -122,10 +132,17 @@ async def create_job(
     await session.refresh(job)
 
     try:
-        from app.tasks.ingest import generate_content
+        from app.tasks.ingest import generate_content, render_video
 
-        generate_content.delay(job.id)
-        log.info("job queued", job_id=job.id, language=job.language.value, formats=formats)
+        task = render_video if reel else generate_content
+        task.delay(job.id)
+        log.info(
+            "job queued",
+            job_id=job.id,
+            kind=job.kind.value,
+            language=job.language.value,
+            formats=formats,
+        )
     except Exception as exc:
         # No broker: say so on the row rather than leaving it queued forever.
         job.status = JobStatus.failed

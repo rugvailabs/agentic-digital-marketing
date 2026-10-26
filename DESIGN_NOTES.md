@@ -192,38 +192,97 @@ A reel is the wire desk in motion, not a new visual language. Paper ground,
 ink type, one chilli rule, the same two faces and the same left-aligned
 column. If a frame were printed it would be a post.
 
-**Structure.** An opening card with the region eyebrow and the headline, one
-card per beat, then a closing card with the topic's own sparkline and the
-headline restated. Hashtags left and the brand right sit on every frame, the
-same footer the post templates carry.
+**Three layers.** Chrome on every frame — the edition line, the masthead and
+the footer — then the cards, then the grain over the top. The chrome settles
+once at the start and holds; re-animating it per card would make the frame
+twitch on every edit, the same reason the ladder animates once on load and
+not on every selection.
 
-**The ticker.** One thin chilli line across the top that fills as the reel
-runs. It is the only element on screen that exists purely to orient the
-viewer, and it earns its place the way a newspaper's edition line does: on a
-muted autoplay feed, "how much of this is left" is the first thing anyone
-wants to know. Chilli because it is motion over time, which is what chilli
-already means on the board.
+**Type is measured, not scaled.** Nothing is set at a fixed fraction of the
+canvas. Each headline and beat is set as large as it can be and still fit its
+box, by measuring the wrapped lines — the same autofit the Pillow templates
+use, for the same reason: character count is a poor proxy for width in any
+script and a useless one in Tamil, where one word carries what English needs
+three for and cannot be broken at a space. A three-word beat comes out
+enormous and a long one steps down and wraps, which is where the scale
+contrast in these frames comes from and why a new topic does not need a new
+layout.
 
-**Motion.** One move, used everywhere: type arrives from just below and
-settles, exactly as the ladder rows do on load. Rules wipe across rather than
-appearing. Nothing zooms, spins, bounces or fades through a gradient, and no
-text animates letter by letter. A reel is read in six seconds on a phone, so
-the motion has to get out of the way of the reading.
+**The measure is 72% on a reel.** Two reasons pulling the same way: a reel
+player stacks its action column down the right-hand side, so type running to
+the right margin sits under buttons; and a narrower measure means more lines
+at a larger size, which fills a 1920px canvas that otherwise reads as three
+words floating in a lot of paper. The square has no action column over the
+artwork, so it keeps its full column.
 
-**One component, two shapes.** 9:16 and 1:1 are the same composition with a
-single squeeze factor on the type scale, because a square has roughly half
-the vertical room. Two layouts would have drifted apart by the second change.
+**Cards are centred in their band, not in the frame.** The band is what holds
+the block clear of the caption and account row drawn over the bottom fifth;
+centring within it is what stops a short card pooling all its white space at
+the top. Anchoring to the band's baseline was tried first and reads worse than
+it sounds: a two-word beat at 240px sat in the bottom third with half the
+frame empty above it.
 
-**Length is decided by the voiceover.** The narration is produced first and
-measured, and the composition is then rendered for exactly that many frames.
-The other order gives you either a clipped last sentence or a held frame at
-the end, and both read as a broken render.
+**The edition line is segmented, one per card.** A single bar filling over
+the whole reel said how far through you were and nothing else. Segmented, and
+sized in proportion to each card's length, it also says how many beats there
+are and which one is running — so the bar is a picture of the edit rather
+than a stopwatch laid over it. Chilli for played, rule for pending.
 
-**The footer sits clear of the player.** A reel surface draws the caption,
-the audio ribbon and the profile row over the bottom of the frame, so the
-footer is lifted to 7% of the height rather than matching the post templates'
-margin. The same reason the post templates keep clear of the 4% every
-platform crops into.
+**The sparkline appears twice.** Small in the masthead, where it is a mark
+saying "this is a trend", and large on the closing card, where it is the
+subject. The small one fades out as the closing card arrives: two charts on
+screen at once is the same thing said twice.
+
+**Paper has tooth.** A flat field at 1080px reads as a screenshot of a text
+editor, and it is where banding shows up first under social-platform
+compression. The grain is a 160px tile of fixed-seed noise at 4%, multiplied
+over everything including the type — baked as a tiled SVG rather than a
+full-screen filter, which would be re-evaluated on all 360 frames.
+
+**Motion.** One move: type arrives from just below and settles, line by line
+with a three-frame stagger, and leaves the same way. Rules wipe across. The
+closing sparkline draws itself in and its end dot lands with a spring —
+springs where something arrives, interpolation where something travels.
+Nothing zooms, spins, bounces or animates letter by letter. A reel is read in
+six seconds on a phone, so the motion has to get out of the way of the
+reading.
+
+**The rag is balanced.** Greedy wrapping fills each line to the edge and
+leaves the remainder on the last one, which at display sizes gives "Goa has /
+an AI / policy" — one full line and two stubs. The box is narrowed until it is
+about to need an extra line, which spreads the words evenly. `text-wrap:
+balance` would do the same thing but cannot be used here, because each line is
+its own element so it can animate separately.
+
+**Leading is a per-script number.** 1.05 in Bricolage, 1.32 in the Noto Indic
+faces. Tamil and Devanagari stack marks above and below the base character, so
+the Latin value has one line sitting on top of the next.
+
+**Rule position tells you which card you are on.** Chilli above the headline
+on the opening card, accent below the line on a beat. That is how the opening
+reads as the opening without a label saying so.
+
+**Length is decided by the voiceover.** Every card is narrated on its own, the
+audio is measured with ffprobe, and that measurement becomes the card's
+length — so the cut rhythm of a reel is the rhythm of the sentences, not a
+grid the copy has to fit. A card holds a third of a second past its last
+syllable before cutting; without that the edit lands on the final word and
+sounds like the file was truncated.
+
+The other order — render to a fixed length, then attach audio — gives you a
+choice between a clipped last sentence and a held frame at the end, and both
+read as a broken render.
+
+**The card and the voice say the same thing differently.** The card carries
+`₹2 crore` because it is read; the voice carries "two crore rupees" because it
+is heard, and a text-to-speech voice reads exactly what it is given. Both come
+from one model call, so they cannot drift. Hashtags, URLs and emoji are
+stripped from anything spoken: read aloud, `#GoaAI` is "hash Goa A I".
+
+**Music is optional and never on top.** The bed is cut to -18 dB and ducked
+under the narration by a compressor keyed on the voice, because a flat gain
+that sits politely under one sentence will fight the next quieter one. The
+pack ships empty — a reel with a clear voice and no music is fine.
 
 ## Known gaps, visible in the UI
 

@@ -91,6 +91,9 @@ importers:
       '@remotion/bundler':
         specifier: 4.0.248
         version: 4.0.248(postcss@8.5.31)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      '@remotion/layout-utils':
+        specifier: 4.0.248
+        version: 4.0.248
       '@remotion/renderer':
         specifier: 4.0.248
         version: 4.0.248(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1232,6 +1235,9 @@ packages:
     resolution: {integrity: sha512-KOJXd1vaxIX0uaBust5FTY9K9lT8hccPFfCBjz2ZGkO/EnTg/+LGra7kVyXSAJPeAu5bxRs1iMU2/LwONl/bxA==}
     cpu: [x64]
     os: [win32]
+
+  '@remotion/layout-utils@4.0.248':
+    resolution: {integrity: sha512-+eX4uC3u0yBzGcGpu7HGxHbeVMvEopgrzv28VRmqh86BsKdoWmrtzc2Rqrajpj8ziX279Z0pQ+Pd/NLlhrGo3g==}
 
   '@remotion/media-parser@4.0.248':
     resolution: {integrity: sha512-zNsMfaxIUhnJEp19AwWDlXRCpq6cOeCGrEemZ1kJW3p6Oxld2f1QMBpqg05cHkguBPSm4lc49TpadDlyn9la1g==}
@@ -4966,6 +4972,8 @@ snapshots:
 
   '@remotion/compositor-win32-x64-msvc@4.0.248':
     optional: true
+
+  '@remotion/layout-utils@4.0.248': {}
 
   '@remotion/media-parser@4.0.248': {}
 

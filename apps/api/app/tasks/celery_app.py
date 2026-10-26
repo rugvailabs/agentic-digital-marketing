@@ -17,7 +17,12 @@ celery_app = Celery(
     "trendforge",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
-    include=["app.tasks.ingest", "app.tasks.curate", "app.tasks.content"],
+    include=[
+        "app.tasks.ingest",
+        "app.tasks.curate",
+        "app.tasks.content",
+        "app.tasks.video",
+    ],
 )
 
 celery_app.conf.update(

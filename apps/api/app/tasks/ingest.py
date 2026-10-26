@@ -262,6 +262,28 @@ def generate_content(self, job_id: int) -> dict[str, Any]:
     return asyncio.run(_run())
 
 
+@shared_task(
+    name="app.tasks.video.render_video",
+    bind=True,
+    max_retries=0,
+    # A reel is a render, a voice service and a mix. The default limits are
+    # sized for an ingest cycle and would kill it part way through.
+    soft_time_limit=1500,
+    time_limit=1800,
+)
+def render_video(self, job_id: int) -> dict[str, Any]:
+    """Run one reel job. No retries: run_reel records failure on the row and
+    the Desk offers "Try again", which is clearer than a silent retry."""
+    from app.db.session import task_sessions
+    from app.tasks.video import run_reel
+
+    async def _run() -> dict[str, Any]:
+        async with task_sessions() as sessions:
+            return await run_reel(job_id, sessions)
+
+    return asyncio.run(_run())
+
+
 @shared_task(name="app.tasks.curate.curate_regions", bind=True, max_retries=1)
 def curate_regions(self, region_codes: list[str] | None = None) -> dict[str, Any]:
     """Curate after ingest. Only the configured regions run on the beat —

@@ -34,7 +34,7 @@ x-api-env: &api-env
   CLUSTER_SIMILARITY: ${CLUSTER_SIMILARITY:-0.82}
   CURATE_BATCH_SIZE: ${CURATE_BATCH_SIZE:-25}
   RENDERER_URL: ${RENDERER_URL:-http://renderer:3100}
-  RENDERER_TIMEOUT_SECONDS: ${RENDERER_TIMEOUT_SECONDS:-300}
+  RENDERER_TIMEOUT_SECONDS: ${RENDERER_TIMEOUT_SECONDS:-900}
   TTS_ENABLED: ${TTS_ENABLED:-true}
   TTS_TIMEOUT_SECONDS: ${TTS_TIMEOUT_SECONDS:-60}
   MUSIC_ENABLED: ${MUSIC_ENABLED:-true}
@@ -170,6 +170,9 @@ services:
     restart: unless-stopped
     environment:
       RENDERER_PORT: "3100"
+      # Two, not more. Measured on an 8-core/8GB host: four Chromium
+      # instances at 1080x1920 ran a reel in 195s against 132s for two,
+      # because they contend for memory rather than cores.
       REMOTION_CONCURRENCY: ${REMOTION_CONCURRENCY:-2}
       TZ: ${TZ:-Asia/Kolkata}
     ports:

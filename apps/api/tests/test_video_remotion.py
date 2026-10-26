@@ -99,7 +99,8 @@ class TestRender:
 
         props = json.loads(route.calls.last.request.content)["props"]
         assert props["headline"].startswith("Rafale")
-        assert props["durationInFrames"] == 150
+        # 60 opening + 90 + 60 beats + 45 closing.
+        assert props["durationInFrames"] == 255
         assert [b["frames"] for b in props["beats"]] == [90, 60]
 
     async def test_an_unknown_size_is_refused_before_the_call(self) -> None:
@@ -125,7 +126,7 @@ class TestRender:
 
         video = await provider().render(brief())
 
-        assert video.duration_seconds == pytest.approx(5.0)
+        assert video.duration_seconds == pytest.approx(8.5)
 
 
 class TestFailuresAreLegible:

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@remotion/bundler": "4.0.248",
+    "@remotion/layout-utils": "4.0.248",
     "@remotion/renderer": "4.0.248",
     "express": "4.21.2",
     "react": "^19.0.0",
