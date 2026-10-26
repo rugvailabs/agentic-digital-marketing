@@ -29,13 +29,7 @@ function order(regions: Region[]): Region[] {
   })
 }
 
-export function RegionStrip({
-  regions,
-  selected,
-}: {
-  regions: Region[]
-  selected: string
-}) {
+export function RegionStrip({ regions, selected }: { regions: Region[]; selected: string }) {
   const router = useRouter()
   const listRef = useRef<HTMLDivElement>(null)
   const ordered = useMemo(() => order(regions), [regions])

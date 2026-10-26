@@ -58,9 +58,7 @@ export function Board({
 
         <div className="flex items-baseline justify-between px-4 py-3">
           <SectionLabel>
-            {board.count > 0
-              ? `${board.trends.length} of ${board.count} topics`
-              : 'No topics yet'}
+            {board.count > 0 ? `${board.trends.length} of ${board.count} topics` : 'No topics yet'}
           </SectionLabel>
           {board.updated_at ? (
             <span className="num text-xs text-slate">
@@ -75,8 +73,8 @@ export function Board({
               title={`No topics for ${board.region.name} yet.`}
               hint={
                 <>
-                  Run <Code>.\tf.ps1 ingest</Code> to pull the first snapshot, or wait for the
-                  next 30-minute cycle.
+                  Run <Code>.\tf.ps1 ingest</Code> to pull the first snapshot, or wait for the next
+                  30-minute cycle.
                 </>
               }
             />

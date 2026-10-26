@@ -4,12 +4,7 @@ import { SOURCE_LABELS, type SourceName } from '@trendforge/types'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
 import { Empty, MetaCell, SectionLabel } from '@/components/primitives'
-import {
-  formatCompactVolume,
-  formatIstDateTime,
-  formatNumber,
-  velocity,
-} from '@/lib/format'
+import { formatCompactVolume, formatIstDateTime, formatNumber, velocity } from '@/lib/format'
 
 /**
  * The right-hand Desk: what the selected topic is, and where the content

@@ -206,13 +206,7 @@ describe('Ladder', () => {
       />,
     )
 
-    const strokes = [...container.querySelectorAll('polyline')].map((p) =>
-      p.getAttribute('stroke'),
-    )
-    expect(strokes).toEqual([
-      'var(--color-chilli)',
-      'var(--color-slate)',
-      'var(--color-neem)',
-    ])
+    const strokes = [...container.querySelectorAll('polyline')].map((p) => p.getAttribute('stroke'))
+    expect(strokes).toEqual(['var(--color-chilli)', 'var(--color-slate)', 'var(--color-neem)'])
   })
 })
