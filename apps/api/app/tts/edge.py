@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import asyncio
 import tempfile
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
 
 from app.core.config import settings
 from app.core.logging import get_logger
 from app.models import Language
-from app.tts.base import Speech, TTSProvider, voice_for
+from app.tts.base import DEFAULT_VOICE, Boundary, Speech, TTSProvider, voice_for
 from app.video.ffmpeg import FFmpegError, duration_seconds
 
 log = get_logger("tts.edge")
@@ -37,6 +39,63 @@ BOUNDARY_TYPES = {"WordBoundary", "SentenceBoundary"}
 #: Narration longer than this is a script problem, not a TTS problem, and it
 #: would make a reel nobody watches to the end.
 MAX_SEGMENT_SECONDS = 20.0
+
+#: Voice ids the service reports, fetched once. None means the list could not
+#: be fetched — which is not the same as a voice being missing, so nothing is
+#: downgraded on that basis.
+_known: frozenset[str] | None = None
+_known_lock = asyncio.Lock()
+
+
+async def _fetch_voices() -> list[Mapping[str, Any]]:
+    """The raw listing. A seam, so the cache can be tested without a network."""
+    import edge_tts
+
+    # edge-tts types these as TypedDicts; Mapping is what is actually read.
+    return list(await edge_tts.list_voices())
+
+
+async def known_voices() -> frozenset[str] | None:
+    """Every voice id edge-tts offers, or None if the list is unavailable.
+
+    Fetched once per process and cached. Microsoft retires voice ids without
+    notice, and a retired id does not fail loudly — it is simply not found,
+    which is how a Tamil reel ends up narrated in English with nothing in the
+    logs saying so.
+    """
+    global _known
+    if _known is not None:
+        return _known
+
+    async with _known_lock:
+        if _known is not None:
+            return _known
+        try:
+            voices = await asyncio.wait_for(_fetch_voices(), timeout=20.0)
+            _known = frozenset(str(v.get("ShortName") or "") for v in voices)
+            log.info("voice list fetched", voices=len(_known))
+        except Exception as exc:
+            # Could not ask. Proceed with what was requested rather than
+            # assuming the voice is gone.
+            log.warning("could not list voices", error=f"{type(exc).__name__}: {exc}"[:200])
+            return None
+    return _known
+
+
+async def resolve_voice(language: Language) -> str:
+    """The voice for `language`, falling back to English if it is gone."""
+    wanted = voice_for(language)
+    known = await known_voices()
+    if known is None or wanted in known:
+        return wanted
+
+    log.warning(
+        "voice unavailable, falling back",
+        wanted=wanted,
+        language=language.value,
+        using=DEFAULT_VOICE,
+    )
+    return DEFAULT_VOICE
 
 
 class TTSError(RuntimeError):
@@ -61,7 +120,7 @@ class EdgeTTSProvider(TTSProvider):
         if not spoken:
             raise TTSError("There is nothing to narrate: the line is empty.")
 
-        voice = voice_for(language)
+        voice = await resolve_voice(language)
         audio, boundaries = await self._synthesise(spoken, voice)
 
         # Written to disk because ffprobe reads files, and because a 20-second
@@ -97,7 +156,7 @@ class EdgeTTSProvider(TTSProvider):
             meta={"boundaries": len(boundaries)},
         )
 
-    async def _synthesise(self, text: str, voice: str) -> tuple[bytes, list[tuple[float, str]]]:
+    async def _synthesise(self, text: str, voice: str) -> tuple[bytes, list[Boundary]]:
         """Stream one utterance, collecting audio and whatever timings come with it."""
         try:
             import edge_tts
@@ -105,7 +164,7 @@ class EdgeTTSProvider(TTSProvider):
             raise TTSError("edge-tts is not installed in this image.") from exc
 
         audio = bytearray()
-        boundaries: list[tuple[float, str]] = []
+        boundaries: list[Boundary] = []
 
         async def collect() -> None:
             communicate = edge_tts.Communicate(text, voice)
@@ -114,8 +173,13 @@ class EdgeTTSProvider(TTSProvider):
                 if kind == "audio":
                     audio.extend(chunk.get("data") or b"")
                 elif kind in BOUNDARY_TYPES:
-                    offset = float(chunk.get("offset") or 0) / TICKS_PER_SECOND
-                    boundaries.append((round(offset, 3), str(chunk.get("text") or "")))
+                    # Duration as well as offset: a caption needs to know when
+                    # to leave, not only when to arrive.
+                    start = float(chunk.get("offset") or 0) / TICKS_PER_SECOND
+                    length = float(chunk.get("duration") or 0) / TICKS_PER_SECOND
+                    text_ = str(chunk.get("text") or "").strip()
+                    if text_:
+                        boundaries.append(Boundary(round(start, 3), round(length, 3), text_))
 
         try:
             await asyncio.wait_for(collect(), timeout=self.timeout)

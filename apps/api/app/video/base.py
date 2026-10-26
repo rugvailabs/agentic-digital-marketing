@@ -54,6 +54,22 @@ class Beat:
 
 
 @dataclass(slots=True)
+class Caption:
+    """One sentence of burned-in caption, on the reel's own timeline.
+
+    Mandatory rather than optional: most reels are played muted, so a reel
+    whose argument is only in the voiceover is a reel nobody hears.
+    """
+
+    text: str
+    from_frame: int
+    frames: int
+
+    def as_dict(self) -> dict[str, Any]:
+        return {"text": self.text, "fromFrame": self.from_frame, "frames": self.frames}
+
+
+@dataclass(slots=True)
 class VideoBrief:
     """Everything a composition needs, serialisable straight to --props."""
 
@@ -78,6 +94,8 @@ class VideoBrief:
     #: a reel with narration measures them, a silent one does not.
     title_seconds: float | None = None
     outro_seconds: float | None = None
+    #: Burned-in captions, cut from the narration's own sentence timings.
+    captions: list[Caption] = field(default_factory=list)
 
     @property
     def dimensions(self) -> tuple[int, int]:
@@ -119,6 +137,7 @@ class VideoBrief:
             "fps": FPS,
             "titleFrames": self.title_frames,
             "outroFrames": self.outro_frames,
+            "captions": [caption.as_dict() for caption in self.captions],
             "durationInFrames": self.duration_in_frames,
         }
 

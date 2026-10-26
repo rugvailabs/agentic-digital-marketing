@@ -24,6 +24,7 @@
 import { useMemo } from 'react'
 import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
 
+import { Captions } from '../components/Captions'
 import { Reveal, Wipe, outCubic } from '../components/Reveal'
 import { Sparkline } from '../components/Sparkline'
 import { Ticker } from '../components/Ticker'
@@ -132,6 +133,14 @@ export const Wire: React.FC<ReelProps> = (raw) => {
           />
         </Card>
       </Sequence>
+      {/* Over the cards, under nothing. A caption that a beat can cover is
+          not a caption. */}
+      <Captions
+        captions={props.captions}
+        format={format}
+        fonts={fonts}
+        accent={props.secondaryColor}
+      />
     </AbsoluteFill>
   )
 }

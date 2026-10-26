@@ -16,8 +16,8 @@ from dataclasses import dataclass
 
 from app.core.logging import get_logger
 from app.models import Language
-from app.tts.base import Speech, TTSProvider
-from app.video.base import FPS, MAX_DURATION_SECONDS, Beat, VideoBrief
+from app.tts.base import Boundary, Speech, TTSProvider
+from app.video.base import FPS, MAX_DURATION_SECONDS, Beat, Caption, VideoBrief
 from app.video.script import ReelScript, Segment
 
 log = get_logger("video.timing")
@@ -101,6 +101,37 @@ async def narrate(tts: TTSProvider, script: ReelScript, language: Language) -> N
     return narration
 
 
+def captions_from(narration: Narration) -> list[Caption]:
+    """Cut the narration's sentence timings into captions on the reel's clock.
+
+    The boundaries edge-tts reports are relative to each card's own audio, so
+    each one is shifted by where that card starts. Where a provider reports no
+    boundaries at all, the card's whole line becomes one caption held for the
+    length of the speech — a caption that is slightly long beats no caption,
+    because most reels are played muted.
+    """
+    captions: list[Caption] = []
+
+    for card in narration.cards:
+        spoken = card.speech
+        boundaries = spoken.boundaries or [Boundary(0.0, spoken.duration_seconds, card.segment.say)]
+        for index, boundary in enumerate(boundaries):
+            start = card.start_frame + round(boundary.start * FPS)
+            # Hold until the next sentence starts rather than for the reported
+            # duration: the gap between two sentences is a pause in the
+            # delivery, not a moment with nothing being said.
+            following = boundaries[index + 1] if index + 1 < len(boundaries) else None
+            end = (
+                card.start_frame + round(following.start * FPS)
+                if following
+                else card.start_frame + card.frames
+            )
+            frames = max(1, end - start)
+            captions.append(Caption(text=boundary.text, from_frame=start, frames=frames))
+
+    return captions
+
+
 def brief_from(
     script: ReelScript,
     narration: Narration,
@@ -147,4 +178,5 @@ def brief_from(
         # happens to agree with.
         title_seconds=title[0].seconds if title else None,
         outro_seconds=outro[0].seconds if outro else None,
+        captions=captions_from(narration),
     )

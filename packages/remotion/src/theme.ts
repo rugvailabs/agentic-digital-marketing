@@ -30,6 +30,11 @@ export type Format = {
   detail: number
   label: number
   footer: number
+  /** Caption type size, as a fraction of the width. */
+  caption: number
+  /** Where the caption block sits, as a fraction of the height from the
+   *  bottom: above the footer, below the card band. */
+  captionBottom: number
   /** Height of the closing chart, as a fraction of the width. */
   chart: number
   /** Furniture positions, as fractions of the height. */
@@ -60,6 +65,8 @@ export const formats: Record<'reel' | 'square', Format> = {
     detail: 0.042,
     label: 0.031,
     footer: 0.03,
+    caption: 0.038,
+    captionBottom: 0.155,
     chart: 0.3,
     ticker: 0.031,
     masthead: 0.058,
@@ -76,6 +83,8 @@ export const formats: Record<'reel' | 'square', Format> = {
     detail: 0.033,
     label: 0.027,
     footer: 0.027,
+    caption: 0.034,
+    captionBottom: 0.145,
     chart: 0.2,
     ticker: 0.034,
     masthead: 0.066,

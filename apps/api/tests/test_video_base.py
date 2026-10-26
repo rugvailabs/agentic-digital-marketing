@@ -104,6 +104,7 @@ class TestVideoBrief:
             "fps",
             "titleFrames",
             "outroFrames",
+            "captions",
             "durationInFrames",
         }
 
@@ -141,9 +142,22 @@ class TestVoices:
         nobody listened to the output."""
         assert all(voice.split("-")[1] == "IN" for voice in VOICES.values())
 
-    def test_hinglish_is_read_by_the_indian_english_voice(self) -> None:
-        """It is written in Latin script, which the Hindi voice spells out."""
-        assert voice_for(Language.hinglish) == voice_for(Language.english)
+    def test_hinglish_is_read_by_the_hindi_voice(self) -> None:
+        """Latin script, Hindi words. The vocabulary and the stress are Hindi,
+        so the Hindi voice reads it and the English one does not."""
+        assert voice_for(Language.hinglish) == voice_for(Language.hindi)
+
+    def test_every_voice_id_is_one_edge_tts_offers(self) -> None:
+        """Checked against `edge-tts --list-voices` on 2026-10-26. A typo here
+        is a reel narrated in the fallback language with nothing saying so."""
+        assert set(VOICES.values()) == {
+            "en-IN-NeerjaNeural",
+            "hi-IN-SwaraNeural",
+            "ta-IN-PallaviNeural",
+            "te-IN-ShrutiNeural",
+            "bn-IN-TanishaaNeural",
+            "mr-IN-AarohiNeural",
+        }
 
     def test_a_language_string_resolves_too(self) -> None:
         assert voice_for("tamil") == VOICES[Language.tamil]

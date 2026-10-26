@@ -12,13 +12,14 @@ from __future__ import annotations
 import pytest
 
 from app.models import Language
-from app.tts.base import Speech, TTSProvider
+from app.tts.base import Boundary, Speech, TTSProvider
 from app.video.base import FPS, MAX_DURATION_SECONDS
 from app.video.script import ReelScript, Segment
 from app.video.timing import (
     MIN_CARD_SECONDS,
     PAD_SECONDS,
     brief_from,
+    captions_from,
     card_frames,
     narrate,
 )
@@ -188,3 +189,105 @@ class TestBriefFromNarration:
             self.brief(narration)
 
         assert narration.duration_seconds > MAX_DURATION_SECONDS
+
+
+class TestCaptions:
+    """Burned-in captions are mandatory, so the failure that matters is a
+    reel that renders with none — or with one that outstays its sentence."""
+
+    def spoken(self, seconds: float, boundaries: list[Boundary]) -> Speech:
+        return Speech(
+            audio=b"\xff\xfb",
+            format="mp3",
+            duration_seconds=seconds,
+            voice="en-IN-NeerjaNeural",
+            boundaries=boundaries,
+        )
+
+    async def narration(self, per_card: list[list[Boundary]], seconds: float = 4.0):
+        tts = FakeTTS(seconds)
+        result = await narrate(tts, script(beats=len(per_card) - 2), Language.english)
+        for card, boundaries in zip(result.cards, per_card, strict=True):
+            card.speech = self.spoken(seconds, boundaries)
+        return result
+
+    async def test_a_sentence_becomes_a_caption(self) -> None:
+        narration = await self.narration([[Boundary(0.0, 2.0, "One.")] for _ in range(5)])
+
+        captions = captions_from(narration)
+
+        assert [c.text for c in captions] == ["One."] * 5
+
+    async def test_captions_sit_on_the_reel_clock_not_the_card_clock(self) -> None:
+        """Boundaries come back relative to each card's own audio, so a reel
+        with five cards would otherwise show every caption at the start."""
+        narration = await self.narration([[Boundary(0.5, 1.0, f"Card {i}.")] for i in range(5)])
+
+        captions = captions_from(narration)
+
+        for caption, card in zip(captions, narration.cards, strict=True):
+            assert caption.from_frame == card.start_frame + 15
+
+    async def test_a_sentence_holds_until_the_next_one_starts(self) -> None:
+        """The gap between two sentences is a pause in the delivery, not a
+        moment with nothing being said."""
+        narration = await self.narration(
+            [
+                [Boundary(0.0, 1.0, "First."), Boundary(1.5, 1.0, "Second.")],
+                *[[Boundary(0.0, 2.0, "x")] for _ in range(4)],
+            ]
+        )
+
+        first, second = captions_from(narration)[:2]
+
+        assert first.from_frame + first.frames == second.from_frame
+
+    async def test_the_last_sentence_holds_to_the_end_of_its_card(self) -> None:
+        narration = await self.narration([[Boundary(0.0, 1.0, "Only.")] for _ in range(5)])
+
+        first = captions_from(narration)[0]
+        card = narration.cards[0]
+
+        assert first.from_frame + first.frames == card.start_frame + card.frames
+
+    async def test_a_provider_that_reports_nothing_still_gets_captions(self) -> None:
+        """A caption that is slightly long beats no caption at all, because
+        most reels are played muted."""
+        narration = await self.narration([[] for _ in range(5)])
+
+        captions = captions_from(narration)
+
+        assert len(captions) == 5
+        assert captions[0].text == narration.cards[0].segment.say
+
+    async def test_no_caption_is_zero_length(self) -> None:
+        """Rounding two boundaries onto the same frame would make one vanish."""
+        narration = await self.narration(
+            [
+                [Boundary(0.0, 0.01, "A."), Boundary(0.001, 0.01, "B.")],
+                *[[Boundary(0.0, 2.0, "x")] for _ in range(4)],
+            ]
+        )
+
+        assert all(c.frames >= 1 for c in captions_from(narration))
+
+    async def test_the_brief_carries_them_to_the_renderer(self) -> None:
+        narration = await self.narration([[Boundary(0.0, 2.0, "Said.")] for _ in range(5)])
+
+        props = brief_from(
+            ReelScript(headline="H", segments=[]),
+            narration,
+            brand_name="Demo",
+            primary_color="#1B2230",
+            secondary_color="#D8322B",
+        ).as_props()
+
+        assert len(props["captions"]) == 5
+        assert props["captions"][0]["text"] == "Said."
+        assert set(props["captions"][0]) == {"text", "fromFrame", "frames"}
+
+    async def test_captions_never_run_past_the_reel(self) -> None:
+        narration = await self.narration([[Boundary(0.0, 2.0, "Said.")] for _ in range(5)])
+
+        for caption in captions_from(narration):
+            assert caption.from_frame + caption.frames <= narration.total_frames

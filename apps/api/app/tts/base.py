@@ -18,9 +18,10 @@ from app.models import Language
 #: voices for the scripts CLAUDE.md requires us to render.
 VOICES: dict[Language, str] = {
     Language.english: "en-IN-NeerjaNeural",
-    # Hinglish is written in Latin script with Hindi words, which the Indian
-    # English voice reads far better than the Hindi one does.
-    Language.hinglish: "en-IN-NeerjaNeural",
+    # Hinglish is Hindi written in Latin script, so it is read by the Hindi
+    # voice: the vocabulary and the stress patterns are Hindi, and an English
+    # voice reads "scenes hi alag hai" as English words.
+    Language.hinglish: "hi-IN-SwaraNeural",
     Language.hindi: "hi-IN-SwaraNeural",
     Language.tamil: "ta-IN-PallaviNeural",
     Language.telugu: "te-IN-ShrutiNeural",
@@ -39,6 +40,19 @@ def voice_for(language: Language | str) -> str:
 
 
 @dataclass(slots=True)
+class Boundary:
+    """One span of narration the provider timed, relative to its own audio."""
+
+    start: float
+    seconds: float
+    text: str
+
+    @property
+    def end(self) -> float:
+        return self.start + self.seconds
+
+
+@dataclass(slots=True)
 class Speech:
     """One rendered voiceover."""
 
@@ -47,14 +61,14 @@ class Speech:
     format: str
     duration_seconds: float
     voice: str
-    #: (offset in seconds, text) for each boundary the provider reports.
+    #: One entry per boundary the provider reports, in order.
     #:
     #: The granularity is the provider's choice, not ours: edge-tts 7 reports
     #: one SentenceBoundary per sentence where older versions reported a
-    #: WordBoundary per word. Nothing in the pipeline depends on these — the
-    #: card lengths come from the measured audio — but they are what captions
-    #: would be built from, so they are kept rather than discarded.
-    boundaries: list[tuple[float, str]] = field(default_factory=list)
+    #: WordBoundary per word. These are what the burned-in captions are cut
+    #: from, so a provider that reports nothing means a reel with no captions
+    #: rather than a broken one.
+    boundaries: list[Boundary] = field(default_factory=list)
     meta: dict[str, Any] = field(default_factory=dict)
 
 

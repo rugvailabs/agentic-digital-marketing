@@ -18,6 +18,17 @@ export type BeatProps = {
   frames: number
 }
 
+export type CaptionProps = {
+  /** One sentence, as the voice says it. */
+  text: string
+  /** Where it appears on the reel's own clock. */
+  fromFrame: number
+  /** How long it holds — until the next sentence starts, not until this one
+   *  stops being spoken: the gap between two sentences is a pause in the
+   *  delivery, not a moment with nothing being said. */
+  frames: number
+}
+
 export type ReelProps = {
   headline: string
   beats: BeatProps[]
@@ -38,6 +49,9 @@ export type ReelProps = {
   titleFrames: number
   /** How long the closing card holds. Measured from its narration. */
   outroFrames: number
+  /** Burned-in captions, cut from the narration's own sentence timings.
+   *  Not optional: most reels are played muted. */
+  captions: CaptionProps[]
   durationInFrames: number
 }
 
@@ -67,6 +81,11 @@ export const defaultProps: ReelProps = {
   fps: 30,
   titleFrames: 60,
   outroFrames: 45,
+  captions: [
+    { text: 'Goa has just published its first artificial intelligence policy.', fromFrame: 0, frames: 90 },
+    { text: 'There is a prize pool of two crore rupees for student teams.', fromFrame: 90, frames: 120 },
+    { text: 'Entries close on the thirtieth of November.', fromFrame: 210, frames: 150 },
+  ],
   durationInFrames: 360,
 }
 
@@ -95,6 +114,7 @@ export const REQUIRED_PROP_KEYS: readonly (keyof ReelProps)[] = [
   'fps',
   'titleFrames',
   'outroFrames',
+  'captions',
   'durationInFrames',
 ]
 
@@ -134,6 +154,16 @@ export function withDefaults(raw: Partial<ReelProps> | undefined): ReelProps {
   const fps = positive(props.fps, defaultProps.fps)
   const width = positive(props.width, defaultProps.width)
   const height = positive(props.height, defaultProps.height)
+  const captions = Array.isArray(props.captions)
+    ? props.captions
+        .filter((c): c is CaptionProps => Boolean(c) && typeof c.text === 'string' && c.text.trim() !== '')
+        .map((c) => ({
+          text: c.text.trim(),
+          fromFrame: Number.isFinite(c.fromFrame) ? Math.max(0, Math.round(c.fromFrame)) : 0,
+          frames: Number.isFinite(c.frames) && c.frames > 0 ? Math.round(c.frames) : 60,
+        }))
+    : []
+
   const titleFrames = positive(props.titleFrames, DEFAULT_TITLE_FRAMES)
   const outroFrames = positive(props.outroFrames, DEFAULT_OUTRO_FRAMES)
   const beatFrames = beats.reduce((total, b) => total + b.frames, 0)
@@ -154,6 +184,7 @@ export function withDefaults(raw: Partial<ReelProps> | undefined): ReelProps {
     fps,
     titleFrames: Math.round(titleFrames),
     outroFrames: Math.round(outroFrames),
+    captions,
     // Derived rather than taken on trust: a durationInFrames shorter than the
     // cards silently truncates the last one, and a longer one holds a frozen
     // frame at the end. Both look like a broken render, and with a voiceover

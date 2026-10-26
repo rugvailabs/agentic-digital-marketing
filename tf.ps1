@@ -101,7 +101,14 @@ TrendForge targets
   'test'      { & $PSCommandPath test-api; & $PSCommandPath test-web }
   'test-api'  { Api pytest -q }
   'test-web'  { Invoke-Pnpm --filter @trendforge/web test }
-  'lint'      { Api ruff check app; Api ruff format --check app; Invoke-Pnpm --filter @trendforge/web lint }
+  'lint' {
+    Api ruff check app
+    Api ruff format --check app
+    Invoke-Pnpm --filter @trendforge/web lint
+    # Prettier is a gate, not a courtesy: it only ever ran through `fmt`,
+    # which nobody is obliged to run, so four files had quietly drifted.
+    Invoke-Pnpm prettier --check "apps/web/src/**/*.{ts,tsx}" "apps/web/scripts/**/*.ts" "packages/remotion/**/*.{ts,tsx}"
+  }
   'typecheck' { Api mypy app; Invoke-Pnpm --filter @trendforge/web typecheck }
   'fmt' {
     Api ruff format app
