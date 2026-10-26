@@ -100,9 +100,14 @@ class Settings(BaseSettings):
     #: Royalty-free beds dropped into app/assets/music. Empty directory =>
     #: no bed, and the reel ships with voiceover only.
     music_enabled: bool = True
-    #: Bed level under the voice, in dB. -18 keeps it audible without
-    #: fighting the narration on a phone speaker.
-    music_gain_db: float = -18.0
+    #: Bed level under the voice, in dB.
+    #:
+    #: Measured, not guessed. Royalty-free beds arrive mastered around -14 to
+    #: -18 dBFS mean, and the narration sits near -23 dBFS, so -18 dB on top
+    #: put the bed at -41 dBFS — eighteen below the voice, which is not a
+    #: quiet bed but an inaudible one. At -12 it lands about ten below: heard,
+    #: and never in the way.
+    music_gain_db: float = -12.0
     #: Seconds of fade in and out on the bed.
     music_fade_seconds: float = 1.5
     ffmpeg_path: str = "ffmpeg"

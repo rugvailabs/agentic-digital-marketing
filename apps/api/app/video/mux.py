@@ -80,6 +80,13 @@ def _bed_graph(bed_input: int, total: float) -> tuple[list[str], str]:
     sidechain compressor keyed on the narration so it steps back further
     whenever anyone is speaking. The gain alone is not enough — a bed that
     sits politely under one sentence will fight the next quieter one.
+
+    The compressor is deliberately gentle. Measured against a real track, a
+    12:1 ratio did not duck the bed, it gated it: the music contributed
+    nothing at all under the voice and jumped back in the pause after every
+    sentence, which pumps. A bed is supposed to be continuously present and
+    continuously subordinate, so this ducks by a few dB rather than switching
+    off. The flat gain is already doing most of the work.
     """
     fade = max(0.1, min(settings.music_fade_seconds, total / 3))
     out = max(0.0, total - fade)
@@ -89,7 +96,7 @@ def _bed_graph(bed_input: int, total: float) -> tuple[list[str], str]:
         f"afade=t=in:st=0:d={fade:.2f},afade=t=out:st={out:.3f}:d={fade:.2f}[bed]",
         # The voice is the key, the bed is what gets compressed.
         "[bed][voicekey]sidechaincompress="
-        "threshold=0.03:ratio=12:attack=15:release=350:makeup=1[ducked]",
+        "threshold=0.08:ratio=4:attack=25:release=300:makeup=1[ducked]",
     ]
     return parts, "[ducked]"
 

@@ -1,0 +1,59 @@
+Music beds — source and licence
+===============================
+
+Everything in this directory is mixed into reels the app renders and
+distributes, so each file needs a licence that covers commercial use and
+redistribution. This file is that record. Add a block when you add a track.
+
+A note on how these three were identified: the files were supplied already
+downloaded, with no embedded ID3 tags. The provenance below is read from the
+filenames, which follow Pixabay's download convention exactly —
+`{uploader}-{title}-{id}.mp3`. The uploader, title and numeric id are
+therefore reliable; the licence line is the one that was not told to us
+directly. Correct it if any of these predate Pixabay's January 2023 move from
+CC0 to its own licence.
+
+
+atlasaudio-calm-calm-music-576616.mp3
+-------------------------------------
+Title     : Calm Calm Music
+Uploader  : AtlasAudio
+Source    : https://pixabay.com/music/-576616/
+Licence   : Pixabay Content License
+            https://pixabay.com/service/license-summary/
+Duration  : 2:00
+Added     : 2026-10-27
+
+
+kornevmusic-upbeat-happy-corporate-487426.mp3
+---------------------------------------------
+Title     : Upbeat Happy Corporate
+Uploader  : KornevMusic
+Source    : https://pixabay.com/music/-487426/
+Licence   : Pixabay Content License
+            https://pixabay.com/service/license-summary/
+Duration  : 2:02
+Added     : 2026-10-27
+
+
+zephiramusic-lo-fi-581502.mp3
+-----------------------------
+Title     : Lo-Fi
+Uploader  : ZephiraMusic
+Source    : https://pixabay.com/music/-581502/
+Licence   : Pixabay Content License
+            https://pixabay.com/service/license-summary/
+Duration  : 2:22
+Added     : 2026-10-27
+
+
+What the Pixabay Content License permits
+----------------------------------------
+Commercial and non-commercial use without attribution, including in videos
+that are distributed and monetised. It does not permit redistributing the
+audio on its own, or selling it as a standalone file — which is not what
+happens here: the track is mixed under narration at -18 dB and only ever
+leaves as part of a rendered reel.
+
+Attribution is not required. Crediting the uploader in a reel description is
+still a courtesy worth extending.
