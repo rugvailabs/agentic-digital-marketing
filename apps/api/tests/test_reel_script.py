@@ -92,6 +92,25 @@ class TestSpeakable:
     def test_indian_digits_and_words_survive(self) -> None:
         assert _speakable("two crore rupees, or 2,00,00,000") == "two crore rupees, or 2,00,00,000"
 
+    def test_devanagari_keeps_its_matras(self) -> None:
+        """`str.isalnum()` is False for every combining mark, so filtering on
+        it alone turns "जानना चाहते" into "जनन चहत" — not a typo but a
+        different set of words, spoken aloud and burned into the captions."""
+        said = _speakable("लोग यह जानना चाहते हैं कि कल तापमान कितना रहेगा")
+
+        assert said == "लोग यह जानना चाहते हैं कि कल तापमान कितना रहेगा"
+
+    def test_tamil_keeps_its_vowel_signs(self) -> None:
+        said = _speakable("கோவா செயற்கை நுண்ணறிவு கொள்கை அறிமுகம்")
+
+        assert said == "கோவா செயற்கை நுண்ணறிவு கொள்கை அறிமுகம்"
+
+    def test_an_indic_line_survives_the_hashtag_strip(self) -> None:
+        """Both rules run over the same string; one must not undo the other."""
+        said = _speakable("गोवा में बारिश #GoaWeather https://imd.gov.in")
+
+        assert said == "गोवा में बारिश"
+
     def test_it_is_cut_to_a_length_a_card_can_hold(self) -> None:
         said = _speakable(" ".join(["word"] * 60))
 

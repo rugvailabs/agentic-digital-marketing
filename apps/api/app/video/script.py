@@ -13,6 +13,7 @@ topic instead. It is plainer, and it is a reel rather than a failure.
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -119,13 +120,31 @@ def _speakable(value: Any, limit: int = MAX_SAY_WORDS) -> str:
     text = re.sub(r"https?://\S+", "", text)
     text = re.sub(r"(?:(?<=\s)|^)[#@]\S+", "", text)
     text = re.sub(r"[*_`~|]+", "", text)
-    # Anything outside letters, digits, spaces and sentence punctuation is
-    # either an emoji or decoration; neither reads aloud.
-    # The curly apostrophe is deliberate: it is what a model writes in
-    # "India's", and dropping it would hand the voice "India s".
-    keep = ".,!?'’-:;()"  # noqa: RUF001
-    text = "".join(ch for ch in text if ch.isalnum() or ch.isspace() or ch in keep)
+    text = "".join(ch for ch in text if _readable(ch))
     return _words(text, limit)
+
+
+#: Sentence punctuation the voice phrases against. The curly apostrophe is
+#: deliberate: it is what a model writes in "India's", and dropping it would
+#: hand the voice "India s".
+SPEAKABLE_PUNCTUATION = ".,!?'’-:;()"  # noqa: RUF001
+
+#: Combining marks: Devanagari matras, Tamil vowel signs, nuktas, viramas.
+#:
+#: These have to be named explicitly because `str.isalnum()` is False for
+#: every one of them — they are category Mn/Mc/Me, not letters. Filtering on
+#: isalnum alone turns "लोग यह जानना चाहते हैं" into "लग यह जनन चहत ह", which
+#: is not a spelling mistake but a different set of words, and it goes
+#: straight to the voice and into the burned-in captions. The same mistake
+#: was made once before, in normalise_topic.
+MARK_CATEGORIES = frozenset({"Mn", "Mc", "Me"})
+
+
+def _readable(ch: str) -> bool:
+    """Whether a character survives into something that will be spoken."""
+    if ch.isalnum() or ch.isspace() or ch in SPEAKABLE_PUNCTUATION:
+        return True
+    return unicodedata.category(ch) in MARK_CATEGORIES
 
 
 async def write_script(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:

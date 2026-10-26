@@ -82,8 +82,16 @@ export const defaultProps: ReelProps = {
   titleFrames: 60,
   outroFrames: 45,
   captions: [
-    { text: 'Goa has just published its first artificial intelligence policy.', fromFrame: 0, frames: 90 },
-    { text: 'There is a prize pool of two crore rupees for student teams.', fromFrame: 90, frames: 120 },
+    {
+      text: 'Goa has just published its first artificial intelligence policy.',
+      fromFrame: 0,
+      frames: 90,
+    },
+    {
+      text: 'There is a prize pool of two crore rupees for student teams.',
+      fromFrame: 90,
+      frames: 120,
+    },
     { text: 'Entries close on the thirtieth of November.', fromFrame: 210, frames: 150 },
   ],
   durationInFrames: 360,
@@ -156,7 +164,10 @@ export function withDefaults(raw: Partial<ReelProps> | undefined): ReelProps {
   const height = positive(props.height, defaultProps.height)
   const captions = Array.isArray(props.captions)
     ? props.captions
-        .filter((c): c is CaptionProps => Boolean(c) && typeof c.text === 'string' && c.text.trim() !== '')
+        .filter(
+          (c): c is CaptionProps =>
+            Boolean(c) && typeof c.text === 'string' && c.text.trim() !== '',
+        )
         .map((c) => ({
           text: c.text.trim(),
           fromFrame: Number.isFinite(c.fromFrame) ? Math.max(0, Math.round(c.fromFrame)) : 0,

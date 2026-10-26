@@ -7,7 +7,10 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `board-390-*` — the ladder full width below the 800px Desk breakpoint.
 - `panel-390-*` — the Desk as a slide-in panel over the ladder.
 - `studio-*` — the content studio with posts generated live by Gemini.
-- `reel-*` — the reel panel with a narrated video rendered end to end.
+- `reel-1440-*` — the reel panel with a narrated video rendered end to end.
+- `reel-hindi-*` / `reel-tamil-*` — frames at 0s, 8s, 16s and 24s from reels
+  narrated in those languages, showing the burned-in captions. The Noto face
+  per script is what sets them; the matras and vowel signs are what to check.
 
 - board-1440-light.png (IN, 1440px, 20 rows)
 - board-1440-dark.png (IN, 1440px, 20 rows)

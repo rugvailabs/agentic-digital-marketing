@@ -263,6 +263,34 @@ saying "this is a trend", and large on the closing card, where it is the
 subject. The small one fades out as the closing card arrives: two charts on
 screen at once is the same thing said twice.
 
+**Captions are burned in, and they are not optional.** Most reels play muted,
+so a reel whose argument lives only in the voiceover is a reel nobody hears.
+Burned in rather than left to the platform: auto-captions mangle "two crore"
+and are not there at all on a download.
+
+One sentence at a time, cut from the voice's own sentence timings rather than
+from a guess — so they are in step with the narration by construction, like
+everything else here. They sit in the bottom third between the card band and
+the footer, on a white block with the brand colour down the left edge. A block
+rather than bare type because captions are read at a glance on a small screen,
+and the grain and the sparkline both pass behind that band. The brand colour
+is the one place in a frame where a brand's own colour appears.
+
+A sentence holds until the next one starts, not for the length the voice
+service reports. The gap between two sentences is a pause in the delivery, not
+a moment with nothing being said, and a caption that blinks out during a
+breath reads as a glitch.
+
+**Indic scripts are where text filtering goes wrong.** Anything that reaches
+the voice or the captions is cleaned first — hashtags, URLs and emoji read
+aloud as "hash Goa A I" and a minute of letters. The obvious way to write that
+filter is `str.isalnum()`, and it is wrong: `isalnum()` is False for every
+combining mark, so Devanagari matras and Tamil vowel signs are stripped and
+"लोग यह जानना चाहते हैं" becomes "लग यह जनन चहत ह" — not a typo but a
+different set of words, spoken aloud and burned into the frame. Combining
+marks have to be named by Unicode category. This has now been got wrong twice
+in this codebase, once in topic normalisation and once here.
+
 **Paper has tooth.** A flat field at 1080px reads as a screenshot of a text
 editor, and it is where banding shows up first under social-platform
 compression. The grain is a 160px tile of fixed-seed noise at 4%, multiplied
