@@ -76,3 +76,7 @@ logs/
 *.log
 tmp/
 .cache/
+
+# Local copy of the bundled faces for `remotion studio`; the real files
+# live in apps/api/app/assets/fonts and the renderer mounts them.
+packages/remotion/public/fonts/

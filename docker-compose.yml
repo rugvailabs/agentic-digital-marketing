@@ -33,6 +33,13 @@ x-api-env: &api-env
   GEMINI_EMBED_RPM: ${GEMINI_EMBED_RPM:-100}
   CLUSTER_SIMILARITY: ${CLUSTER_SIMILARITY:-0.82}
   CURATE_BATCH_SIZE: ${CURATE_BATCH_SIZE:-25}
+  RENDERER_URL: ${RENDERER_URL:-http://renderer:3100}
+  RENDERER_TIMEOUT_SECONDS: ${RENDERER_TIMEOUT_SECONDS:-300}
+  TTS_ENABLED: ${TTS_ENABLED:-true}
+  TTS_TIMEOUT_SECONDS: ${TTS_TIMEOUT_SECONDS:-60}
+  MUSIC_ENABLED: ${MUSIC_ENABLED:-true}
+  MUSIC_GAIN_DB: ${MUSIC_GAIN_DB:--18}
+  MUSIC_FADE_SECONDS: ${MUSIC_FADE_SECONDS:-1.5}
 
 services:
   postgres:
@@ -150,6 +157,37 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
+  # Remotion, in its own image because it carries a Chromium. The Python
+  # services reach it over the compose network; VideoProvider.is_configured()
+  # is "does /health answer", so a renderer that is down means reels are
+  # refused with a reason rather than failing mid-job.
+  renderer:
+    build:
+      context: ./packages/remotion
+      dockerfile: Dockerfile
+    image: trendforge-renderer:latest
+    restart: unless-stopped
+    environment:
+      RENDERER_PORT: "3100"
+      REMOTION_CONCURRENCY: ${REMOTION_CONCURRENCY:-2}
+      TZ: ${TZ:-Asia/Kolkata}
+    ports:
+      - "${RENDERER_PORT:-3100}:3100"
+    volumes:
+      # One set of font files for both renderers. Read-only: the renderer has
+      # no business writing to the API's assets.
+      - ./apps/api/app/assets/fonts:/srv/renderer/public/fonts:ro
+      # Compositions are bind-mounted so a design change does not need an
+      # image rebuild; node_modules and the Chromium stay in the image.
+      - ./packages/remotion/src:/srv/renderer/src:ro
+      - ./packages/remotion/server:/srv/renderer/server:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3100/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
 
   # Opt-in only: `docker compose --profile web up web`.
   # Default dev loop runs the web app on the Windows host via `pnpm dev`.

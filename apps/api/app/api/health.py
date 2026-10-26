@@ -12,6 +12,7 @@ from app.core.time import to_ist, utcnow
 from app.db.session import get_session
 from app.models import Region, Trend
 from app.sources import configured_source_names
+from app.video.remotion import RemotionVideoProvider
 
 router = APIRouter(tags=["health"])
 
@@ -25,6 +26,9 @@ class Health(BaseModel):
     trends: int
     # Sources with credentials; the rest are skipped, never fatal.
     sources_configured: list[str]
+    #: Whether the Remotion service is answering. False means reels are off,
+    #: which the studio says before a user queues one and waits.
+    renderer: bool
 
 
 @router.get("/health", response_model=Health)
@@ -40,12 +44,17 @@ async def health(session: AsyncSession = Depends(get_session)) -> Health:
         # this endpoint answering even when Postgres is down.
         database = False
 
+    renderer = bool((await RemotionVideoProvider().health()).get("ok"))
+
     return Health(
-        status="ok" if database else "degraded",
+        # The renderer is not load-bearing for the board, so it degrades the
+        # status rather than failing it: reels are off, everything else works.
+        status="ok" if database and renderer else "degraded",
         env=settings.env,
         now_ist=to_ist(utcnow()).isoformat(),
         database=database,
         regions=regions,
         trends=trends,
         sources_configured=configured_source_names(),
+        renderer=renderer,
     )

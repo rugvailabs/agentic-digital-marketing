@@ -61,6 +61,9 @@ class TestVideoBrief:
         assert brief(size="letterbox").dimensions == SIZES["reel"]
 
     def test_props_carry_everything_the_composition_reads(self) -> None:
+        """The other half of this list is REQUIRED_PROP_KEYS in
+        packages/remotion/src/props.ts, and the renderer refuses a payload
+        missing any of them. Change one, change both."""
         props = brief(region_name="Goa", velocity=[1.0, 2.0], script="DEVANAGARI").as_props()
 
         assert set(props) == {

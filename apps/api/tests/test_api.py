@@ -12,6 +12,7 @@ from datetime import timedelta
 
 import httpx
 import pytest
+import respx
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.core.config import settings
@@ -193,14 +194,46 @@ async def client(seeded) -> AsyncIterator[httpx.AsyncClient]:
         yield c
 
 
+@pytest.fixture(autouse=True)
+def _renderer_health_cache():
+    """Health is cached in module state, so a test that mocks the renderer
+    would otherwise decide the answer for every test after it."""
+    import app.video.remotion as remotion
+
+    remotion._health_cache = None
+    yield
+    remotion._health_cache = None
+
+
 async def test_health_reports_counts_and_ist(client: httpx.AsyncClient) -> None:
-    body = (await client.get("/health")).json()
+    with respx.mock:
+        respx.get(f"{settings.renderer_url}/health").mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+        respx.route(host="test").pass_through()
+        body = (await client.get("/health")).json()
 
     assert body["status"] == "ok"
     assert body["database"] is True
+    assert body["renderer"] is True
     assert body["regions"] == 3
     assert body["now_ist"].endswith("+05:30")
     assert "google_trends" in body["sources_configured"]
+
+
+async def test_health_degrades_when_the_renderer_is_down(client: httpx.AsyncClient) -> None:
+    """Reels are part of the pipeline the top-bar dot reports on, so a dead
+    renderer has to show — but it must not take the board down with it."""
+    with respx.mock:
+        respx.get(f"{settings.renderer_url}/health").mock(side_effect=httpx.ConnectError("refused"))
+        respx.route(host="test").pass_through()
+        body = (await client.get("/health")).json()
+
+    assert body["status"] == "degraded"
+    assert body["renderer"] is False
+    # Everything that does not need a renderer still answers.
+    assert body["database"] is True
+    assert body["regions"] == 3
 
 
 async def test_regions_are_ordered_and_carry_parent_and_counts(client: httpx.AsyncClient) -> None:

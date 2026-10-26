@@ -4,7 +4,27 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node -e \"console.log('[remotion] placeholder — video templates land in step 3')\"",
-    "typecheck": "node -e \"process.exit(0)\""
+    "studio": "remotion studio",
+    "fonts": "node ./scripts/link-fonts.mjs",
+    "serve": "tsx server/index.ts",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.248",
+    "@remotion/renderer": "4.0.248",
+    "express": "4.21.2",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "4.0.248",
+    "tsx": "4.19.2"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.248",
+    "@types/express": "4.17.21",
+    "@types/node": "22.10.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "5.7.2"
   }
 }

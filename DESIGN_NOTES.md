@@ -186,6 +186,45 @@ full-bleed flat colour. Headlines autofit by measured bounding box rather than
 character count, because Tamil and Devanagari advance widths have nothing to
 do with Latin ones and a single long Tamil word cannot wrap.
 
+## The reel (step 3)
+
+A reel is the wire desk in motion, not a new visual language. Paper ground,
+ink type, one chilli rule, the same two faces and the same left-aligned
+column. If a frame were printed it would be a post.
+
+**Structure.** An opening card with the region eyebrow and the headline, one
+card per beat, then a closing card with the topic's own sparkline and the
+headline restated. Hashtags left and the brand right sit on every frame, the
+same footer the post templates carry.
+
+**The ticker.** One thin chilli line across the top that fills as the reel
+runs. It is the only element on screen that exists purely to orient the
+viewer, and it earns its place the way a newspaper's edition line does: on a
+muted autoplay feed, "how much of this is left" is the first thing anyone
+wants to know. Chilli because it is motion over time, which is what chilli
+already means on the board.
+
+**Motion.** One move, used everywhere: type arrives from just below and
+settles, exactly as the ladder rows do on load. Rules wipe across rather than
+appearing. Nothing zooms, spins, bounces or fades through a gradient, and no
+text animates letter by letter. A reel is read in six seconds on a phone, so
+the motion has to get out of the way of the reading.
+
+**One component, two shapes.** 9:16 and 1:1 are the same composition with a
+single squeeze factor on the type scale, because a square has roughly half
+the vertical room. Two layouts would have drifted apart by the second change.
+
+**Length is decided by the voiceover.** The narration is produced first and
+measured, and the composition is then rendered for exactly that many frames.
+The other order gives you either a clipped last sentence or a held frame at
+the end, and both read as a broken render.
+
+**The footer sits clear of the player.** A reel surface draws the caption,
+the audio ribbon and the profile row over the bottom of the frame, so the
+footer is lifted to 7% of the height rather than matching the post templates'
+margin. The same reason the post templates keep clear of the 4% every
+platform crops into.
+
 ## Known gaps, visible in the UI
 
 **Multi-source topics are real but uncommon.** The curator clusters in

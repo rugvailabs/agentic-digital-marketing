@@ -28,7 +28,7 @@ switch ($Target) {
 TrendForge targets
 
   install    Install JS deps (pnpm install)
-  up         Start postgres/redis/minio/api/worker/beat, migrate, seed
+  up         Start the stack (incl. the Remotion renderer), migrate, seed
   down       Stop and remove containers (volumes kept)
   stop       Stop containers, keep them
   ps         Stack status
@@ -39,6 +39,8 @@ TrendForge targets
   seed       Seed regions (idempotent)
   ingest     Run one ingest cycle now, synchronously
   curate     Cluster and name the latest snapshot with Gemini
+  studio     Remotion studio for the video compositions (host, port 3101)
+  renderer   Rebuild and restart the renderer service
   clean-orphans      Delete rank-0 topics older than 7 days and their content
   clean-orphans-dry  Show what clean-orphans would delete
   reset-db   Drop volumes and rebuild from scratch
@@ -53,16 +55,24 @@ TrendForge targets
   }
   'install'   { Invoke-Pnpm install }
   'up' {
-    Compose up -d --build postgres redis minio api worker beat
+    Compose up -d --build postgres redis minio api worker beat renderer
     Api alembic upgrade head
     Api python -m app.db.seed
     Write-Host "`nStack is up. API http://localhost:8020/health  MinIO http://localhost:9021" -ForegroundColor Green
+    Write-Host "Renderer http://localhost:3100/health" -ForegroundColor Green
     Write-Host "Next:  .\tf.ps1 ingest   then   .\tf.ps1 dev" -ForegroundColor Green
   }
   'down'      { Compose down }
   'stop'      { Compose stop }
   'ps'        { Compose ps }
-  'logs'      { Compose logs -f --tail=100 api worker beat }
+  'logs'      { Compose logs -f --tail=100 api worker beat renderer }
+  'renderer'  { Compose up -d --build --force-recreate renderer }
+  'studio' {
+    # Needs a local copy of the faces: the container gets them as a
+    # read-only mount, but the studio runs on this host.
+    Invoke-Pnpm --filter @trendforge/remotion fonts
+    Invoke-Pnpm --filter @trendforge/remotion studio --port 3101
+  }
   'dev' {
     # Refuse to start behind an existing listener. A dev server left running
     # from an earlier session keeps the port, so a second `dev` lands on 3021
