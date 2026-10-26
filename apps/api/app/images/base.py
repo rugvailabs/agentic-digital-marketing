@@ -29,6 +29,10 @@ class ImageBrief:
     #: "square" | "portrait"
     size: str = "square"
     template: str = "poster"
+    #: Which Latin face headlines are set in: "display" (Bricolage) or "ui"
+    #: (Schibsted). Comes from Brand.font_choice. Indic scripts ignore it —
+    #: neither Latin face has a Devanagari or Tamil glyph.
+    font_role: str = "display"
     #: Set very large by the Split template. At most 12 characters.
     display_token: str = ""
     #: Drawn large by the Wire template; empty means no sparkline.

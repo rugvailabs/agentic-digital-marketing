@@ -166,6 +166,19 @@ was reserved for from the start: a bordered box means "a rendered asset lives
 here", never "some content lives here". Nothing else gained a border, a
 shadow or a colour.
 
+**Posts are set in the same two faces as the board.** Bricolage Grotesque for
+headlines and the display token, with its optical size axis driven by the
+drawn size, and Schibsted Grotesk for sublines, hashtags and the brand line —
+the pairing CLAUDE.md names. They were rendering in Noto Sans, which is a
+perfectly good text face and not this one; a post that does not look like the
+desk it came from is the thing this design direction exists to avoid.
+`Brand.font_choice` picks which of the two carries headlines.
+
+Indic scripts ignore that choice, because neither Latin face has a Devanagari
+or Tamil glyph. A Hindi headline sets in Noto Sans Devanagari with its English
+brand line in Schibsted, which is the right trade: matching the Latin face is
+not worth setting Devanagari in a font that has no Devanagari.
+
 Post templates follow the same rules as the board — flat colour, no gradient,
 no shadow, type and rules carrying the hierarchy — so a post looks like the
 desk it came from. Three of them: bold type on paper, a split brand panel, and
@@ -186,12 +199,24 @@ find it.
 **Topic identity is separate from the topic's title.** The curator writes the
 display title fresh every run, so the same story comes back worded differently
 and a title-keyed row forks: a second row appears, the first drops to rank 0,
-and any content job hanging off it is stranded. Rows are therefore matched
-across runs on a stable `cluster_id` derived from the *source* headline of the
-cluster's most trusted member, falling back to centroid cosine above 0.9 — far
-above the 0.68 used for grouping, because this decides identity rather than
-similarity. A reworded topic updates its row, keeps its rank, its velocity
-history and its posts.
+and any content job hanging off it is stranded.
 
-Rows that forked before this existed stay where they are, at rank 0. They are
-not retroactively merged; they simply stop being produced.
+Rows are therefore matched across runs on `member_keys` — the set of source
+items (`source + URL`, or a hash of the keyword where there is no URL) the
+topic has ever contained. One shared article is proof two rows are one story;
+nothing a model writes can change that. A run where the coverage turned over
+completely falls back to centroid cosine above 0.9 — far above the 0.68 used
+for grouping, because this decides identity rather than similarity — and
+exact title is the last resort. The centroid is kept as a moving average, so
+identity drifts with the story instead of snapping to the newest headline.
+
+Where several rows match, earlier runs forked one story: they are merged into
+the one with the largest overlap, which takes their content jobs, their member
+keys and the longer velocity history. A row carrying a post that matches
+nothing keeps its row at rank 0 and logs a warning — it is never silently
+replaced by a parallel row.
+
+Measured on the live Goa board: with no member keys, 15 of a 28-row board
+landed on existing rows. With them, 31 of 35 did, 19 forked rows were folded
+away, and the topics carrying a generated post went from 3 of 8 rows on the
+board to 5 of 5.

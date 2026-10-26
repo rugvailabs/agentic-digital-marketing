@@ -117,6 +117,7 @@ def fit_text(
     minimum: int,
     weight: str = "ExtraBold",
     leading: float = 1.1,
+    role: str = "display",
 ) -> tuple[list[str], object, int]:
     """Largest size at which `text` fits the box, stepping down.
 
@@ -126,7 +127,7 @@ def fit_text(
     """
     size = max(start, minimum)
     while size > minimum:
-        font = load_font(text, size, weight)
+        font = load_font(text, size, weight, role)
         lines = wrap(draw, text, font, max_width)
         line_height = int(size * leading)
         widest = max((text_width(draw, line, font) for line in lines), default=0)
@@ -134,21 +135,28 @@ def fit_text(
             return lines, font, line_height
         size -= max(2, size // 24)
 
-    font = load_font(text, minimum, weight)
+    font = load_font(text, minimum, weight, role)
     return wrap(draw, text, font, max_width), font, int(minimum * leading)
 
 
 def fit_single_line(
-    draw: ImageDraw.ImageDraw, text: str, max_width: int, *, start: int, minimum: int, weight: str
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    max_width: int,
+    *,
+    start: int,
+    minimum: int,
+    weight: str,
+    role: str = "display",
 ) -> object:
     """Largest size at which `text` fits on one line without wrapping."""
     size = max(start, minimum)
     while size > minimum:
-        font = load_font(text, size, weight)
+        font = load_font(text, size, weight, role)
         if text_width(draw, text, font) <= max_width:
             return font
         size -= max(2, size // 20)
-    return load_font(text, minimum, weight)
+    return load_font(text, minimum, weight, role)
 
 
 def hashtag_line(
@@ -246,9 +254,10 @@ class PillowTemplateProvider(ImageProvider):
             int(h * 0.46),
             start=int(w * 0.111),
             minimum=int(w * 0.050),
+            role=brief.font_role,
         )
 
-        sub_font = load_font(brief.subline or " ", int(w * 0.038), "Medium")
+        sub_font = load_font(brief.subline or " ", int(w * 0.038), "Medium", "ui")
         sub_lines = wrap(draw, brief.subline, sub_font, box)[:3] if brief.subline else []
         sub_height = int(w * 0.052)
 
@@ -286,7 +295,13 @@ class PillowTemplateProvider(ImageProvider):
 
         token = brief.display_token or (brief.headline.split() or [""])[0]
         token_font = fit_single_line(
-            draw, token, box, start=int(w * 0.34), minimum=int(w * 0.09), weight="ExtraBold"
+            draw,
+            token,
+            box,
+            start=int(w * 0.34),
+            minimum=int(w * 0.09),
+            weight="ExtraBold",
+            role=brief.font_role,
         )
         bbox = draw.textbbox((0, 0), token, font=token_font)
         draw.text(
@@ -297,25 +312,39 @@ class PillowTemplateProvider(ImageProvider):
         )
 
         y = block_h + int(h * 0.06)
+
+        # Headline and subline share one band, which ends above the footer
+        # rule. The subline is measured and its rows reserved *before* the
+        # headline is fitted: sized against the whole band, a headline that
+        # takes one line more than expected pushes the subline straight
+        # through the hashtags. Which is not hypothetical — it is what
+        # happened when the Latin face changed to a narrower one.
+        sub_height = int(w * 0.044)
+        sub_font = load_font(brief.subline or " ", int(w * 0.032), "Medium", "ui")
+        sub_lines = wrap(draw, brief.subline, sub_font, box)[:2] if brief.subline else []
+        gap = int(h * 0.012) if sub_lines else 0
+        band_bottom = self._footer_top(h) - int(h * 0.02)
+        headline_box = max(int(h * 0.10), band_bottom - y - gap - len(sub_lines) * sub_height)
+
         lines, font, line_height = fit_text(
             draw,
             brief.headline,
             box,
-            int(h * 0.20),
+            headline_box,
             start=int(w * 0.058),
             minimum=int(w * 0.030),
             weight="Bold",
+            role=brief.font_role,
         )
         for line in lines:
             draw.text((margin, y), line, font=font, fill=INK)
             y += line_height
 
-        if brief.subline:
-            sub_font = load_font(brief.subline, int(w * 0.032), "Medium")
-            y += int(h * 0.012)
-            for line in wrap(draw, brief.subline, sub_font, box)[:2]:
+        if sub_lines:
+            y += gap
+            for line in sub_lines:
                 draw.text((margin, y), line, font=sub_font, fill=SLATE)
-                y += int(w * 0.044)
+                y += sub_height
 
         self._footer(draw, brief, w, h, margin, ink=INK, rule=True)
 
@@ -326,7 +355,7 @@ class PillowTemplateProvider(ImageProvider):
         box = w - margin * 2
 
         label = f"Trending in {brief.region_name}" if brief.region_name else "Trending now"
-        label_font = load_font(label, int(w * 0.029), "SemiBold")
+        label_font = load_font(label, int(w * 0.029), "SemiBold", "ui")
         draw.text((margin, int(h * 0.10)), label, font=label_font, fill=SLATE)
 
         y = int(h * 0.145)
@@ -340,13 +369,14 @@ class PillowTemplateProvider(ImageProvider):
             int(h * 0.34),
             start=int(w * 0.085),
             minimum=int(w * 0.040),
+            role=brief.font_role,
         )
         for line in lines:
             draw.text((margin, y), line, font=font, fill=INK)
             y += line_height
 
         if brief.subline:
-            sub_font = load_font(brief.subline, int(w * 0.032), "Medium")
+            sub_font = load_font(brief.subline, int(w * 0.032), "Medium", "ui")
             y += int(h * 0.014)
             for line in wrap(draw, brief.subline, sub_font, box)[:2]:
                 draw.text((margin, y), line, font=sub_font, fill=SLATE)
@@ -393,6 +423,20 @@ class PillowTemplateProvider(ImageProvider):
         r = max(6, int(width * 0.016))
         draw.ellipse([x - r, y - r, x + r, y + r], fill=CHILLI)
 
+    @staticmethod
+    def _baseline(h: int) -> int:
+        """Footer text baseline.
+
+        Far enough up that a 29px line plus descenders still clears the 4%
+        safe margin every platform crops into.
+        """
+        return h - int(h * 0.095)
+
+    @staticmethod
+    def _footer_top(h: int) -> int:
+        """Where the footer begins. Nothing above it may be drawn past this."""
+        return h - int(h * 0.095) - int(h * 0.030)
+
     def _footer(
         self,
         draw,
@@ -412,22 +456,20 @@ class PillowTemplateProvider(ImageProvider):
         the brand name. The brand block is the logo slot — an image is fetched
         here once logo_url is wired up.
         """
-        # Far enough up that a 29px line plus descenders still clears the 4%
-        # safe margin every platform crops into.
-        baseline = h - int(h * 0.095)
+        baseline = self._baseline(h)
 
-        brand_font = load_font(brief.brand_name, int(w * 0.028), "Bold")
+        brand_font = load_font(brief.brand_name, int(w * 0.028), "Bold", "ui")
         brand_width = text_width(draw, brief.brand_name, brand_font)
         draw.text((w - margin - brand_width, baseline), brief.brand_name, font=brand_font, fill=ink)
 
         available = w - margin * 2 - brand_width - int(w * 0.05)
-        tag_font = load_font(" ".join(brief.hashtags) or "#", int(w * 0.029), "SemiBold")
+        tag_font = load_font(" ".join(brief.hashtags) or "#", int(w * 0.029), "SemiBold", "ui")
         line = hashtag_line(draw, brief.hashtags, tag_font, available)
         if line:
             draw.text((margin, baseline), line, font=tag_font, fill=ink)
 
         if rule:
-            rule_y = baseline - int(h * 0.030)
+            rule_y = self._footer_top(h)
             if dotted:
                 self._dotted_rule(draw, margin, rule_y, w - margin, w)
             else:

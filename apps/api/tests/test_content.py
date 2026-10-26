@@ -132,7 +132,6 @@ class TestFonts:
     @pytest.mark.parametrize(
         ("text", "expected"),
         [
-            ("Goa AI policy", "NotoSans.ttf"),
             ("सोने का भाव", "NotoSansDevanagari.ttf"),
             ("கோவா", "NotoSansTamil.ttf"),
             ("సోనా", "NotoSansTelugu.ttf"),
@@ -141,6 +140,33 @@ class TestFonts:
     )
     def test_the_script_picks_the_face(self, text: str, expected: str) -> None:
         assert font_file(text).name == expected
+
+    def test_latin_sets_in_the_two_faces_claude_md_names(self) -> None:
+        """Not Noto: a post has to look like the desk it came from, and the
+        desk is Bricolage over Schibsted."""
+        assert font_file("Goa AI policy", "display").name == "BricolageGrotesque.ttf"
+        assert font_file("Goa AI policy", "ui").name == "SchibstedGrotesk.ttf"
+
+    def test_an_indic_script_ignores_the_role(self) -> None:
+        """Neither Latin face has a Devanagari glyph, so asking for display
+        type in Hindi has to still produce readable Hindi."""
+        assert font_file("सोने का भाव", "display").name == "NotoSansDevanagari.ttf"
+        assert font_file("सोने का भाव", "ui").name == "NotoSansDevanagari.ttf"
+
+    def test_an_unknown_role_falls_back_to_display(self) -> None:
+        assert font_file("Goa", "handwriting").name == "BricolageGrotesque.ttf"
+
+    def test_optical_size_tracks_the_drawn_size(self) -> None:
+        """The opsz axis is why CLAUDE.md asks for this face. If it stayed at
+        its default, a 200px token and 14px body type would share one cut."""
+        big = load_font("Goa", 180, "ExtraBold", "display")
+        small = load_font("Goa", 14, "ExtraBold", "display")
+
+        axes = [a["name"] for a in big.get_variation_axes()]
+        assert any(b"Optical" in a for a in axes if isinstance(a, bytes))
+        # Same family, same weight, different cut: the glyphs measure
+        # differently per point once opsz moves.
+        assert big.getlength("Goa") / 180 != pytest.approx(small.getlength("Goa") / 14, abs=1e-4)
 
     def test_a_latin_brand_name_inside_indic_text_does_not_change_the_script(self) -> None:
         assert script_of("TrendForge का भाव") == "DEVANAGARI"
@@ -409,3 +435,69 @@ class TestDisplayToken:
 
         assert post.display_token == "2026"
         assert post.as_dict()["display_token"] == "2026"
+
+
+class TestFooterIsNeverOverrun:
+    """Nothing a template draws may reach the footer.
+
+    Caught for real when the Latin face changed to a narrower one: a headline
+    that had taken two lines took three, the Split template sized it against
+    the whole band below the colour block, and the subline was pushed straight
+    through the hashtag line. The templates are autofit, so the only durable
+    check is on the pixels.
+    """
+
+    LONG_HEADLINE = (
+        "Goa unveils AI policy 2026 and launches a state-level hackathon "
+        "with a two crore prize pool for student teams"
+    )
+    LONG_SUBLINE = (
+        "Applications open until 30 November, and the winning team gets a "
+        "year of incubation at the Porvorim campus alongside the prize."
+    )
+
+    def brief(self, template: str, size: str) -> ImageBrief:
+        return ImageBrief(
+            headline=self.LONG_HEADLINE,
+            subline=self.LONG_SUBLINE,
+            hashtags=["#GoaAI", "#AIPolicy", "#Hackathon"],
+            brand_name="BitnBin",
+            primary_color="#1B2230",
+            secondary_color="#D8322B",
+            display_token="AI hub",
+            region_name="Goa",
+            velocity=[10.0, 22.0, 18.0, 44.0, 61.0, 90.0],
+            template=template,
+            size=size,
+        )
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    @pytest.mark.parametrize("size", ["square", "portrait"])
+    def test_the_gap_above_the_footer_text_stays_clear(self, template: str, size: str) -> None:
+        provider = PillowTemplateProvider()
+        rendered = provider.render(self.brief(template, size))
+        image = Image.open(io.BytesIO(rendered.png)).convert("RGB")
+        w, h = image.size
+
+        # The band between the footer rule and the footer text. The rule may
+        # live on its top row, so start below it.
+        top = PillowTemplateProvider._footer_top(h) + 3
+        bottom = PillowTemplateProvider._baseline(h) - 4
+        assert bottom > top
+
+        # Sampled against the template's own ground rather than a fixed
+        # colour: Poster is full-bleed brand colour and Wire is paper, so
+        # "clear" means "the same as the margin beside it".
+        ground = image.getpixel((2, (top + bottom) // 2))
+        margin = int(w * 0.08)
+
+        intruders = [
+            (x, y)
+            for y in range(top, bottom)
+            for x in range(margin, w - margin, 3)
+            if image.getpixel((x, y)) != ground
+        ]
+        assert not intruders, (
+            f"{template}/{size}: {len(intruders)} pixels of content in the "
+            f"footer gap, first at {intruders[0]}"
+        )

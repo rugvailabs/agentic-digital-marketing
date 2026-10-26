@@ -213,6 +213,7 @@ def render_assets(
                 logo_url=job.brand.logo_url,
                 size=size,
                 template=template,
+                font_role=job.brand.font_choice,
                 display_token=post.display_token,
                 # The Wire template draws the topic's own velocity, so a post
                 # carries the same series the ladder row shows.
