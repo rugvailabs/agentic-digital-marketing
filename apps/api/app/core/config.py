@@ -83,6 +83,28 @@ class Settings(BaseSettings):
     #: Regions curated on the beat. Everything else curates when opened.
     curate_regions: str = "IN"
 
+    # ── Video (step 3) ────────────────────────────────────────────────────
+    #: The Remotion renderer, a separate Node service: it needs its own
+    #: Chromium, which has no business in the Python image. Blank => the
+    #: provider reports not configured and reels are refused with a reason.
+    renderer_url: str = "http://renderer:3100"
+    #: A 30s reel at 1080x1920 takes well over a minute on a laptop.
+    renderer_timeout_seconds: float = 300.0
+    #: Microsoft Neural voices via edge-tts. No key, but it is an unofficial
+    #: endpoint, so it is allowed to be switched off.
+    tts_enabled: bool = True
+    tts_timeout_seconds: float = 60.0
+    #: Royalty-free beds dropped into app/assets/music. Empty directory =>
+    #: no bed, and the reel ships with voiceover only.
+    music_enabled: bool = True
+    #: Bed level under the voice, in dB. -18 keeps it audible without
+    #: fighting the narration on a phone speaker.
+    music_gain_db: float = -18.0
+    #: Seconds of fade in and out on the bed.
+    music_fade_seconds: float = 1.5
+    ffmpeg_path: str = "ffmpeg"
+    ffprobe_path: str = "ffprobe"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

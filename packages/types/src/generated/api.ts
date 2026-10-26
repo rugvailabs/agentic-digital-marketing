@@ -98,10 +98,12 @@ export interface paths {
         };
         /**
          * Latest Job
-         * @description The most recent job for a topic, or null.
+         * @description The most recent job of one kind for a topic, or null.
          *
          *     Without this a generated post disappears on reload, which makes the studio
-         *     feel like it lost your work even though the assets are still stored.
+         *     feel like it lost your work even though the assets are still stored. Posts
+         *     and reels are asked for separately, because the Desk shows both at once
+         *     and "the latest job" would otherwise be whichever was run last.
          */
         get: operations["latest_job_content_jobs_get"];
         put?: never;
@@ -155,7 +157,7 @@ export interface components {
          * AssetKind
          * @enum {string}
          */
-        AssetKind: "caption" | "image";
+        AssetKind: "caption" | "image" | "video" | "audio" | "script";
         /** AssetOut */
         AssetOut: {
             /** Id */
@@ -275,6 +277,17 @@ export interface components {
             /** Formats */
             formats?: string[];
         };
+        /**
+         * JobKind
+         * @description What the job produces.
+         *
+         *     A reel runs a longer pipeline than a post — script, voiceover, frames,
+         *     audio mix — with its own ways of failing. Sharing one row would mean one
+         *     `status` column describing two pipelines, so each gets its own row and the
+         *     status stays unambiguous.
+         * @enum {string}
+         */
+        JobKind: "post" | "reel";
         /** JobOut */
         JobOut: {
             /** Id */
@@ -283,6 +296,7 @@ export interface components {
             trend_id: number;
             /** Brand Id */
             brand_id: number;
+            kind: components["schemas"]["JobKind"];
             language: components["schemas"]["Language"];
             /** Formats */
             formats: string[];
@@ -296,7 +310,7 @@ export interface components {
          * JobStatus
          * @enum {string}
          */
-        JobStatus: "queued" | "writing" | "rendering" | "ready" | "failed";
+        JobStatus: "queued" | "writing" | "voicing" | "rendering" | "ready" | "failed";
         /**
          * Language
          * @enum {string}
@@ -537,6 +551,7 @@ export interface operations {
         parameters: {
             query: {
                 trend_id: number;
+                kind?: components["schemas"]["JobKind"];
             };
             header?: never;
             path?: never;

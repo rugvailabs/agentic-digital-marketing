@@ -22,6 +22,8 @@ export type ContentJob = Schemas['JobOut']
 export type ContentAsset = Schemas['AssetOut']
 export type Language = Schemas['Language']
 export type JobStatus = Schemas['JobStatus']
+export type JobKind = Schemas['JobKind']
+export type AssetKind = Schemas['AssetKind']
 
 /** Query parameters accepted by `GET /trends`. */
 export type TrendsQuery = NonNullable<paths['/trends']['get']['parameters']['query']>

@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.session import SessionLocal, engine
-from app.images import ImageBrief, PillowTemplateProvider, put_png
+from app.images import ImageBrief, PillowTemplateProvider
 from app.images.base import SIZES
 from app.images.gemini_image import GeminiImageProvider
 from app.images.pillow import TEMPLATES
@@ -33,6 +33,7 @@ from app.models import (
     TrendItem,
 )
 from app.prompts import render_prompt
+from app.storage import put_png
 from app.tasks.merge import clean_hashtags
 
 log = get_logger("content")

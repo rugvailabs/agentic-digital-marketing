@@ -18,6 +18,7 @@ from app.models import (
     Brand,
     ContentAsset,
     ContentJob,
+    JobKind,
     JobStatus,
     Language,
     SafetyFlag,
@@ -59,6 +60,7 @@ class JobOut(BaseModel):
     id: int
     trend_id: int
     brand_id: int
+    kind: JobKind
     language: Language
     formats: list[str]
     status: JobStatus
@@ -137,16 +139,19 @@ async def create_job(
 @router.get("/content/jobs", response_model=JobOut | None)
 async def latest_job(
     trend_id: int,
+    kind: JobKind = JobKind.post,
     session: AsyncSession = Depends(get_session),
 ) -> ContentJob | None:
-    """The most recent job for a topic, or null.
+    """The most recent job of one kind for a topic, or null.
 
     Without this a generated post disappears on reload, which makes the studio
-    feel like it lost your work even though the assets are still stored.
+    feel like it lost your work even though the assets are still stored. Posts
+    and reels are asked for separately, because the Desk shows both at once
+    and "the latest job" would otherwise be whichever was run last.
     """
     return await session.scalar(
         select(ContentJob)
-        .where(ContentJob.trend_id == trend_id)
+        .where(ContentJob.trend_id == trend_id, ContentJob.kind == kind)
         .order_by(ContentJob.id.desc())
         .limit(1)
     )

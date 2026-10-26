@@ -116,18 +116,40 @@ class Language(enum.StrEnum):
 class JobStatus(enum.StrEnum):
     queued = "queued"
     writing = "writing"
+    #: Reels only: the voiceover is being narrated. It comes before the frames
+    #: because its length decides how many frames there are.
+    voicing = "voicing"
     rendering = "rendering"
     ready = "ready"
     failed = "failed"
 
 
+class JobKind(enum.StrEnum):
+    """What the job produces.
+
+    A reel runs a longer pipeline than a post — script, voiceover, frames,
+    audio mix — with its own ways of failing. Sharing one row would mean one
+    `status` column describing two pipelines, so each gets its own row and the
+    status stays unambiguous.
+    """
+
+    post = "post"
+    reel = "reel"
+
+
 class AssetKind(enum.StrEnum):
     caption = "caption"
     image = "image"
+    video = "video"
+    #: The voiceover on its own, kept so a user can hear it without the video
+    #: and so a re-render can skip the TTS call.
+    audio = "audio"
+    #: The spoken script and its on-screen beats.
+    script = "script"
 
 
 class ContentJob(Base, TimestampMixin):
-    """One request to generate a post for one topic."""
+    """One request to generate a post or a reel for one topic."""
 
     __tablename__ = "content_jobs"
 
@@ -143,7 +165,14 @@ class ContentJob(Base, TimestampMixin):
     language: Mapped[Language] = mapped_column(
         Enum(Language, name="content_language", native_enum=True), nullable=False
     )
-    #: Requested output sizes, e.g. ["square", "portrait"].
+    kind: Mapped[JobKind] = mapped_column(
+        Enum(JobKind, name="job_kind", native_enum=True),
+        nullable=False,
+        default=JobKind.post,
+        server_default=JobKind.post.value,
+    )
+    #: Requested output sizes: ["square", "portrait"] for a post,
+    #: ["reel", "square"] for a reel.
     formats: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
 
     status: Mapped[JobStatus] = mapped_column(
@@ -160,11 +189,11 @@ class ContentJob(Base, TimestampMixin):
         back_populates="job", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    __table_args__ = (Index("ix_content_jobs_trend_id", "trend_id"),)
+    __table_args__ = (Index("ix_content_jobs_trend_kind", "trend_id", "kind"),)
 
 
 class ContentAsset(Base, TimestampMixin):
-    """A caption or a rendered image belonging to a job."""
+    """A caption, image, video, voiceover or script belonging to a job."""
 
     __tablename__ = "content_assets"
 
@@ -177,11 +206,12 @@ class ContentAsset(Base, TimestampMixin):
     kind: Mapped[AssetKind] = mapped_column(
         Enum(AssetKind, name="asset_kind", native_enum=True), nullable=False
     )
-    #: "square" | "portrait" for images; the template name for variants.
+    #: "<size>:<template>" for images and video; the language for a caption.
     variant: Mapped[str] = mapped_column(String(64), nullable=False, default="")
-    #: Public URL for images; null for captions, whose text lives in meta.
+    #: Public URL for anything with bytes behind it; null for captions and
+    #: scripts, whose text lives in meta.
     url: Mapped[str | None] = mapped_column(Text, nullable=True)
-    #: Caption fields, or image width/height/template/alt text.
+    #: Caption fields, or width/height/template/duration/alt text.
     meta_json: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
     #: True once a human has edited it, so a regenerate can refuse to clobber.
     edited: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
