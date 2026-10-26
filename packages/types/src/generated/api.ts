@@ -247,6 +247,8 @@ export interface components {
             trends: number;
             /** Sources Configured */
             sources_configured: string[];
+            /** Renderer */
+            renderer: boolean;
         };
         /** IngestRunResponse */
         IngestRunResponse: {
@@ -272,6 +274,8 @@ export interface components {
             trend_id: number;
             /** Brand Id */
             brand_id: number;
+            /** @default post */
+            kind: components["schemas"]["JobKind"];
             /** @default english */
             language: components["schemas"]["Language"];
             /** Formats */

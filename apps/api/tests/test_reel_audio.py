@@ -189,6 +189,21 @@ class TestMux:
             # Looped to the full length rather than stopping after two seconds.
             assert mixed.duration_seconds == pytest.approx(narration.duration_seconds, abs=0.25)
 
+    async def test_a_poster_frame_comes_back_with_the_reel(self) -> None:
+        """Frame zero is a blank sheet of paper — the opening card is still
+        settling — so a player with no poster looks like a failed render."""
+        with tempfile.TemporaryDirectory() as directory:
+            work = Path(directory)
+            narration = await narration_of(work, [1.0, 2.0, 1.5])
+            video = work / "silent.mp4"
+            await silent_video(video, narration.duration_seconds)
+
+            mixed = await mux(video.read_bytes(), narration)
+
+            assert mixed.poster
+            # JPEG magic, so this is an image and not an ffmpeg error page.
+            assert mixed.poster.startswith(bytes([0xFF, 0xD8]))
+
     async def test_nothing_to_narrate_is_a_failure_not_a_silent_reel(self) -> None:
         from app.video.timing import Narration
 

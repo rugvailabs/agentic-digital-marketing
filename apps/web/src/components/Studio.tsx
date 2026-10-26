@@ -1,17 +1,13 @@
 'use client'
 
-import type { Brand, ContentJob, Trend } from '@trendforge/types'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Brand, ContentAsset, Trend } from '@trendforge/types'
+import { useEffect, useState } from 'react'
 
-import { Chip, Code, cx } from '@/components/primitives'
+import { Reel } from '@/components/Reel'
+import { Chip, Code, SectionLabel, cx } from '@/components/primitives'
+import { statusLabel, useJob } from '@/lib/jobs'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'
-
-/** A job is terminal when it will not change again without a new request. */
-const TERMINAL = new Set(['ready', 'failed'])
-const POLL_MS = 2000
-/** Generation runs through several Gemini models on a free tier; it is slow. */
-const POLL_TIMEOUT_MS = 10 * 60 * 1000
 
 const LANGUAGE_LABELS: Record<string, string> = {
   english: 'English',
@@ -47,14 +43,6 @@ function dimensions(asset: { meta_json: Record<string, unknown> }): string {
   return width && height ? `${width}×${height}` : ''
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  queued: 'Queued',
-  writing: 'Writing the caption',
-  rendering: 'Rendering images',
-  ready: 'Ready',
-  failed: 'Failed',
-}
-
 type Caption = {
   hook?: string
   caption?: string
@@ -63,108 +51,35 @@ type Caption = {
   image_headline?: string
 }
 
+/**
+ * The content studio.
+ *
+ * One row of controls — brand, language — then two things that can be made
+ * from them: a post and a reel. They are separate jobs on separate pipelines
+ * with their own statuses and their own failures, but a marketer picks the
+ * brand and the language once, not twice.
+ */
 export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
   const [brandId, setBrandId] = useState(brands[0]?.id ?? 0)
   const [language, setLanguage] = useState('english')
-  const [job, setJob] = useState<ContentJob | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Switching topic must not leave the previous topic's post on screen, and
-  // a topic that already has a post should show it rather than looking unused.
+  const post = useJob(trend.id, 'post')
+  const reel = useJob(trend.id, 'reel')
+
+  // Match the controls to whatever is already on screen; leaving them on the
+  // defaults claims a Hindi post was generated in English.
+  const existing = post.job ?? reel.job
   useEffect(() => {
-    let cancelled = false
-    setJob(null)
-    setError(null)
-    setBusy(false)
-
-    void (async () => {
-      try {
-        const response = await fetch(`${API}/content/jobs?trend_id=${trend.id}`, {
-          cache: 'no-store',
-        })
-        if (!response.ok || cancelled) return
-        const existing = (await response.json()) as ContentJob | null
-        if (existing && !cancelled) {
-          setJob(existing)
-          // Match the controls to what is on screen; leaving them on the
-          // defaults claims a Hindi post was generated in English.
-          setLanguage(existing.language)
-          setBrandId(existing.brand_id)
-        }
-      } catch {
-        // No previous job is the normal case; silence is correct here.
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [trend.id])
-
-  useEffect(
-    () => () => {
-      if (timer.current) clearTimeout(timer.current)
-    },
-    [],
-  )
-
-  const poll = useCallback(async (id: number, deadline: number) => {
-    try {
-      const response = await fetch(`${API}/content/jobs/${id}`, { cache: 'no-store' })
-      if (!response.ok) throw new Error(`job ${id} returned ${response.status}`)
-      const next = (await response.json()) as ContentJob
-
-      setJob(next)
-      if (TERMINAL.has(next.status)) {
-        setBusy(false)
-        return
-      }
-      if (Date.now() > deadline) {
-        setBusy(false)
-        setError('Still running after 10 minutes. The job keeps going — reload to check.')
-        return
-      }
-      timer.current = setTimeout(() => void poll(id, deadline), POLL_MS)
-    } catch (cause) {
-      setBusy(false)
-      setError(cause instanceof Error ? cause.message : 'Could not reach the API.')
-    }
-  }, [])
-
-  async function generate() {
-    setBusy(true)
-    setError(null)
-    setJob(null)
-    try {
-      const response = await fetch(`${API}/content/jobs`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          trend_id: trend.id,
-          brand_id: brandId,
-          language,
-          formats: ['square', 'portrait'],
-        }),
-      })
-      if (!response.ok) {
-        const detail = await response.json().catch(() => null)
-        throw new Error(detail?.detail ?? `The API returned ${response.status}.`)
-      }
-      const created = (await response.json()) as ContentJob
-      setJob(created)
-      void poll(created.id, Date.now() + POLL_TIMEOUT_MS)
-    } catch (cause) {
-      setBusy(false)
-      setError(cause instanceof Error ? cause.message : 'Could not start the job.')
-    }
-  }
+    if (!existing) return
+    setLanguage(existing.language)
+    setBrandId(existing.brand_id)
+  }, [existing])
 
   const brand = brands.find((b) => b.id === brandId)
-  const caption = job?.assets.find((a) => a.kind === 'caption')
-  const images = job?.assets.filter((a) => a.kind === 'image') ?? []
+  const caption = post.job?.assets.find((a) => a.kind === 'caption')
+  const images = post.job?.assets.filter((a) => a.kind === 'image') ?? []
   const blocked = trend.safety_flag === 'skip'
+  const noBrands = brands.length === 0
 
   return (
     <div className="border-t border-rule pt-4">
@@ -201,17 +116,15 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
 
         <button
           type="button"
-          onClick={() => void generate()}
-          disabled={busy || blocked || brands.length === 0}
+          onClick={() => post.start({ brandId, language, formats: ['square', 'portrait'] })}
+          disabled={post.busy || blocked || noBrands}
           className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-rule disabled:text-slate"
         >
-          {busy ? 'Generating' : 'Generate post'}
+          {post.busy ? 'Generating' : 'Generate post'}
         </button>
 
-        {job ? (
-          <span className="num text-xs text-slate">
-            {STATUS_LABELS[job.status] ?? job.status}
-          </span>
+        {post.job ? (
+          <span className="num text-xs text-slate">{statusLabel('post', post.job.status)}</span>
         ) : null}
       </div>
 
@@ -221,12 +134,12 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
         </p>
       ) : null}
 
-      {error || job?.error ? (
+      {post.error || post.job?.error ? (
         <div className="mt-4 border-t border-rule pt-3">
-          <p className="text-sm text-ink">{job?.error ?? error}</p>
+          <p className="text-sm text-ink">{post.job?.error ?? post.error}</p>
           <button
             type="button"
-            onClick={() => void generate()}
+            onClick={() => post.start({ brandId, language, formats: ['square', 'portrait'] })}
             className="mt-2 border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover"
           >
             Try again
@@ -238,61 +151,74 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
         <CaptionEditor assetId={caption.id} initial={caption.meta_json as Caption} />
       ) : null}
 
-      {images.length > 0 ? (
-        <div className="mt-6 flex flex-col gap-2">
-          <h3 className="text-xs font-medium text-slate">
-            {images.length} images · {brand?.name}
-          </h3>
-          {/* The only cards on the page: a border here means "rendered asset". */}
-          {/* items-start so a portrait card keeps its height instead of
-              stretching its square neighbours to match. */}
-          <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
-            {images.map((asset) => (
-              <figure key={asset.id} className="border border-rule bg-surface p-3">
-                {asset.url ? (
-                  // Intrinsic size on the element, so a 1080x1350 post holds
-                  // its 4:5 shape instead of being squared off by the grid.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={asset.url}
-                    alt={String((asset.meta_json as Caption).alt_text ?? '')}
-                    width={Number((asset.meta_json as { width?: number }).width) || 1080}
-                    height={Number((asset.meta_json as { height?: number }).height) || 1080}
-                    className="h-auto w-full"
-                    loading="lazy"
-                  />
-                ) : null}
-                {/*
-                  Two lines, so the template name is never abbreviated: at
-                  three cards per row there is not enough width for a name,
-                  its dimensions and a link side by side.
-                */}
-                <figcaption className="mt-2 flex flex-col gap-0.5">
-                  <span className="text-xs text-ink">{templateLabel(asset)}</span>
-                  <span className="flex items-baseline justify-between gap-2">
-                    <span className="num text-xs text-slate">{dimensions(asset)}</span>
-                    {asset.url ? (
-                      <a
-                        href={asset.url}
-                        download
-                        className="shrink-0 text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
-                      >
-                        Save PNG
-                      </a>
-                    ) : null}
-                  </span>
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      ) : null}
+      {images.length > 0 ? <Images images={images} brandName={brand?.name} /> : null}
 
-      {!job && !error ? (
+      {!post.job && !post.error && !blocked ? (
         <p className="mt-3 text-sm text-slate">
           Pick a brand and language, then generate a caption and post images for this topic.
         </p>
       ) : null}
+
+      <Reel
+        job={reel.job}
+        busy={reel.busy}
+        error={reel.error}
+        onRender={() => reel.start({ brandId, language, formats: ['reel'] })}
+        blocked={blocked}
+        disabled={noBrands}
+      />
+    </div>
+  )
+}
+
+function Images({ images, brandName }: { images: ContentAsset[]; brandName?: string }) {
+  return (
+    <div className="mt-6 flex flex-col gap-2">
+      <SectionLabel>
+        {images.length} images{brandName ? ` · ${brandName}` : ''}
+      </SectionLabel>
+      {/* A border here means "a rendered asset lives here". */}
+      {/* items-start so a portrait card keeps its height instead of
+          stretching its square neighbours to match. */}
+      <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
+        {images.map((asset) => (
+          <figure key={asset.id} className="border border-rule bg-surface p-3">
+            {asset.url ? (
+              // Intrinsic size on the element, so a 1080x1350 post holds its
+              // 4:5 shape instead of being squared off by the grid.
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={asset.url}
+                alt={String((asset.meta_json as Caption).alt_text ?? '')}
+                width={Number((asset.meta_json as { width?: number }).width) || 1080}
+                height={Number((asset.meta_json as { height?: number }).height) || 1080}
+                className="h-auto w-full"
+                loading="lazy"
+              />
+            ) : null}
+            {/*
+              Two lines, so the template name is never abbreviated: at three
+              cards per row there is not enough width for a name, its
+              dimensions and a link side by side.
+            */}
+            <figcaption className="mt-2 flex flex-col gap-0.5">
+              <span className="text-xs text-ink">{templateLabel(asset)}</span>
+              <span className="flex items-baseline justify-between gap-2">
+                <span className="num text-xs text-slate">{dimensions(asset)}</span>
+                {asset.url ? (
+                  <a
+                    href={asset.url}
+                    download
+                    className="shrink-0 text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
+                  >
+                    Save PNG
+                  </a>
+                ) : null}
+              </span>
+            </figcaption>
+          </figure>
+        ))}
+      </div>
     </div>
   )
 }
@@ -326,7 +252,7 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
   return (
     <div className="mt-5 flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-medium text-slate">Caption</h3>
+        <SectionLabel>Caption</SectionLabel>
         <span className="num text-xs text-slate">{words} words</span>
       </div>
 
@@ -351,9 +277,7 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
         >
           {state === 'saving' ? 'Saving' : 'Save caption'}
         </button>
-        <span
-          className={cx('text-xs', state === 'error' ? 'text-chilli' : 'text-slate')}
-        >
+        <span className={cx('text-xs', state === 'error' ? 'text-chilli' : 'text-slate')}>
           {state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save' : ''}
         </span>
       </div>

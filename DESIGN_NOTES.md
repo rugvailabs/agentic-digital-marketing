@@ -186,6 +186,36 @@ full-bleed flat colour. Headlines autofit by measured bounding box rather than
 character count, because Tamil and Devanagari advance widths have nothing to
 do with Latin ones and a single long Tamil word cannot wrap.
 
+## The reel controls on the Desk
+
+One row of controls, two things made from them. Brand and language are picked
+once — a marketer does not choose them twice for the same topic — and then
+"Generate post" and "Render reel" sit against their own output and their own
+status line. They are separate jobs on separate pipelines with separate ways
+of failing, which is exactly how they are reported.
+
+**The status names the stage, not the step.** "Rendering" means two different
+things to someone waiting: a post is drawing three images, a reel is driving
+a browser across nine hundred frames. A reel says "Writing the script",
+"Recording the voiceover", "Rendering frames" — and once, plainly, that this
+takes a few minutes. Without that the first run looks stuck.
+
+**The script appears before the video does.** It is written minutes before
+the frames finish, so it goes on screen as soon as it exists: something to
+read and correct instead of a spinner. The card and the spoken line sit side
+by side, divided by a hairline, because they are deliberately different — the
+card carries "2 crore", the voice carries "two crore rupees" — and seeing
+both is the only way to check they still agree.
+
+**A derived script says so.** When the writer is unavailable the script is
+built from the topic instead, and the panel says "Built from the topic, not
+written" rather than implying something wrote it.
+
+**The video gets the one card.** A border still means "a rendered asset lives
+here", so the player sits in the same box the post images do, capped at 270px
+so a 9:16 file does not take the whole Desk, with its size, length, voice and
+whether it carries music underneath.
+
 ## The reel (step 3)
 
 A reel is the wire desk in motion, not a new visual language. Paper ground,

@@ -160,6 +160,7 @@ class TestStorageTypes:
             ("jobs/1/reel-wire.mp4", "video/mp4"),
             ("jobs/1/voice.mp3", "audio/mpeg"),
             ("jobs/1/voice.wav", "audio/wav"),
+            ("jobs/1/reel-poster.jpg", "image/jpeg"),
             ("jobs/1/mystery", "application/octet-stream"),
         ],
     )

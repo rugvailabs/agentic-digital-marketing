@@ -7,6 +7,7 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `board-390-*` — the ladder full width below the 800px Desk breakpoint.
 - `panel-390-*` — the Desk as a slide-in panel over the ladder.
 - `studio-*` — the content studio with posts generated live by Gemini.
+- `reel-*` — the reel panel with a narrated video rendered end to end.
 
 - board-1440-light.png (IN, 1440px, 20 rows)
 - board-1440-dark.png (IN, 1440px, 20 rows)
@@ -15,6 +16,8 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - studio-english.png (IN-GA, 1440px, 20 rows)
 - studio-hindi.png (IN-GA, 1440px, 20 rows)
 - studio-tamil.png (IN-GA, 1440px, 20 rows)
+- reel-1440-light.png (IN-GA, 1440px, 20 rows)
+- reel-1440-dark.png (IN-GA, 1440px, 20 rows)
 - board-390-light.png (IN, 390px, 20 rows)
 - board-390-dark.png (IN, 390px, 20 rows)
 - panel-390-light.png (IN, 390px, 20 rows)

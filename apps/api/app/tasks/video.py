@@ -135,6 +135,11 @@ async def run_reel(job_id: int, sessions: Any = None) -> dict[str, Any]:
 
             key = f"jobs/{job.id}/{size}-{video_brief.template}.mp4"
             url = put_bytes(key, mixed.mp4, "video/mp4")
+            poster_url = (
+                put_bytes(f"jobs/{job.id}/{size}-poster.jpg", mixed.poster, "image/jpeg")
+                if mixed.poster
+                else None
+            )
             session.add(
                 ContentAsset(
                     job_id=job.id,
@@ -152,6 +157,7 @@ async def run_reel(job_id: int, sessions: Any = None) -> dict[str, Any]:
                         "audio_channels": mixed.audio_channels,
                         "has_music": mixed.has_music,
                         "voice": narration.voice,
+                        "poster_url": poster_url,
                         "alt_text": script.alt_text,
                         "label": "Reel" if size == "reel" else "Square video",
                     },

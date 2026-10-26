@@ -66,6 +66,8 @@ CACHE_CONTROL = "public, max-age=31536000, immutable"
 
 CONTENT_TYPES = {
     "png": "image/png",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
     "mp4": "video/mp4",
     "mp3": "audio/mpeg",
     "wav": "audio/wav",

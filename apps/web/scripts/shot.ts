@@ -41,6 +41,8 @@ type Shot = {
   studio?: boolean
   /** Select the row containing this text, rather than by position. */
   selectTopic?: string
+  /** Wait for a rendered reel to load, and frame the panel rather than the top. */
+  reel?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -89,6 +91,24 @@ function shots(regionOverride?: string): Shot[] {
       viewport: DESKTOP,
       selectTopic: 'Goa weather',
       studio: true,
+    },
+    // The reel panel: a topic whose reel has actually been rendered, so the
+    // player, its facts and the script are all on screen.
+    {
+      name: 'reel-1440-light',
+      region: 'IN-GA',
+      theme: 'light',
+      viewport: DESKTOP,
+      selectTopic: 'Zimbabwe vs afghanistan',
+      reel: true,
+    },
+    {
+      name: 'reel-1440-dark',
+      region: 'IN-GA',
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectTopic: 'Zimbabwe vs afghanistan',
+      reel: true,
     },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
     { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },
@@ -168,7 +188,10 @@ async function capture(page: Page, shot: Shot): Promise<string> {
     await row.scrollIntoViewIfNeeded()
     await row.click()
   } else if (shot.selectRank) {
-    await page.locator('[role="option"]').nth(shot.selectRank - 1).click()
+    await page
+      .locator('[role="option"]')
+      .nth(shot.selectRank - 1)
+      .click()
   }
   if (!shot.openPanel) {
     // Clicking a row opens the panel below the Desk breakpoint; close it again
@@ -177,12 +200,35 @@ async function capture(page: Page, shot: Shot): Promise<string> {
     if (await close.isVisible().catch(() => false)) await close.click()
   }
 
+  if (shot.reel) {
+    // The video element only appears once the job is ready; without this the
+    // shot catches an empty panel that looks like nothing was rendered.
+    await page.waitForSelector('video', { timeout: 30_000 })
+    await page.waitForFunction(
+      () => {
+        const video = document.querySelector('video')
+        // readyState >= 1 means the metadata is in, so the player has its
+        // real aspect rather than a collapsed box.
+        return video !== null && video.readyState >= 1
+      },
+      undefined,
+      { timeout: 30_000 },
+    )
+    await page.locator('video').scrollIntoViewIfNeeded()
+    // Back to the top before a full-page capture: the 56px bar is fixed, so
+    // Playwright paints it wherever the page happens to be scrolled to and it
+    // lands across the middle of the shot.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(200)
+  }
+
   if (shot.studio) {
     // Wait for the stored post to arrive and its images to decode, or the
     // shot catches an empty studio that looks like nothing was generated.
     await page.waitForSelector('figure img', { timeout: 20_000 })
     await page.waitForFunction(
-      () => [...document.querySelectorAll('figure img')].every((i) => (i as HTMLImageElement).complete),
+      () =>
+        [...document.querySelectorAll('figure img')].every((i) => (i as HTMLImageElement).complete),
       undefined,
       { timeout: 20_000 },
     )
@@ -191,7 +237,7 @@ async function capture(page: Page, shot: Shot): Promise<string> {
 
   await page.waitForTimeout(SETTLE_MS)
   const path = join(OUT_DIR, `${shot.name}.png`)
-  await page.screenshot({ path, fullPage: shot.studio === true })
+  await page.screenshot({ path, fullPage: shot.studio === true || shot.reel === true })
   return `${shot.name}.png (${shot.region}, ${shot.viewport.width}px, ${rows} rows)`
 }
 
@@ -232,6 +278,7 @@ async function main(): Promise<void> {
       '- `board-390-*` — the ladder full width below the 800px Desk breakpoint.',
       '- `panel-390-*` — the Desk as a slide-in panel over the ladder.',
       '- `studio-*` — the content studio with posts generated live by Gemini.',
+      '- `reel-*` — the reel panel with a narrated video rendered end to end.',
       '',
       ...written.map((w) => `- ${w}`),
       '',

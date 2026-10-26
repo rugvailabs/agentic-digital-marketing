@@ -34,6 +34,14 @@ AUDIO_BITRATE = "192k"
 SAMPLE_RATE = 48_000
 
 
+#: Where to take the poster from, as a fraction of the reel.
+#:
+#: Not frame zero. The opening card settles over the first third of a second,
+#: so frame zero is a blank sheet of paper — which is exactly what a player
+#: shows before anyone presses play, and it looks like a failed render.
+POSTER_AT = 0.35
+
+
 @dataclass(slots=True)
 class MuxedVideo:
     mp4: bytes
@@ -41,6 +49,8 @@ class MuxedVideo:
     audio_codec: str
     audio_channels: int
     has_music: bool
+    #: A still for the player to show before it is played.
+    poster: bytes = b""
 
 
 def _voice_graph(narration: Narration) -> tuple[list[str], str]:
@@ -158,6 +168,7 @@ async def mux(
 
         mp4 = out.read_bytes()
         seconds = await duration_seconds(out)
+        poster = await _poster(out, work, seconds)
 
     log.info(
         "reel mixed",
@@ -173,4 +184,24 @@ async def mux(
         audio_codec=stream.codec,
         audio_channels=stream.channels,
         has_music=bed is not None,
+        poster=poster,
     )
+
+
+async def _poster(video: Path, work: Path, seconds: float) -> bytes:
+    """One frame, for the player to show before it is played.
+
+    Never fatal: a reel without a poster is a reel with a dull first frame,
+    and failing the whole job over a thumbnail would be absurd.
+    """
+    at = max(0.1, seconds * POSTER_AT)
+    out = work / "poster.jpg"
+    try:
+        await run_ffmpeg(
+            ["-ss", f"{at:.3f}", "-i", str(video), "-frames:v", "1", "-q:v", "3", str(out)],
+            timeout=60.0,
+        )
+        return out.read_bytes()
+    except (FFmpegError, OSError) as exc:
+        log.warning("no poster frame", error=str(exc)[:200])
+        return b""
