@@ -1,0 +1,54 @@
+{
+  "kind": "Listing",
+  "data": {
+    "after": null,
+    "dist": 3,
+    "children": [
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1a0007",
+          "title": "Chandrayaan-4 sample return mission cleared by the Cabinet",
+          "ups": 1540,
+          "score": 1540,
+          "num_comments": 96,
+          "permalink": "/r/india/comments/1a0007/chandrayaan4_cleared/",
+          "link_flair_text": "Science/Technology",
+          "stickied": false,
+          "over_18": false,
+          "subreddit": "india"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1a0002",
+          "title": "RBI holds the repo rate at 6.5% for the fourth straight review",
+          "ups": 11890,
+          "score": 11890,
+          "num_comments": 701,
+          "permalink": "/r/india/comments/1a0002/rbi_holds_repo_rate/",
+          "link_flair_text": "Business/Finance",
+          "stickied": false,
+          "over_18": false,
+          "subreddit": "india"
+        }
+      },
+      {
+        "kind": "t3",
+        "data": {
+          "id": "1a0008",
+          "title": "Indian Railways begins trials of the Vande Bharat sleeper rake",
+          "ups": 880,
+          "score": 880,
+          "num_comments": 54,
+          "permalink": "/r/india/comments/1a0008/vande_bharat_sleeper/",
+          "link_flair_text": "Infrastructure",
+          "stickied": false,
+          "over_18": false,
+          "subreddit": "india"
+        }
+      }
+    ]
+  }
+}

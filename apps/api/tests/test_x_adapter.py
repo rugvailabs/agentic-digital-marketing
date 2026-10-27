@@ -50,10 +50,12 @@ def test_registry_exposes_every_source_and_its_weight() -> None:
         SourceName.google_trends,
         SourceName.google_news,
         SourceName.youtube,
+        SourceName.reddit,
         SourceName.x,
     ]
     assert all(isinstance(s, TrendSource) for s in sources)
 
-    # Keyless sources work on a clean checkout; the other two need credentials.
+    # Keyless sources work on a clean checkout; youtube, reddit and x all
+    # need credentials, so a clean checkout has exactly the two.
     assert set(configured_source_names()) >= {"google_trends", "google_news"}
     assert source_weights()["google_trends"] > source_weights()["google_news"]
