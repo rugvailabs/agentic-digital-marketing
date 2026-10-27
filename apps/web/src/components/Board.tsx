@@ -120,7 +120,7 @@ export function Board({
             Back to ladder
           </button>
         </div>
-        <Desk region={board.region} trend={selected} brands={brands} />
+        <Desk region={board.region} trend={selected} brands={brands} platforms={platforms} />
       </div>
     </div>
   )

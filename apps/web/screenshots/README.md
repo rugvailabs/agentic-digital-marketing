@@ -11,8 +11,7 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `platforms-*` — the platform filter strip above the ladder.
 - `platform-filtered-*` — the ladder with one platform selected.
 - `settings-*` — which platforms are connected, and the variables to set.
+- `desk-platforms-*` — why a topic is trending, and its hashtags by platform.
 
-- platforms-1440-light.png (IN-MH, 1440px, 20 rows)
-- platforms-1440-dark.png (IN-MH, 1440px, 20 rows)
-- D:\agentic-digital-marketing\apps\web\screenshots\settings-1440-light.png
-- D:\agentic-digital-marketing\apps\web\screenshots\settings-1440-dark.png
+- desk-platforms-1440-light.png (IN-TN, 1440px, 20 rows)
+- desk-platforms-1440-dark.png (IN-TN, 1440px, 20 rows)

@@ -118,6 +118,24 @@ function shots(regionOverride?: string): Shot[] {
       selectTopic: 'Zimbabwe vs afghanistan',
       reel: true,
     },
+    // The Desk's step 4 additions: "why trending" under the title and the
+    // hashtags grouped by platform. IN-TN rather than the usual state board,
+    // because it is the one that has actually been curated by v3 — an
+    // uncurated region has no why_trending to show.
+    {
+      name: 'desk-platforms-1440-light',
+      region: 'IN-TN',
+      theme: 'light',
+      viewport: DESKTOP,
+      selectRank: 2,
+    },
+    {
+      name: 'desk-platforms-1440-dark',
+      region: 'IN-TN',
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectRank: 2,
+    },
     // Step 4: the platform strip, a filter applied, and the settings page
     // that the "connect" chips open.
     {
@@ -358,6 +376,7 @@ async function main(): Promise<void> {
       '- `platforms-*` — the platform filter strip above the ladder.',
       '- `platform-filtered-*` — the ladder with one platform selected.',
       '- `settings-*` — which platforms are connected, and the variables to set.',
+      '- `desk-platforms-*` — why a topic is trending, and its hashtags by platform.',
       '',
       ...written.map((w) => `- ${w}`),
       '',

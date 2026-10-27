@@ -1,6 +1,7 @@
-import type { Brand, Trend, TrendsResponse } from '@trendforge/types'
+import type { Brand, Platform, Trend, TrendsResponse } from '@trendforge/types'
 import { SOURCE_LABELS, type SourceName } from '@trendforge/types'
 
+import { Hashtags } from '@/components/Hashtags'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
 import { Empty, MetaCell, SectionLabel } from '@/components/primitives'
@@ -17,10 +18,13 @@ export function Desk({
   region,
   trend,
   brands,
+  platforms,
 }: {
   region: TrendsResponse['region']
   trend: Trend | null
   brands: Brand[]
+  /** Every platform, so a configured one with no row can explain itself. */
+  platforms: Platform[]
 }) {
   if (!trend) {
     return (
@@ -50,13 +54,19 @@ export function Desk({
         <h1 className="mt-1.5 font-display text-2xl leading-[1.05] font-bold text-ink">
           {trend.topic}
         </h1>
-        {trend.hashtags.length > 0 ? (
-          <p className="mt-2.5 flex flex-wrap gap-x-3 gap-y-1 text-sm font-medium text-ink">
-            {trend.hashtags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </p>
+        {trend.why_trending ? (
+          // Under the title, before anything else: it is the one line that
+          // says why this is on the board at all, and a marketer reads it
+          // before deciding whether to write anything.
+          <p className="mt-2 max-w-prose text-sm text-slate">{trend.why_trending}</p>
         ) : null}
+      </div>
+
+      <div>
+        <SectionLabel>Hashtags</SectionLabel>
+        <div className="mt-2">
+          <Hashtags trend={trend} platforms={platforms} />
+        </div>
       </div>
 
       {/*
