@@ -20,7 +20,7 @@ from typing import Any
 from app.core.logging import get_logger
 from app.llm import LLMError, LLMProvider
 from app.prompts import render_prompt
-from app.tasks.merge import clean_hashtags
+from app.tasks.merge import clean_hashtags, merge_hashtags
 
 log = get_logger("video.script")
 
@@ -34,6 +34,9 @@ MAX_BEAT_WORDS = 8
 MAX_DETAIL_WORDS = 12
 #: Past this the card holds too long and the voice runs over the cut.
 MAX_SAY_WORDS = 28
+#: Fewer than a post publishes: a reel's tags go in the caption under it,
+#: where a long list reads as spam rather than as reach.
+REEL_HASHTAGS = 5
 
 REEL_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
@@ -327,7 +330,11 @@ async def _from_model(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:
             *beats[:MAX_BEATS],
             *([Segment(kind="outro", say=outro)] if outro else []),
         ],
-        hashtags=clean_hashtags(data.get("hashtags"), 5),
+        hashtags=merge_hashtags(
+            clean_hashtags(data.get("hashtags"), REEL_HASHTAGS),
+            brief.get("hashtags") or [],
+            REEL_HASHTAGS,
+        ),
         alt_text=str(data.get("alt_text") or "").strip(),
     )
 
@@ -371,7 +378,7 @@ def derive_script(brief: dict[str, Any]) -> ReelScript:
             *beats,
             Segment(kind="outro", say=_speakable(topic)),
         ],
-        hashtags=list(brief.get("hashtags") or [])[:5],
+        hashtags=list(brief.get("hashtags") or [])[:REEL_HASHTAGS],
         alt_text=topic,
         derived=True,
     )

@@ -13,6 +13,7 @@ from app.tasks.merge import (
     display_topic,
     hashtags_for,
     merge,
+    merge_hashtags,
     next_velocity,
     normalise_topic,
     rank_points,
@@ -252,3 +253,47 @@ class TestCleanHashtags:
         assert clean_hashtags(["", "#", "  ", None], 8) == []
         assert clean_hashtags(None, 8) == []
         assert clean_hashtags("not a list", 8) == []
+
+
+class TestMergeHashtags:
+    """What a post publishes: the writer's tags and the curator's, and never
+    the raw trend column."""
+
+    def test_both_sets_are_published(self) -> None:
+        tags = merge_hashtags(["#AINews", "#Startups"], ["#Anthropic", "#IPO"], 8)
+
+        assert set(tags) == {"#AINews", "#Startups", "#Anthropic", "#IPO"}
+
+    def test_the_curators_tags_survive_the_cap(self) -> None:
+        """The writer invents a fresh set per caption and the curator's are
+        the topic's canonical handles, so the writer is the one with tags to
+        spare. Dropping the handles would make two posts about one story
+        stop matching each other."""
+        writer = [f"#W{i}" for i in range(8)]
+
+        tags = merge_hashtags(writer, ["#Anthropic", "#IPO"], 5)
+
+        assert len(tags) == 5
+        assert "#Anthropic" in tags
+        assert "#IPO" in tags
+
+    def test_duplicates_are_dropped_case_insensitively(self) -> None:
+        """#AiIpo and #AIIPO are one tag on every network that matters."""
+        tags = merge_hashtags(["#aiipo", "#Tech"], ["#AIIPO"], 8)
+
+        assert len(tags) == 2
+        assert "#Tech" in tags
+
+    def test_a_writer_with_nothing_still_publishes_the_handles(self) -> None:
+        assert merge_hashtags([], ["#Anthropic"], 8) == ["#Anthropic"]
+
+    def test_an_uncurated_topic_contributes_nothing(self) -> None:
+        """`curator_hashtags` is empty for an uncurated row, so the merge has
+        only the writer's tags to work with — which is the point. The raw
+        column holds the source headline as one word."""
+        assert merge_hashtags(["#AINews"], [], 8) == ["#AINews"]
+
+    def test_the_limit_is_honoured_by_the_curator_too(self) -> None:
+        tags = merge_hashtags([], [f"#C{i}" for i in range(9)], 4)
+
+        assert len(tags) == 4

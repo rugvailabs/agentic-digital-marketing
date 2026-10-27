@@ -123,6 +123,35 @@ def clean_hashtags(raw: object, limit: int) -> list[str]:
     return tags[:limit]
 
 
+def merge_hashtags(writer: list[str], curator: list[str], limit: int) -> list[str]:
+    """What a post or reel publishes: the writer's tags and the curator's.
+
+    The curator's survive the cap and the writer's surplus is what gets
+    dropped. They are the topic's canonical handles — the thing that makes
+    two posts about one story findable together — and the writer invents a
+    fresh set per caption, so the writer is the one with tags to spare.
+
+    Raw trend tags are not an input here and must not become one. They are
+    the source headline camel-cased into a single word, and they reached a
+    published caption once by being handed to the writer as prior art.
+    """
+    kept: list[str] = []
+    seen: set[str] = set()
+
+    def take(tags: list[str], room: int) -> None:
+        for tag in tags:
+            # Case-insensitively, so #AIIPO and #AiIpo are not both published.
+            key = tag.lower()
+            if key in seen or len(kept) >= room:
+                continue
+            seen.add(key)
+            kept.append(tag)
+
+    take(curator, limit)
+    take(writer, limit)
+    return kept
+
+
 def hashtags_for(topic: str, category: str | None = None) -> list[str]:
     """Primary camel-cased tag, then cheap variants, deduped and capped."""
     tags: list[str] = []

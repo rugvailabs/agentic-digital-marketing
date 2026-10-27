@@ -58,7 +58,9 @@ async def reel_brief(session: AsyncSession, job: ContentJob) -> dict[str, Any]:
     region = trend.region if trend and trend.region else None
     brief["region_name"] = region.name if region else ""
     brief["velocity"] = [float(v) for v in (trend.velocity or [])] if trend else []
-    brief["hashtags"] = list(trend.hashtags or []) if trend else []
+    # Curator tags only: `derive_script` publishes these as written, so the
+    # raw column would put a camel-cased source headline on a reel.
+    brief["hashtags"] = trend.curator_hashtags if trend else []
     return brief
 
 

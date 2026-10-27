@@ -124,6 +124,12 @@ class Trend(Base, TimestampMixin):
     # Last 6 scores, oldest first: current + previous 5 snapshots.
     velocity: Mapped[list[float]] = mapped_column(JSONB, nullable=False, default=list)
     # camelCased from the topic, e.g. "#AsiaCupFinal".
+    #
+    # Two writers, and they do not agree. The curator rewrites this column
+    # with handles it chose and length-capped; the non-LLM merge fills it by
+    # camel-casing the whole source headline, which yields tags nobody would
+    # publish — #AIToolHelpedRajasthanRoyals. Read `curator_hashtags` rather
+    # than this column anywhere the value is going out to a network.
     hashtags: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     # Source names that contributed, e.g. ["google_trends", "google_news"].
     sources: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
@@ -157,6 +163,19 @@ class Trend(Base, TimestampMixin):
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    @property
+    def curator_hashtags(self) -> list[str]:
+        """Hashtags fit to publish, which is only ever the curator's.
+
+        `curated_at` is the discriminator and it is exact: the merge never
+        sets it, and `upsert_trends` leaves a curated region alone, so a
+        non-null value means these tags came from the curator's own output
+        and have been through its length cap. Null means they were
+        camel-cased off a source headline and are the whole headline as one
+        word, which is unusable on any network.
+        """
+        return list(self.hashtags or []) if self.curated_at else []
 
     __table_args__ = (
         UniqueConstraint("region_id", "topic_key", name="uq_trends_region_id_topic_key"),

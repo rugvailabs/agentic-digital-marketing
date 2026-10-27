@@ -35,6 +35,12 @@ dev = [
   "ruff>=0.8.4",
   "mypy>=1.14.0",
   "types-python-dateutil>=2.9.0",
+  # watchmedo restarts the celery worker when app/ changes. The api has
+  # uvicorn --reload; celery has no equivalent and imports its task modules
+  # once at startup, so an edited task kept running the old code from memory
+  # until the container was recreated. Dev extra only: prod wants the restart
+  # to be a deploy.
+  "watchdog>=6.0.0",
 ]
 
 [tool.ruff]

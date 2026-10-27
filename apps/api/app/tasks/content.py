@@ -34,7 +34,7 @@ from app.models import (
 )
 from app.prompts import render_prompt
 from app.storage import put_png
-from app.tasks.merge import clean_hashtags
+from app.tasks.merge import clean_hashtags, merge_hashtags
 
 log = get_logger("content")
 
@@ -153,7 +153,11 @@ async def build_brief(session: AsyncSession, job: ContentJob) -> dict[str, Any]:
         # data, and putting it here once put it on a card and into a
         # voiceover — see NO_SUMMARY below.
         "summary": trend.summary or "",
-        "known_hashtags": ", ".join(trend.hashtags) or "(none)",
+        # The curator's tags, never the raw column. An uncurated row carries
+        # its source headline camel-cased into one word, and showing the
+        # writer that as prior art is how it ends up in a caption.
+        "curator_hashtags": trend.curator_hashtags,
+        "known_hashtags": ", ".join(trend.curator_hashtags) or "(none)",
         "evidence": evidence,
         "language": job.language.value,
     }
@@ -189,7 +193,11 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
     return Post(
         hook=str(data.get("hook") or "").strip(),
         caption=caption,
-        hashtags=clean_hashtags(data.get("hashtags"), HASHTAG_COUNT),
+        hashtags=merge_hashtags(
+            clean_hashtags(data.get("hashtags"), HASHTAG_COUNT),
+            brief.get("curator_hashtags") or [],
+            HASHTAG_COUNT,
+        ),
         image_headline=str(data.get("image_headline") or brief["topic"]).strip(),
         image_subline=str(data.get("image_subline") or "").strip(),
         display_token=_clean_token(data.get("display_token"), brief["topic"]),

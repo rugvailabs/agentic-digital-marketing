@@ -90,6 +90,21 @@ class TestWriter:
         assert post.hashtags == ["#GoaAIPolicy", "#TechHub", "#AIInGoa"]
 
     @respx.mock
+    async def test_the_curators_tags_are_published_alongside_the_writers(self, client) -> None:
+        """The handles that make two posts about one story findable together,
+        which the writer has no way to know it should reuse."""
+        respx.route(GENERATE).mock(return_value=httpx.Response(200, json=envelope(WRITER_OUTPUT)))
+
+        post = await write_post(
+            GeminiProvider(client=client, api_key=KEY, model="m"),
+            {**BRIEF, "curator_hashtags": ["#Goa", "#AIPolicy"]},
+        )
+
+        assert "#Goa" in post.hashtags
+        assert "#AIPolicy" in post.hashtags
+        assert "#TechHub" in post.hashtags
+
+    @respx.mock
     async def test_the_prompt_carries_language_brand_and_evidence(self, client) -> None:
         route = respx.route(GENERATE).mock(
             return_value=httpx.Response(200, json=envelope(WRITER_OUTPUT))

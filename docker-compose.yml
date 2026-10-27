@@ -136,7 +136,21 @@ services:
     restart: unless-stopped
     environment: *api-env
     # solo pool keeps logs readable in dev; prefork in prod
-    command: ["celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]
+    # watchmedo, because celery has no --reload. It imports its task modules
+    # once at startup, so with only the bind mount an edited task kept
+    # running the old code from memory and the next job silently used it —
+    # which is how a fixed placeholder guard sat on disk for half an hour
+    # while reels kept rendering the placeholder. Watches app/ only, so
+    # editing a test does not bounce a running render. SIGTERM is celery's
+    # warm shutdown; --kill-after stops a long render from holding the
+    # restart open indefinitely.
+    #
+    # --debug-force-polling is not optional here despite the name. inotify
+    # events do not cross a Docker Desktop bind mount, so the default
+    # observer saw nothing at all: verified by editing a task file and
+    # watching the worker not restart. Polling every 2s over app/ costs
+    # little and is the difference between this working and being decorative.
+    command: ["watchmedo", "auto-restart", "--directory=/srv/api/app", "--pattern=*.py", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]
     volumes:
       - ./apps/api:/srv/api
     depends_on:
@@ -154,7 +168,9 @@ services:
     image: trendforge-api:latest
     restart: unless-stopped
     environment: *api-env
-    command: ["celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    # Same reason as the worker: the schedule is built from code at startup,
+    # so an edited crontab entry needs the process restarted to take.
+    command: ["watchmedo", "auto-restart", "--directory=/srv/api/app", "--pattern=*.py", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     volumes:
       - ./apps/api:/srv/api
     depends_on:
