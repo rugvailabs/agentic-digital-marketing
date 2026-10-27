@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from redis.exceptions import ConnectionError as RedisConnectionError
 
 from app.core.config import settings
 from app.models import Region, RegionKind
@@ -93,3 +94,62 @@ def _no_redis(monkeypatch: pytest.MonkeyPatch) -> None:
     install a fake client explicitly.
     """
     monkeypatch.setattr(settings, "redis_url", "", raising=False)
+
+
+class FakeRedis:
+    """Enough of redis.asyncio for a counter, shared by every client built
+    from it so that separate DailyBudget objects see one store."""
+
+    def __init__(self, *, fail: bool = False) -> None:
+        self.store: dict[str, int] = {}
+        self.expires: dict[str, int] = {}
+        self.fail = fail
+
+    # one store, many clients
+    def client(self) -> FakeRedis:
+        return self
+
+    async def __aenter__(self) -> FakeRedis:
+        return self
+
+    async def __aexit__(self, *exc: object) -> None:
+        return None
+
+    def _check(self) -> None:
+        if self.fail:
+            raise RedisConnectionError("connection refused")
+
+    async def incr(self, key: str) -> int:
+        self._check()
+        self.store[key] = self.store.get(key, 0) + 1
+        return self.store[key]
+
+    async def decr(self, key: str) -> int:
+        self._check()
+        self.store[key] = self.store.get(key, 0) - 1
+        return self.store[key]
+
+    async def get(self, key: str) -> str | None:
+        self._check()
+        value = self.store.get(key)
+        return None if value is None else str(value)
+
+    async def expire(self, key: str, seconds: int) -> bool:
+        self._check()
+        self.expires[key] = seconds
+        return True
+
+
+@pytest.fixture
+def fake_redis(monkeypatch: pytest.MonkeyPatch) -> FakeRedis:
+    """A shared Redis for the counters in app.core.budget.
+
+    Here rather than in one test module because both the LLM daily budget and
+    the X request cap are backed by it, and the behaviour worth testing —
+    that two objects in different processes see one count — cannot be shown
+    with the in-process fallback the suite otherwise runs on.
+    """
+    fake = FakeRedis()
+    monkeypatch.setattr(settings, "redis_url", "redis://fake:6379/0")
+    monkeypatch.setattr("app.core.budget._client", lambda: fake.client())
+    return fake

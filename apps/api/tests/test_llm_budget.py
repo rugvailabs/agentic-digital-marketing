@@ -10,62 +10,18 @@ at dusk.
 from __future__ import annotations
 
 import pytest
-from redis.exceptions import ConnectionError as RedisConnectionError
 
+from app.core.budget import DailyBudget
 from app.core.config import settings
 from app.llm import GeminiProvider, GroqProvider, SpilloverProvider
-from app.llm.limiter import DailyBudget
-
-
-class FakeRedis:
-    """Enough of redis.asyncio for a counter, shared by every client built
-    from it so that separate DailyBudget objects see one store."""
-
-    def __init__(self, *, fail: bool = False) -> None:
-        self.store: dict[str, int] = {}
-        self.expires: dict[str, int] = {}
-        self.fail = fail
-
-    # one store, many clients
-    def client(self) -> FakeRedis:
-        return self
-
-    async def __aenter__(self) -> FakeRedis:
-        return self
-
-    async def __aexit__(self, *exc: object) -> None:
-        return None
-
-    def _check(self) -> None:
-        if self.fail:
-            raise RedisConnectionError("connection refused")
-
-    async def incr(self, key: str) -> int:
-        self._check()
-        self.store[key] = self.store.get(key, 0) + 1
-        return self.store[key]
-
-    async def decr(self, key: str) -> int:
-        self._check()
-        self.store[key] = self.store.get(key, 0) - 1
-        return self.store[key]
-
-    async def get(self, key: str) -> str | None:
-        self._check()
-        value = self.store.get(key)
-        return None if value is None else str(value)
-
-    async def expire(self, key: str, seconds: int) -> bool:
-        self._check()
-        self.expires[key] = seconds
-        return True
+from tests.conftest import FakeRedis
 
 
 @pytest.fixture
 def redis(monkeypatch: pytest.MonkeyPatch) -> FakeRedis:
     fake = FakeRedis()
     monkeypatch.setattr(settings, "redis_url", "redis://fake:6379/0")
-    monkeypatch.setattr("app.llm.limiter._client", lambda: fake.client())
+    monkeypatch.setattr("app.core.budget._client", lambda: fake.client())
     return fake
 
 
@@ -126,7 +82,7 @@ class TestDailyBudget:
         generate guarantees spending none of it, which is worse."""
         fake = FakeRedis(fail=True)
         monkeypatch.setattr(settings, "redis_url", "redis://fake:6379/0")
-        monkeypatch.setattr("app.llm.limiter._client", lambda: fake.client())
+        monkeypatch.setattr("app.core.budget._client", lambda: fake.client())
         budget = DailyBudget(2, name="gemini-rpd")
 
         assert await budget.spend("flash") is True

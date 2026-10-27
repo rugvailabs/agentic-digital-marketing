@@ -1,0 +1,10 @@
+{
+  "_fixture_note": "Hand-authored to the documented GET /2/trends/by/woeid/:woeid response shape. Not captured live: the account's credits are exhausted, so every real call returns 402. Pins the adapter's field mapping, not X's live payload.",
+  "data": [
+    { "trend_name": "#INDvNZ", "tweet_count": 184000 },
+    { "trend_name": "Abhishek Sharma", "tweet_count": 92000 },
+    { "trend_name": "#Diwali2026", "tweet_count": 410000 },
+    { "trend_name": "RBI policy", "tweet_count": null },
+    { "trend_name": "   ", "tweet_count": 10 }
+  ]
+}

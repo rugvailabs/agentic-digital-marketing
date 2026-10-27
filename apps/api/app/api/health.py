@@ -14,6 +14,7 @@ from app.db.session import get_session
 from app.llm import get_llm
 from app.models import Region, Trend
 from app.sources import configured_source_names
+from app.sources.x import XAdapter
 from app.video.remotion import RemotionVideoProvider
 
 router = APIRouter(tags=["health"])
@@ -32,6 +33,16 @@ class ProviderHealth(BaseModel):
     per_model: dict[str, int] = Field(default_factory=dict)
 
 
+class XRequests(BaseModel):
+    """Today's spend on the one source that is billed per request."""
+
+    used: int = Field(examples=[24])
+    cap: int = Field(examples=[200])
+    #: False when X_BEARER_TOKEN is unset, in which case `used` is always 0
+    #: and means "nothing was asked for", not "nothing was spent".
+    configured: bool
+
+
 class Health(BaseModel):
     status: Literal["ok", "degraded"]
     env: str
@@ -48,6 +59,10 @@ class Health(BaseModel):
     #: the shared Redis budget rather than this process's own, because this
     #: process never calls a model — the worker does.
     llm_providers: list[ProviderHealth]
+    #: X requests spent today against X_DAILY_CAP. X is the one source billed
+    #: per request, and a region that rolls up several cities spends one per
+    #: WOEID, so the figure that matters is requests rather than regions.
+    x_requests: XRequests
 
 
 @router.get("/health", response_model=Health)
@@ -66,6 +81,12 @@ async def health(session: AsyncSession = Depends(get_session)) -> Health:
     renderer = bool((await RemotionVideoProvider().health()).get("ok"))
 
     providers = [ProviderHealth(**asdict(s)) for s in await get_llm().statuses()]
+    x = XAdapter()
+    x_requests = XRequests(
+        used=await x.requests_used_today(),
+        cap=settings.x_daily_cap,
+        configured=x.is_configured(),
+    )
     writing = any(p.configured for p in providers)
 
     return Health(
@@ -82,4 +103,5 @@ async def health(session: AsyncSession = Depends(get_session)) -> Health:
         sources_configured=configured_source_names(),
         renderer=renderer,
         llm_providers=providers,
+        x_requests=x_requests,
     )

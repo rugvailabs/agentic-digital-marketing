@@ -275,6 +275,7 @@ export interface components {
             renderer: boolean;
             /** Llm Providers */
             llm_providers: components["schemas"]["ProviderHealth"][];
+            x_requests: components["schemas"]["XRequests"];
         };
         /** IngestRunResponse */
         IngestRunResponse: {
@@ -493,6 +494,18 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /**
+         * XRequests
+         * @description Today's spend on the one source that is billed per request.
+         */
+        XRequests: {
+            /** Used */
+            used: number;
+            /** Cap */
+            cap: number;
+            /** Configured */
+            configured: boolean;
         };
     };
     responses: never;

@@ -1,0 +1,7 @@
+{
+  "_fixture_note": "A second WOEID for the roll-up test. #INDvNZ appears here too, at a better rank and a smaller count, so which of each survives the merge is observable.",
+  "data": [
+    { "trend_name": "#INDvNZ", "tweet_count": 1200 },
+    { "trend_name": "Mumbai Metro", "tweet_count": 8400 }
+  ]
+}
