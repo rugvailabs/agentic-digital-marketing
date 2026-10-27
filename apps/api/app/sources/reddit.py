@@ -20,17 +20,16 @@ keeps the rest of the region, instead of failing the region on one bad name.
 
 from __future__ import annotations
 
-import re
 import time
 from typing import Any
 
 import httpx
 
 from app.core.config import settings
+from app.core.hashtags import camel_hashtag, literal_hashtags
 from app.core.logging import get_logger
 from app.models import Region, SourceName
 from app.sources.base import RawTrendItem, TrendSource
-from app.tasks.merge import camel_hashtag
 
 log = get_logger("source.reddit")
 
@@ -108,9 +107,6 @@ SUBREDDITS: dict[str, tuple[str, ...]] = {
     "IN-WB-CCU": ("kolkata",),
 }
 
-#: Literal hashtags people actually typed.
-_LITERAL_TAG = re.compile(r"#(\w+)", re.UNICODE)
-
 #: Flairs that label the kind of post rather than its subject. Camel-casing
 #: these produces #Discussion and #AskIndia on unrelated stories, which is
 #: how a tag ends up on a post it has nothing to do with.
@@ -162,8 +158,12 @@ def hashtags_from(title: str, flair: str | None) -> list[str]:
             seen.add(key)
             tags.append(tag)
 
-    for raw in _LITERAL_TAG.findall(f"{title} {flair or ''}"):
-        add(f"#{raw}")
+    # `literal_hashtags`, not a local `#(\w+)`: Python's \w excludes combining
+    # marks, so that pattern captured #मौसम as #मसम — the matra dropped, a
+    # different word. The flair path went through camel_hashtag and was fine,
+    # which is why the Indic test passed over a broken literal path.
+    for tag in literal_hashtags(title, flair or ""):
+        add(tag)
 
     if flair and flair.strip().lower() not in _PROCEDURAL_FLAIRS:
         add(camel_hashtag(flair))
