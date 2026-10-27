@@ -30,20 +30,6 @@ router = APIRouter(tags=["content"])
 log = get_logger("api.content")
 
 
-class BrandOut(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: int
-    slug: str
-    name: str
-    voice_prompt: str
-    logo_url: str | None
-    primary_color: str
-    secondary_color: str
-    languages: list[str]
-    font_choice: str
-
-
 class AssetOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -87,11 +73,6 @@ class AssetPatch(BaseModel):
     hook: str | None = None
     hashtags: list[str] | None = None
     alt_text: str | None = None
-
-
-@router.get("/brands", response_model=list[BrandOut], tags=["brands"])
-async def list_brands(session: AsyncSession = Depends(get_session)) -> list[Brand]:
-    return list((await session.scalars(select(Brand).order_by(Brand.id))).all())
 
 
 @router.post("/content/jobs", response_model=JobOut, status_code=status.HTTP_201_CREATED)

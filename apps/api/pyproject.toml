@@ -29,6 +29,9 @@ dependencies = [
   # step 3: Microsoft Neural voices for the reel voiceover. No key, and no
   # official API either — hence TTS_ENABLED.
   "edge-tts>=7.0.0",
+  # step 5: Starlette parses multipart form data through this, and the brand
+  # logo upload is the first endpoint that takes a file.
+  "python-multipart>=0.0.20",
 ]
 
 [project.optional-dependencies]
