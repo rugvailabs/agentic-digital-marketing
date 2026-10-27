@@ -61,8 +61,75 @@ REEL_SCHEMA: dict[str, Any] = {
 }
 
 
+#: What a reel says when no usable script could be written.
+#:
+#: One message for every cause — the writer was down, over budget, or came
+#: back with something unusable. A marketer can act on all three the same
+#: way, and none of them is worth a different sentence.
+UNAVAILABLE = "Script unavailable, try again later."
+
+#: Lines that must never reach a card or a voice.
+#:
+#: These are instructions to the writer, not content, and they arrive looking
+#: exactly like content. One of them — the no-summary stand-in — was rendered
+#: on a card and narrated aloud before this check existed, because the
+#: fallback path split the brief's summary into sentences without asking
+#: where that summary had come from.
+PLACEHOLDER_MARKERS = (
+    "no summary available",
+    "work from the headlines",
+    "none)",
+    "lorem ipsum",
+    "placeholder",
+    "n/a",
+    "tbd",
+)
+
+#: Phrasing that reads as a brief rather than as a line in a reel.
+INSTRUCTION_MARKERS = (
+    "write ",
+    "generate ",
+    "describe ",
+    "summarise ",
+    "summarize ",
+    "as an ai",
+    "language model",
+    "here is the json",
+)
+
+
 class ScriptError(RuntimeError):
     """A failure worth showing the user verbatim."""
+
+
+def unusable_lines(script: ReelScript) -> list[str]:
+    """Every line in `script` that must not be rendered.
+
+    Checked over both halves — what a card shows and what the voice says —
+    because a placeholder is just as wrong read aloud as printed.
+    """
+    bad: list[str] = []
+    for segment in script.segments:
+        # Every card is narrated, so `say` is always required. `text` is the
+        # beat's own line and only a beat has one — the opening and closing
+        # cards show the headline. `detail` is a second line most beats are
+        # better without.
+        required = {"say"} | ({"text"} if segment.kind == "beat" else set())
+
+        for name, line in (
+            ("say", segment.say),
+            ("text", segment.text),
+            ("detail", segment.detail),
+        ):
+            if not line.strip():
+                if name in required:
+                    bad.append(f"{segment.kind}.{name}: empty")
+                continue
+            lowered = line.lower()
+            placeholder = any(marker in lowered for marker in PLACEHOLDER_MARKERS)
+            if placeholder or lowered.startswith(INSTRUCTION_MARKERS):
+                bad.append(f"{segment.kind}: {line[:60]}")
+    return bad
 
 
 @dataclass(slots=True)
@@ -148,20 +215,47 @@ def _readable(ch: str) -> bool:
 
 
 async def write_script(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:
-    """Ask the model for a script, or derive one if it cannot answer."""
+    """A script worth rendering, or nothing.
+
+    A reel is published. A post can be edited before it goes out, but a reel
+    is a rendered file with a voice on it, and a plainer one is not a lesser
+    version of the same thing — it is a different, worse thing with the
+    brand's name in the corner. So a writer that cannot answer fails the job
+    rather than handing the fallback to the renderer.
+
+    The derived path survives for the case where no model is configured at
+    all, and it is held to the same check as everything else.
+    """
     if llm.is_configured():
         try:
-            return await _from_model(llm, brief)
+            script = await _from_model(llm, brief)
         except ScriptError:
             raise
         except LLMError as exc:
-            # Budget or outage. A plainer reel beats no reel, and the log
-            # says which one this was.
-            log.warning("reel script fell back to the topic", error=str(exc)[:200])
+            log.warning("reel script unavailable", error=str(exc)[:200])
+            raise ScriptError(UNAVAILABLE) from exc
     else:
         log.info("no model configured, deriving the reel script from the topic")
+        script = derive_script(brief)
 
-    return derive_script(brief)
+    # Two ways a script can be unrenderable, and they need separate checks:
+    # too few cards to be a reel at all, and cards carrying the wrong words.
+    if len(script.beats) < MIN_BEATS:
+        log.warning(
+            "reel script has too few beats",
+            derived=script.derived,
+            beats=len(script.beats),
+        )
+        raise ScriptError(UNAVAILABLE)
+
+    bad = unusable_lines(script)
+    if bad:
+        # Never rendered. A placeholder on a card is worse than no reel,
+        # because it looks finished.
+        log.warning("reel script rejected", derived=script.derived, lines=bad[:4])
+        raise ScriptError(UNAVAILABLE)
+
+    return script
 
 
 async def _from_model(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:
@@ -207,8 +301,8 @@ async def _from_model(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:
     outro = _speakable(data.get("outro_say"))
 
     if len(beats) < MIN_BEATS or not intro:
-        log.warning("reel script came back thin, deriving instead", beats=len(beats))
-        return derive_script(brief)
+        log.warning("reel script came back thin", beats=len(beats))
+        raise ScriptError(UNAVAILABLE)
 
     return ReelScript(
         headline=headline,
@@ -233,9 +327,9 @@ def derive_script(brief: dict[str, Any]) -> ReelScript:
     summary = str(brief.get("summary") or "").strip()
     region = str(brief.get("region_name") or "").strip()
 
+    # Only real sentences. An empty summary yields nothing here rather than
+    # the topic repeated, and the caller rejects a script with nothing in it.
     sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", summary) if len(s.strip()) > 12]
-    if not sentences:
-        sentences = [topic]
 
     beats: list[Segment] = []
     for sentence in sentences[:MAX_BEATS]:
@@ -249,9 +343,10 @@ def derive_script(brief: dict[str, Any]) -> ReelScript:
                 say=_speakable(sentence),
             )
         )
-    if not beats:
-        beats = [Segment(kind="beat", text=_words(topic, 6), say=_speakable(topic))]
 
+    # No fallback beat built from the topic: a card reading the search term
+    # back at the viewer, narrated word for word, is not content. With
+    # nothing to derive from this returns a script the caller rejects.
     where = f" in {region}" if region else ""
     return ReelScript(
         headline=topic,

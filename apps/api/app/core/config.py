@@ -69,6 +69,18 @@ class Settings(BaseSettings):
     gemini_embed_rpm: int = 100
     gemini_timeout_seconds: float = 90.0
 
+    # ── Groq (spillover) ──────────────────────────────────────────────────
+    #: Used only when every Gemini model has spent its daily budget. Blank =>
+    #: no spillover, and the studio simply stops until the budget resets.
+    groq_api_key: str = ""
+    #: `llama-3.3-70b-versatile` is the obvious choice and is not served to
+    #: every key — this one does not have it. Probed on 2026-10-27: of what
+    #: is available, gpt-oss-120b returns clean structured JSON and
+    #: gpt-oss-20b fails json_object validation outright.
+    groq_model: str = "openai/gpt-oss-120b"
+    groq_rpm: int = 30
+    groq_timeout_seconds: float = 90.0
+
     # ── Curation ──────────────────────────────────────────────────────────
     #: Measured on real gemini-embedding-001 vectors: genuine cross-source
     #: matches land at 0.686-0.693 and unrelated same-genre titles at <=0.67,

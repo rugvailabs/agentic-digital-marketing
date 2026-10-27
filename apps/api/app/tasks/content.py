@@ -41,6 +41,13 @@ log = get_logger("content")
 PROMPT_ID = "write_post_v2"
 HASHTAG_COUNT = 8
 
+#: What a prompt is told when a topic has no summary.
+#:
+#: An instruction to the model, never content. It lives at the prompt boundary
+#: because the one time it sat in the brief as data, the reel's fallback
+#: script split it into sentences and narrated it.
+NO_SUMMARY = "No summary available; work from the headlines below."
+
 WRITE_SCHEMA: dict[str, Any] = {
     "type": "OBJECT",
     "properties": {
@@ -141,7 +148,11 @@ async def build_brief(session: AsyncSession, job: ContentJob) -> dict[str, Any]:
         "brand_name": job.brand.name,
         "brand_voice": job.brand.voice_prompt or "Plain, confident, no hype.",
         "topic": trend.topic,
-        "summary": trend.summary or "No summary available; work from the headlines below.",
+        # The real summary, which may be empty. The stand-in a prompt needs
+        # when it is ("work from the headlines below") is prompt text, not
+        # data, and putting it here once put it on a card and into a
+        # voiceover — see NO_SUMMARY below.
+        "summary": trend.summary or "",
         "known_hashtags": ", ".join(trend.hashtags) or "(none)",
         "evidence": evidence,
         "language": job.language.value,
@@ -157,7 +168,7 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
         brand_name=brief["brand_name"],
         brand_voice=brief["brand_voice"],
         topic=brief["topic"],
-        summary=brief["summary"],
+        summary=brief["summary"] or NO_SUMMARY,
         known_hashtags=brief["known_hashtags"],
         evidence=brief["evidence"],
         language=brief["language"],
