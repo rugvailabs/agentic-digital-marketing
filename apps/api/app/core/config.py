@@ -33,6 +33,16 @@ class Settings(BaseSettings):
     ingest_interval_minutes: int = 30
     ingest_max_concurrency: int = 4
 
+    #: Ask Google Trends for explicit rising related queries per topic.
+    #:
+    #: Off by default and that is measured, not cautious. Probed 2026-10-27
+    #: from this machine: the endpoint raised TrendsQuotaExceededError, and
+    #: with the referer trendspy recommends it returned empty frames instead
+    #: of raising. `trending_now` already hands back eight rising queries per
+    #: topic for free, so paying five sequential requests for nothing is the
+    #: worse default. Turn it on where the IP is not rate-limited.
+    trends_rising_queries: bool = False
+
     # Trend source credentials. Blank => adapter reports not configured.
     youtube_api_key: str = ""
 

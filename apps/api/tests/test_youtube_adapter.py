@@ -13,7 +13,7 @@ import pytest
 import respx
 
 from app.models import SourceName
-from app.sources.youtube import API_URL, YouTubeAdapter
+from app.sources.youtube import API_URL, CATEGORIES, YouTubeAdapter
 from tests.conftest import load_json
 
 PAYLOAD = load_json("youtube_most_popular_in.json")
@@ -102,3 +102,139 @@ def test_source_identity() -> None:
     adapter = YouTubeAdapter(api_key=KEY)
     assert adapter.name is SourceName.youtube
     assert adapter.weight == 0.6
+
+
+SPORTS = load_json("youtube_category_sports.json")
+
+
+def charts(overall: dict, **by_category: dict) -> None:
+    """Mock all six charts at once, specific routes first.
+
+    One function rather than a per-chart helper because respx matches in
+    registration order and the overall chart can only be expressed as a
+    catch-all — there is no "parameter is absent" matcher. Registered by hand
+    in the wrong order it silently answers the category requests too, which
+    reads as the category chart returning nothing.
+    """
+    for category_id, payload in by_category.items():
+        respx.get(API_URL, params__contains={"videoCategoryId": category_id}).mock(
+            return_value=httpx.Response(200, json=payload)
+        )
+    for category_id in (v for v in CATEGORIES.values() if v and v not in by_category):
+        respx.get(API_URL, params__contains={"videoCategoryId": category_id}).mock(
+            return_value=httpx.Response(200, json={"items": []})
+        )
+    # Last: anything not matched above is the overall chart.
+    respx.get(API_URL).mock(return_value=httpx.Response(200, json=overall))
+
+
+class TestCategoryCharts:
+    """Six charts, not one. The overall chart is mostly music and film on any
+    given day, so a sports or news story that is genuinely trending never
+    reaches it."""
+
+    @respx.mock
+    async def test_every_category_is_requested(self, client, india) -> None:
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=PAYLOAD))
+
+        await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+
+        requested = [dict(call.request.url.params).get("videoCategoryId") for call in respx.calls]
+        assert len(requested) == len(CATEGORIES)
+        # The overall chart sends no videoCategoryId; the five others do.
+        assert sorted(x for x in requested if x) == sorted(v for v in CATEGORIES.values() if v)
+
+    @respx.mock
+    async def test_a_category_only_video_reaches_the_board(self, client, india) -> None:
+        """The whole reason for the extra five calls."""
+        charts(PAYLOAD, **{"17": SPORTS})
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+
+        assert any("fastest T20 century" in i.title for i in items)
+
+    @respx.mock
+    async def test_a_video_on_two_charts_appears_once_with_the_fuller_count(
+        self, client, india
+    ) -> None:
+        """aBcD1234efg is on the overall chart at 4,820,193 views and on the
+        sports chart at 1. One video, and the overall chart's figure is the
+        complete one."""
+        charts(PAYLOAD, **{"17": SPORTS})
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+        matching = [i for i in items if i.url and i.url.endswith("aBcD1234efg")]
+
+        assert len(matching) == 1
+        assert matching[0].volume == 4820193
+
+    @respx.mock
+    async def test_the_chart_that_answered_names_the_category(self, client, india) -> None:
+        """categoryId is numeric and naming it used to need a second request,
+        so this field was always None."""
+        charts(PAYLOAD, **{"17": SPORTS})
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+        sports = next(i for i in items if "fastest T20" in i.title)
+
+        assert sports.category == "Sports"
+
+    @respx.mock
+    async def test_a_refused_category_costs_only_itself(self, client, india) -> None:
+        """A category with no chart for a region answers 400, not an empty
+        list. A 400 on Gaming is not a reason to report that nothing is
+        trending in India."""
+        respx.get(API_URL, params__contains={"videoCategoryId": "17"}).mock(
+            return_value=httpx.Response(200, json=SPORTS)
+        )
+        for cid in (v for v in CATEGORIES.values() if v and v != "17"):
+            respx.get(API_URL, params__contains={"videoCategoryId": cid}).mock(
+                return_value=httpx.Response(400, json={"error": {"message": "invalid"}})
+            )
+        respx.get(API_URL).mock(return_value=httpx.Response(200, json=PAYLOAD))
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+
+        assert any("fastest T20" in i.title for i in items)
+        assert len(items) > 1
+
+    @respx.mock
+    async def test_a_server_error_still_raises(self, client, india) -> None:
+        respx.get(API_URL).mock(return_value=httpx.Response(500, text="oops"))
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=10)
+
+    @respx.mock
+    async def test_an_unconfigured_adapter_makes_no_call(self, client, india) -> None:
+        route = respx.get(API_URL)
+
+        items = await YouTubeAdapter(client=client, api_key="").fetch(india)
+
+        assert items == []
+        assert not route.called
+
+
+class TestYouTubeHashtags:
+    @respx.mock
+    async def test_hashtags_come_from_the_title_and_description(self, client, india) -> None:
+        """Where creators actually put them. `tags` is the uploader's keyword
+        list and carries no "#", so it stays a separate field."""
+        charts({"items": []}, **{"17": SPORTS})
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+        sports = next(i for i in items if "fastest T20" in i.title)
+
+        assert "#INDvNZ" in sports.extra["hashtags"]
+        assert "#AbhishekSharma" in sports.extra["hashtags"]
+        assert "#Cricket" in sports.extra["hashtags"]
+        # Keywords are not hashtags and are kept apart.
+        assert sports.extra["tags"] == ["cricket", "india", "t20"]
+
+    @respx.mock
+    async def test_a_video_with_no_hashtags_gets_an_empty_list(self, client, india) -> None:
+        charts(PAYLOAD)
+
+        items = await YouTubeAdapter(client=client, api_key=KEY).fetch(india, limit=50)
+
+        assert all(isinstance(i.extra["hashtags"], list) for i in items)

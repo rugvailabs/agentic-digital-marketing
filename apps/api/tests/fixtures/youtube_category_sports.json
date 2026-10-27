@@ -1,0 +1,58 @@
+{
+  "_fixture_note": "Hand-authored to the videos.list shape for videoCategoryId=17 (Sports). The second item reuses aBcD1234efg from youtube_most_popular_in.json with a view count of 1, so which figure survives the dedupe is observable.",
+  "kind": "youtube#videoListResponse",
+  "items": [
+    {
+      "kind": "youtube#video",
+      "id": "sportsOnly1",
+      "snippet": {
+        "publishedAt": "2026-10-27T04:30:00Z",
+        "channelId": "UCsports",
+        "channelTitle": "Star Sports",
+        "title": "Abhishek Sharma's fastest T20 century | #INDvNZ highlights",
+        "description": "Full highlights from the third T20.\n\n#INDvNZ #AbhishekSharma #Cricket\nSubscribe for more.",
+        "thumbnails": {
+          "high": {
+            "url": "https://i.ytimg.com/vi/sportsOnly1/hq.jpg"
+          }
+        },
+        "tags": [
+          "cricket",
+          "india",
+          "t20"
+        ],
+        "categoryId": "17"
+      },
+      "statistics": {
+        "viewCount": "4120000",
+        "likeCount": "180000"
+      }
+    },
+    {
+      "kind": "youtube#video",
+      "id": "aBcD1234efg",
+      "snippet": {
+        "publishedAt": "2026-10-26T10:00:00Z",
+        "channelId": "UCshared",
+        "channelTitle": "Also on the overall chart",
+        "title": "India vs Sri Lanka highlights | 3rd T20I",
+        "description": "No tags here.",
+        "thumbnails": {
+          "high": {
+            "url": "https://i.ytimg.com/vi/vid001/hq.jpg"
+          }
+        },
+        "tags": [],
+        "categoryId": "17"
+      },
+      "statistics": {
+        "viewCount": "1",
+        "likeCount": "0"
+      }
+    }
+  ],
+  "pageInfo": {
+    "totalResults": 2,
+    "resultsPerPage": 2
+  }
+}

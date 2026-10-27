@@ -11,8 +11,9 @@ from typing import Any
 
 import pytest
 
+from app.core.config import settings
 from app.models import SourceName
-from app.sources.google_trends import GoogleTrendsAdapter
+from app.sources.google_trends import ENRICH_TOP_N, GoogleTrendsAdapter
 from tests.conftest import load_json
 
 
@@ -93,3 +94,120 @@ def test_source_identity(client: FakeTrendsClient) -> None:
     assert adapter.name is SourceName.google_trends
     # Highest weight of the four: it is the only demand-side signal.
     assert adapter.weight == 1.0
+
+
+class FakeFrame:
+    """Stand-in for the pandas frame related_queries returns."""
+
+    def __init__(self, rows: list[str] | None, column: str = "query") -> None:
+        self._rows = rows or []
+        self._column = column
+        self.empty = not self._rows
+        self.columns = [column] if rows is not None else []
+
+    def __getitem__(self, column: str) -> Any:
+        assert column == self._column
+        return _Series(self._rows)
+
+
+class _Series:
+    def __init__(self, rows: list[str]) -> None:
+        self._rows = rows
+
+    def tolist(self) -> list[str]:
+        return list(self._rows)
+
+
+class EnrichingClient(FakeTrendsClient):
+    """Adds related_queries, with whatever behaviour a test needs."""
+
+    def __init__(self, rows_by_geo, *, result: Any = None, raises: Exception | None = None):
+        super().__init__(rows_by_geo)
+        self._result = result
+        self._raises = raises
+        self.related_calls: list[str] = []
+
+    def related_queries(self, keyword: str, **kwargs: Any) -> Any:
+        self.related_calls.append(keyword)
+        if self._raises:
+            raise self._raises
+        return self._result
+
+
+def rows() -> dict[str, list[dict[str, Any]]]:
+    return {
+        "IN": load_json("google_trends_in.json"),
+        "IN-MH": load_json("google_trends_in_mh.json"),
+    }
+
+
+class TestRisingQueries:
+    """`trending_now` already returns the queries rising alongside each trend,
+    so the explicit endpoint is an optional improvement on a list that is
+    never empty."""
+
+    async def test_rising_comes_free_with_the_main_call(self, client, india) -> None:
+        items = await GoogleTrendsAdapter(client=client).fetch(india, limit=5)
+
+        assert items[0].extra["rising"]
+        assert items[0].extra["rising_source"] == "trend_keywords"
+        assert client.calls and not hasattr(client, "related_calls")
+
+    async def test_the_endpoint_is_not_called_unless_enabled(self, india, monkeypatch) -> None:
+        """Five sequential requests per region, for a list we already have."""
+        monkeypatch.setattr(settings, "trends_rising_queries", False)
+        c = EnrichingClient(rows(), result={"rising": FakeFrame(["a", "b"])})
+
+        await GoogleTrendsAdapter(client=c).fetch(india, limit=5)
+
+        assert c.related_calls == []
+
+    async def test_when_enabled_it_replaces_rising_and_says_so(self, india, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "trends_rising_queries", True)
+        c = EnrichingClient(
+            rows(), result={"rising": FakeFrame(["cyclone tracker", "cyclone live"])}
+        )
+
+        items = await GoogleTrendsAdapter(client=c).fetch(india, limit=5)
+
+        assert items[0].extra["rising"] == ["cyclone tracker", "cyclone live"]
+        assert items[0].extra["rising_source"] == "related_queries"
+
+    async def test_only_the_head_of_the_board_is_enriched(self, india, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "trends_rising_queries", True)
+        c = EnrichingClient(rows(), result={"rising": FakeFrame(["x"])})
+
+        await GoogleTrendsAdapter(client=c).fetch(india, limit=20)
+
+        assert len(c.related_calls) <= ENRICH_TOP_N
+
+    async def test_an_empty_frame_leaves_the_free_list_alone(self, india, monkeypatch) -> None:
+        """The case this machine actually produces. The endpoint answers 200
+        with empty frames, and overwriting with that would report "no rising
+        queries" for a topic that has eight."""
+        monkeypatch.setattr(settings, "trends_rising_queries", True)
+        c = EnrichingClient(rows(), result={"top": FakeFrame([]), "rising": FakeFrame([])})
+
+        items = await GoogleTrendsAdapter(client=c).fetch(india, limit=5)
+
+        assert items[0].extra["rising"]
+        assert items[0].extra["rising_source"] == "trend_keywords"
+
+    async def test_a_quota_error_leaves_the_free_list_alone(self, india, monkeypatch) -> None:
+        """Without the referer header this is what the endpoint does, and it
+        is not an incident: the unmetered call already answered."""
+        monkeypatch.setattr(settings, "trends_rising_queries", True)
+        c = EnrichingClient(rows(), raises=RuntimeError("API quota exceeded"))
+
+        items = await GoogleTrendsAdapter(client=c).fetch(india, limit=5)
+
+        assert items[0].extra["rising"]
+        assert items[0].extra["rising_source"] == "trend_keywords"
+
+    async def test_a_nonsense_result_shape_is_survived(self, india, monkeypatch) -> None:
+        monkeypatch.setattr(settings, "trends_rising_queries", True)
+        c = EnrichingClient(rows(), result="not a dict at all")
+
+        items = await GoogleTrendsAdapter(client=c).fetch(india, limit=5)
+
+        assert items[0].extra["rising_source"] == "trend_keywords"
