@@ -11,6 +11,10 @@ dependencies = [
   "alembic>=1.14.0",
   "pydantic>=2.10.4",
   "pydantic-settings>=2.7.0",
+  # Imported directly by app.core.config, not just relied on through
+  # pydantic-settings: the mounted .env has to win over the container
+  # environment, which needs load_dotenv(override=True).
+  "python-dotenv>=1.0.0",
   "celery[redis]>=5.4.0",
   "redis>=5.2.1",
   "httpx>=0.28.1",

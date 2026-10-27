@@ -129,11 +129,20 @@ services:
     image: trendforge-api:latest
     restart: unless-stopped
     environment: *api-env
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    # --reload-include .env: uvicorn's reloader watches *.py only, so without
+    # it a saved key sat on disk while the process kept the old value — the
+    # same class of surprise as celery needing watchmedo.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--reload-include", ".env"]
     ports:
       - "${API_PORT:-8020}:8000"
     volumes:
       - ./apps/api:/srv/api
+      # The repo-root .env, read-only, at the path app.core.config looks for.
+      # Mounted rather than only passed through compose so that saving a key
+      # takes effect on a process restart instead of a container recreate —
+      # compose bakes its environment in when the container is created.
+      # Read-only because nothing in the container should ever write it.
+      - ./.env:/srv/api/.env:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -168,9 +177,15 @@ services:
     # observer saw nothing at all: verified by editing a task file and
     # watching the worker not restart. Polling every 2s over app/ costs
     # little and is the difference between this working and being decorative.
-    command: ["watchmedo", "auto-restart", "--directory=/srv/api/app", "--pattern=*.py", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]
+    command: ["watchmedo", "auto-restart", "--directory=/srv/api", "--patterns=*.py;*.env", "--ignore-patterns=*/tests/*;*/.venv/*;*/__pycache__/*", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "worker", "--loglevel=info", "--pool=threads", "--concurrency=4"]
     volumes:
       - ./apps/api:/srv/api
+      # The repo-root .env, read-only, at the path app.core.config looks for.
+      # Mounted rather than only passed through compose so that saving a key
+      # takes effect on a process restart instead of a container recreate —
+      # compose bakes its environment in when the container is created.
+      # Read-only because nothing in the container should ever write it.
+      - ./.env:/srv/api/.env:ro
     depends_on:
       api:
         condition: service_started
@@ -188,9 +203,15 @@ services:
     environment: *api-env
     # Same reason as the worker: the schedule is built from code at startup,
     # so an edited crontab entry needs the process restarted to take.
-    command: ["watchmedo", "auto-restart", "--directory=/srv/api/app", "--pattern=*.py", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
+    command: ["watchmedo", "auto-restart", "--directory=/srv/api", "--patterns=*.py;*.env", "--ignore-patterns=*/tests/*;*/.venv/*;*/__pycache__/*", "--recursive", "--signal=SIGTERM", "--debounce-interval=1", "--kill-after=30", "--debug-force-polling", "--interval=2", "--", "celery", "-A", "app.tasks.celery_app:celery_app", "beat", "--loglevel=info", "--schedule=/tmp/celerybeat-schedule"]
     volumes:
       - ./apps/api:/srv/api
+      # The repo-root .env, read-only, at the path app.core.config looks for.
+      # Mounted rather than only passed through compose so that saving a key
+      # takes effect on a process restart instead of a container recreate —
+      # compose bakes its environment in when the container is created.
+      # Read-only because nothing in the container should ever write it.
+      - ./.env:/srv/api/.env:ro
     depends_on:
       redis:
         condition: service_healthy

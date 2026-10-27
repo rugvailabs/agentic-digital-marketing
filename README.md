@@ -88,6 +88,35 @@ docker compose --profile web up web
 .\tf.ps1 revision -m "add publishers table"
 ```
 
+### Changing a key
+
+`.env` is bind-mounted read-only into api, worker and beat at the path the
+settings module reads, so **saving it restarts the processes that use it** —
+uvicorn reloads and celery is restarted by watchmedo, both watching the file
+by name. No `docker compose up` needed to pick up a new API key.
+
+```powershell
+# edit .env, save, and watch it land
+.	f.ps1 logs        # "WatchFiles detected changes in '.env'. Reloading..."
+```
+
+Two things worth knowing about why it is wired this way.
+
+The file wins over the container environment, deliberately. Compose passes
+every variable explicitly and bakes those values in when the container is
+*created*, so a key read from the file would otherwise lose to an empty
+string compose set hours ago — `load_dotenv(..., override=True)` is what
+makes saving actually take effect.
+
+And it is still true that **adding a brand-new variable** needs
+`docker compose up -d --force-recreate`, not a restart, if you also want it
+in compose's own environment block. `docker compose restart` is never the
+right command here: on Docker Desktop it leaves the container healthy while
+breaking its host port binding, which looks like the API being down.
+
+With no `.env` mounted — production — the loader is a no-op and the
+container environment stands on its own.
+
 On macOS/Linux/WSL the same targets work as `make up`, `make test`, …
 
 Screenshots of the board (light and dark, national and state) live in

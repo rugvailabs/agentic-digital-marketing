@@ -1,12 +1,31 @@
 """Settings. .env.example is the source of truth; everything is overridable."""
 
 from functools import lru_cache
+from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: The repo-root .env, bind-mounted here in dev (see docker-compose.yml).
+ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
+
+# Loaded before Settings is constructed, and with override=True on purpose.
+#
+# Compose passes every variable explicitly — `GROQ_API_KEY: ${GROQ_API_KEY:-}`
+# and so on — and those are baked into the container when it is created. A
+# value read from the file at import time would therefore lose to an empty
+# string that compose set hours ago, and saving a key would appear to do
+# nothing until the stack was recreated. Overriding makes the file the
+# authority, which is what "save a key and the process picks it up" requires.
+#
+# Dev convenience, and it degrades to nothing: with no file mounted this is a
+# no-op and the container environment stands on its own, which is what
+# happens in prod.
+load_dotenv(ENV_FILE, override=True)
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore", case_sensitive=False)
+    model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore", case_sensitive=False)
 
     env: str = "dev"
     log_level: str = "INFO"
