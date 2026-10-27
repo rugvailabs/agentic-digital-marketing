@@ -1,0 +1,13 @@
+Copyright (c) 2026 Rugvai Labs. All rights reserved.
+
+This software is proprietary and confidential. No part of it may be used,
+copied, modified, or distributed without the express written permission of
+Rugvai Labs.
+
+---
+
+Third-party assets bundled in this repository carry their own licences, which
+this notice does not override:
+
+  apps/api/app/assets/fonts  — SIL Open Font License 1.1, see OFL.txt there
+  apps/api/app/assets/music  — see LICENSE.txt there, per track
