@@ -26,6 +26,8 @@ TIMEOUT = httpx.Timeout(20.0, connect=10.0)
 
 class GoogleNewsRSSAdapter(TrendSource):
     name = SourceName.google_news
+    label = "Google News"
+    env_vars = ()
     # Recency, not search demand: a headline being published says less about
     # audience interest than a Trends spike does.
     weight = 0.7

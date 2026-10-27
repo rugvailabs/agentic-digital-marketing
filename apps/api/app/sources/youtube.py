@@ -56,6 +56,8 @@ PER_CHART = 25
 
 class YouTubeAdapter(TrendSource):
     name = SourceName.youtube
+    label = "YouTube"
+    env_vars = ("YOUTUBE_API_KEY",)
     # View counts are real audience signal but lag a trend by hours.
     weight = 0.6
 

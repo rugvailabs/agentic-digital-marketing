@@ -63,7 +63,16 @@ class Region(Base, TimestampMixin):
 
     @property
     def woeids_for_rollup(self) -> list[int]:
-        """WOEIDs to query for this region: own, else its cities'."""
+        """X WOEIDs to pull for this region: its own, else its children's.
+
+        Callers must eager-load `children` — `selectinload(Region.children)`.
+        Every region except the country and the cities falls through to the
+        relationship, and a lazy load here happens inside plain attribute
+        access, which cannot await: it surfaces as MissingGreenlet with no
+        frame of the caller's in the traceback. It has now been fixed in
+        three places (the ingest cycle, /regions, /trends), so it is worth
+        saying here rather than finding again.
+        """
         if self.x_woeid is not None:
             return [self.x_woeid]
         return [c.x_woeid for c in self.children if c.x_woeid is not None]

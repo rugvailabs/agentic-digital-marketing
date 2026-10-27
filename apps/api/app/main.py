@@ -10,7 +10,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import content, health, ingest, regions, trends
+from app.api import content, health, ingest, platforms, regions, trends
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import engine
@@ -43,6 +43,7 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
+app.include_router(platforms.router, prefix="/platforms")
 app.include_router(regions.router, prefix="/regions")
 app.include_router(trends.router, prefix="/trends")
 app.include_router(ingest.router, prefix="/ingest")

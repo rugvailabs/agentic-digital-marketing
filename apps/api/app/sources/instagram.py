@@ -75,6 +75,8 @@ class HashtagMetrics:
 
 class InstagramHashtagAdapter(TrendSource):
     name = SourceName.instagram
+    label = "Instagram"
+    env_vars = ("IG_ACCESS_TOKEN", "IG_BUSINESS_ID")
     #: Lowest of all sources. media_count is lifetime, so on its own it ranks
     #: evergreen tags above today's story; it is useful as a per-platform
     #: number on a topic found elsewhere, not as a ranking signal.

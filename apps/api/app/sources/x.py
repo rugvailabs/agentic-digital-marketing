@@ -18,6 +18,8 @@ log = get_logger("source.x")
 
 class XAdapter(TrendSource):
     name = SourceName.x
+    label = "X"
+    env_vars = ("X_BEARER_TOKEN",)
     # City-level and fast, so it will outrank news once implemented.
     weight = 0.8
 

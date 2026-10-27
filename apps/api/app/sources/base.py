@@ -43,6 +43,15 @@ class TrendSource(abc.ABC):
     name: SourceName
     #: Weight of this source's ranks in the merge. Higher = more trusted.
     weight: float = 1.0
+    #: Display name for the platform chips. Sentence case per CLAUDE.md, and
+    #: the platform's own spelling: "YouTube", not "Youtube".
+    label: str = ""
+    #: Environment variables this source needs before `is_configured()` can
+    #: be true. Lives on the adapter because the adapter is the only thing
+    #: that knows — the settings page lists these verbatim, so a user is told
+    #: which variable to set rather than that something is "not connected".
+    #: Empty means the source needs no credentials.
+    env_vars: tuple[str, ...] = ()
 
     @abc.abstractmethod
     def is_configured(self) -> bool:

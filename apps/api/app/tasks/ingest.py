@@ -17,6 +17,7 @@ from celery import shared_task
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.core.logging import get_logger
@@ -32,6 +33,7 @@ from app.models import (
 from app.sources import all_sources
 from app.sources.base import RawTrendItem, TrendSource
 from app.tasks.merge import SourceItems, merge, next_velocity
+from app.tasks.platforms import sync_platforms
 
 log = get_logger("ingest")
 
@@ -125,16 +127,31 @@ async def ingest_region(
         if row["status"] is SnapshotStatus.ok
     ]
 
+    # Read before the commit below. `expire_on_commit` is on, so every
+    # attribute of `region` becomes a lazy refresh afterwards, and an
+    # attribute refresh cannot await — it raises MissingGreenlet from inside
+    # plain attribute access, with no frame of ours in the traceback.
+    region_id, region_code = region.id, region.code
+
     merged = merge(contributions, limit=BOARD_LIMIT)
     wrote_board = await upsert_trends(session, region, merged, captured_at)
+    await session.commit()
+
+    # After the board exists, not alongside it: per-platform rows are
+    # projected from the items attached to each trend, so this is correct
+    # whether the merge wrote the board or the curator did. Runs even when
+    # `upsert_trends` stepped aside for a curated region, which is exactly
+    # the case that matters.
+    platform_rows = await sync_platforms(session, region_id, captured_at, merged=merged)
     await session.commit()
 
     counts = {
         "items": sum(int(r["item_count"]) for r in rows),
         "topics": len(merged) if wrote_board else 0,
         "sources_ok": len(contributions),
+        "platform_rows": platform_rows,
     }
-    log.info("region ingested", region=region.code, **counts)
+    log.info("region ingested", region=region_code, **counts)
     return counts
 
 
@@ -216,7 +233,16 @@ async def run_cycle(region_codes: list[str] | None = None) -> dict[str, Any]:
     )
 
     async with SessionLocal() as session:
-        query = select(Region).where(Region.is_active.is_(True)).order_by(Region.sort_order)
+        query = (
+            select(Region)
+            .where(Region.is_active.is_(True))
+            .order_by(Region.sort_order)
+            # XAdapter.supports() reads `woeids_for_rollup`, which walks
+            # `children` for any region without a WOEID of its own — every
+            # state and union territory. Lazily loading it inside the cycle
+            # raises MissingGreenlet from plain attribute access.
+            .options(selectinload(Region.children))
+        )
         if region_codes:
             query = query.where(Region.code.in_(region_codes))
         regions = (await session.scalars(query)).all()

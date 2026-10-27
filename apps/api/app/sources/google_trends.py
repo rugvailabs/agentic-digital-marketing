@@ -53,6 +53,8 @@ ENRICH_HEADERS = {"referer": "https://www.google.com/"}
 
 class GoogleTrendsAdapter(TrendSource):
     name = SourceName.google_trends
+    label = "Google Trends"
+    env_vars = ()
     # The strongest signal we have: it is the only source that reports search
     # volume and is explicitly about trending rather than merely recent.
     weight = 1.0

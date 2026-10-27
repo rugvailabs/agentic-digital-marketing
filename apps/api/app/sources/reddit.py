@@ -173,6 +173,8 @@ def hashtags_from(title: str, flair: str | None) -> list[str]:
 
 class RedditAdapter(TrendSource):
     name = SourceName.reddit
+    label = "Reddit"
+    env_vars = ("REDDIT_CLIENT_ID", "REDDIT_CLIENT_SECRET")
     #: Between news (1.0) and YouTube (0.6). Upvotes are a real crowd signal
     #: and move fast, but a subreddit is a slice of a region rather than the
     #: region, so its ranks are trusted less than a news chart's.

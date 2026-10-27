@@ -249,6 +249,11 @@ class MergedTopic:
     sources: list[str]
     hashtags: list[str]
     evidence: list[dict[str, Any]] = field(default_factory=list)
+    #: Per-platform aggregates for `trend_sources`, one entry per source that
+    #: contributed. Carried here because `trend_items` rows are a curator
+    #: artefact: the merge never writes them, so for the 52 uncurated regions
+    #: this is the only place the per-platform numbers exist.
+    platforms: list[dict[str, Any]] = field(default_factory=list)
 
 
 def merge(contributions: list[SourceItems], *, limit: int | None = None) -> list[MergedTopic]:
@@ -277,6 +282,9 @@ def merge(contributions: list[SourceItems], *, limit: int | None = None) -> list
                     "volume": 0,
                     "sources": [],
                     "evidence": [],
+                    # Keyed by source name so repeated contributions from one
+                    # platform aggregate instead of appending.
+                    "platforms": {},
                 },
             )
 
@@ -302,6 +310,27 @@ def merge(contributions: list[SourceItems], *, limit: int | None = None) -> list
                 }
             )
 
+            # Same aggregation sync_platforms does over trend_items: best
+            # rank wins and brings its url, volume is the largest reported
+            # rather than a sum, and hashtags are that platform's own.
+            platform = bucket["platforms"].setdefault(
+                contribution.source,
+                {
+                    "platform": contribution.source,
+                    "rank": item.rank or None,
+                    "volume": int(item.volume or 0),
+                    "hashtags": [],
+                    "url": item.url,
+                },
+            )
+            if item.rank and (platform["rank"] is None or item.rank < platform["rank"]):
+                platform["rank"], platform["url"] = item.rank, item.url
+            platform["volume"] = max(platform["volume"], int(item.volume or 0))
+            for tag in item.extra.get("hashtags") or []:
+                tag = str(tag)
+                if tag.strip() and tag.lower() not in {t.lower() for t in platform["hashtags"]}:
+                    platform["hashtags"].append(tag)
+
     merged = [
         MergedTopic(
             topic=display_topic(b["topic"]),
@@ -314,6 +343,7 @@ def merge(contributions: list[SourceItems], *, limit: int | None = None) -> list
             sources=list(b["sources"]),
             hashtags=hashtags_for(b["topic"], b["category"]),
             evidence=b["evidence"][:12],
+            platforms=list(b["platforms"].values()),
         )
         for key, b in buckets.items()
     ]

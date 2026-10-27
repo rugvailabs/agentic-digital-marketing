@@ -21,6 +21,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/platforms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Platforms
+         * @description Every platform, configured or not, with what it needs if not.
+         *
+         *     Unconfigured platforms are included rather than filtered out: the UI
+         *     renders them as "Connect" chips, and an omitted chip would read as a
+         *     platform that does not exist instead of one that needs a key.
+         */
+        get: operations["list_platforms_platforms_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/regions": {
         parameters: {
             query?: never;
@@ -323,6 +347,21 @@ export interface components {
          */
         Language: "english" | "hinglish" | "hindi" | "tamil" | "telugu" | "bengali" | "marathi";
         /**
+         * PlatformOut
+         * @description One platform and whether this deployment can use it.
+         */
+        PlatformOut: {
+            name: components["schemas"]["SourceName"];
+            /** Label */
+            label: string;
+            /** Configured */
+            configured: boolean;
+            /** Env Vars */
+            env_vars: string[];
+            /** Weight */
+            weight: number;
+        };
+        /**
          * ProviderHealth
          * @description One LLM provider's wiring and remaining day.
          */
@@ -360,7 +399,14 @@ export interface components {
             trend_count: number;
             /** Total Volume */
             total_volume: number;
+            /** Platforms */
+            platforms: components["schemas"]["SourceName"][];
         };
+        /**
+         * SourceName
+         * @enum {string}
+         */
+        SourceName: "google_trends" | "google_news" | "youtube" | "x" | "reddit" | "instagram";
         /** TrendOut */
         TrendOut: {
             /** Id */
@@ -394,6 +440,32 @@ export interface components {
             evidence: {
                 [key: string]: unknown;
             }[];
+            /** Platforms */
+            platforms: components["schemas"]["TrendPlatformOut"][];
+        };
+        /**
+         * TrendPlatformOut
+         * @description What one platform says about one topic.
+         *
+         *     Not comparable across platforms, which is the reason these are separate
+         *     rows rather than summed into the topic: `volume` is upvotes on Reddit,
+         *     views on YouTube and a lifetime post count on Instagram.
+         */
+        TrendPlatformOut: {
+            platform: components["schemas"]["SourceName"];
+            /** Rank */
+            rank: number | null;
+            /** Volume */
+            volume: number;
+            /** Hashtags */
+            hashtags: string[];
+            /** Url */
+            url: string | null;
+            /**
+             * Seen At
+             * Format: date-time
+             */
+            seen_at: string;
         };
         /** TrendsResponse */
         TrendsResponse: {
@@ -447,6 +519,26 @@ export interface operations {
             };
         };
     };
+    list_platforms_platforms_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformOut"][];
+                };
+            };
+        };
+    };
     list_regions_regions_get: {
         parameters: {
             query?: {
@@ -489,6 +581,8 @@ export interface operations {
                 limit?: number;
                 /** @description Include topics the curator flagged `skip` (disaster, death, communal, election result). Off by default: we do not market against these. */
                 include_flagged?: boolean;
+                /** @description Only topics this platform reported. Ranks stay the board's own, not the platform's: filtering is about which topics are shown, and a topic that is 14th in India does not become first because it is first on Reddit. */
+                platform?: components["schemas"]["SourceName"] | null;
             };
             header?: never;
             path?: never;

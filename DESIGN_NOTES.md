@@ -342,6 +342,39 @@ under the narration by a compressor keyed on the voice, because a flat gain
 that sits politely under one sentence will fight the next quieter one. The
 pack ships empty — a reel with a clear voice and no music is fine.
 
+## Platforms (step 4)
+
+One row per platform per topic in `trend_sources`, and hashtags stored per
+platform rather than pooled. `#AskIndia` means nothing on Instagram and
+`#cricketreels` means nothing in a YouTube description, so a merged list is
+wrong everywhere it is used. The Desk's per-platform copy buttons only mean
+something because the tags were never mixed.
+
+What each platform can actually answer differs more than the symmetry of the
+table suggests:
+
+| Platform | Discovers topics | Ranks them | Notes |
+| --- | --- | --- | --- |
+| Google Trends | yes | yes | only source reporting search volume; rising queries come free with `trending_now` |
+| Google News | yes | yes | recency, not velocity |
+| YouTube | yes | yes | six charts — the overall one is mostly music and film |
+| Reddit | yes | yes | `hot` + `rising`; subreddit map is unverified, see the adapter |
+| X | yes | yes | paid per request; credits exhausted, on fixtures |
+| Instagram | **no** | **no** | no trending endpoint exists; measures named hashtags only |
+
+### Instagram runs on demand, never on the cycle
+
+Decided 2026-10-27. `ig_hashtag_search` allows **30 unique hashtags per
+Business account per rolling seven days** — not 30 calls, 30 distinct tags —
+so measuring a 20-row board once would spend two thirds of a week.
+
+So: `measure()` runs only when a user opens a topic in the Desk, for that
+topic's primary curator hashtag plus at most two more. Results cache for
+seven days, matching the window the limit is counted over. Until a topic has
+been opened the Desk shows **"Instagram: not measured yet"**, which is an
+honest third state — distinct from "measured, and it is small". Nothing
+measures on the ingest cycle.
+
 ## Known gaps, visible in the UI
 
 **Multi-source topics are real but uncommon.** The curator clusters in
