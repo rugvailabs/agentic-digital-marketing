@@ -52,6 +52,7 @@ def test_registry_exposes_every_source_and_its_weight() -> None:
         SourceName.youtube,
         SourceName.reddit,
         SourceName.x,
+        SourceName.instagram,
     ]
     assert all(isinstance(s, TrendSource) for s in sources)
 

@@ -8,6 +8,7 @@ adding one line here.
 from app.sources.base import RawTrendItem, TrendSource
 from app.sources.google_news import GoogleNewsRSSAdapter
 from app.sources.google_trends import GoogleTrendsAdapter
+from app.sources.instagram import InstagramHashtagAdapter
 from app.sources.reddit import RedditAdapter
 from app.sources.x import XAdapter
 from app.sources.youtube import YouTubeAdapter
@@ -15,6 +16,7 @@ from app.sources.youtube import YouTubeAdapter
 __all__ = [
     "GoogleNewsRSSAdapter",
     "GoogleTrendsAdapter",
+    "InstagramHashtagAdapter",
     "RawTrendItem",
     "RedditAdapter",
     "TrendSource",
@@ -34,6 +36,7 @@ def all_sources() -> list[TrendSource]:
         YouTubeAdapter(),
         RedditAdapter(),
         XAdapter(),
+        InstagramHashtagAdapter(),
     ]
 
 

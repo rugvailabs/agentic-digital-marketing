@@ -1,0 +1,46 @@
+{
+  "_fixture_note": "Hand-authored to the documented Graph v21.0 shapes; no IG_ACCESS_TOKEN was available. Three responses per hashtag: ig_hashtag_search, the hashtag node, and top_media. Pins the adapter's field mapping, not Meta's live payload.",
+  "search": {
+    "data": [{ "id": "17843712345678901" }]
+  },
+  "node": {
+    "id": "17843712345678901",
+    "name": "asiacupfinal",
+    "media_count": 184233
+  },
+  "top_media": {
+    "data": [
+      {
+        "id": "18001112223334445",
+        "caption": "What a finish! #AsiaCupFinal #Cricket",
+        "like_count": 48210,
+        "comments_count": 1340,
+        "permalink": "https://www.instagram.com/p/Cxyz123/"
+      },
+      {
+        "id": "18001112223334446",
+        "caption": "Highlights thread",
+        "like_count": 12050,
+        "comments_count": 310,
+        "permalink": "https://www.instagram.com/p/Cxyz124/"
+      }
+    ],
+    "paging": { "cursors": { "after": "QVFIU" } }
+  },
+  "banned": {
+    "error": {
+      "message": "Hashtag is not available",
+      "type": "OAuthException",
+      "code": 9004,
+      "fbtrace_id": "A1b2C3"
+    }
+  },
+  "expired_token": {
+    "error": {
+      "message": "Error validating access token: Session has expired",
+      "type": "OAuthException",
+      "code": 190,
+      "fbtrace_id": "D4e5F6"
+    }
+  }
+}
