@@ -377,6 +377,8 @@ export interface components {
             per_model?: {
                 [key: string]: number;
             };
+            /** Remaining Usd */
+            remaining_usd?: number | null;
         };
         /**
          * RegionKind

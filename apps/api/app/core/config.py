@@ -155,6 +155,25 @@ class Settings(BaseSettings):
     groq_max_output_tokens: int = 5000
     groq_timeout_seconds: float = 90.0
 
+    # ── OpenRouter (second spillover) ─────────────────────────────────────
+    #: Last in the chain: gemini -> groq -> openrouter. One more free tier
+    #: with its own daily ceiling, which is the point — the two before it
+    #: can both be spent while this one still answers.
+    openrouter_api_key: str = ""
+    #: Model ids are config for the same reason Gemini's are: a free-tier id
+    #: is withdrawn or renamed without warning, and the chain should survive
+    #: it without a deploy. Probed before being set — see .env.example.
+    openrouter_model: str = "xingchen-agi/xing4.0-29b-a4b:free"
+    openrouter_model_fallbacks: str = ",".join(
+        ("nvidia/nemotron-3.5-super-vl:free", "recursive/flint-v1.0:free")
+    )
+    openrouter_rpm: int = 20
+    openrouter_timeout_seconds: float = 90.0
+    #: OpenRouter asks for these on every request and shows them on the
+    #: model's activity page. Not credentials; identification.
+    openrouter_referer: str = "https://github.com/rugvailabs/agentic-digital-marketing"
+    openrouter_title: str = "TrendForge"
+
     # ── Curation ──────────────────────────────────────────────────────────
     #: Measured on real gemini-embedding-001 vectors: genuine cross-source
     #: matches land at 0.686-0.693 and unrelated same-genre titles at <=0.67,
@@ -207,6 +226,13 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def openrouter_model_chain(self) -> list[str]:
+        """Primary model first, then each configured fallback."""
+        chain = [self.openrouter_model] if self.openrouter_model else []
+        chain += [m.strip() for m in self.openrouter_model_fallbacks.split(",") if m.strip()]
+        return list(dict.fromkeys(chain))
 
     @property
     def gemini_model_chain(self) -> list[str]:

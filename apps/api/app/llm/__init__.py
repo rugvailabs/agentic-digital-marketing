@@ -11,6 +11,7 @@ from app.llm.base import (
 )
 from app.llm.gemini import GeminiProvider
 from app.llm.groq import GroqProvider
+from app.llm.openrouter import OpenRouterProvider
 from app.llm.spillover import SpilloverProvider
 
 __all__ = [
@@ -21,6 +22,7 @@ __all__ = [
     "LLMCall",
     "LLMError",
     "LLMProvider",
+    "OpenRouterProvider",
     "ProviderBudget",
     "RateLimited",
     "SpilloverProvider",
@@ -35,11 +37,17 @@ def get_llm() -> LLMProvider:
     instance, so a fresh provider per call would hand every caller a full
     budget.
 
-    Gemini primary, Groq as spillover when Gemini's daily budget is gone.
-    Callers never pick — they ask for JSON and the wrapper decides, logging
-    which one answered.
+    Gemini primary, then Groq, then OpenRouter. Callers never pick — they
+    ask for JSON and the wrapper decides, logging which one answered.
     """
     global _provider
     if _provider is None:
-        _provider = SpilloverProvider(GeminiProvider(), GroqProvider())
+        # gemini -> groq -> openrouter, nested so each standby is itself a
+        # chain. SpilloverProvider takes two, and three free tiers in a row
+        # is the point: each has its own daily ceiling, so an evening that
+        # exhausts one need not stop the desk.
+        _provider = SpilloverProvider(
+            GeminiProvider(),
+            SpilloverProvider(GroqProvider(), OpenRouterProvider()),
+        )
     return _provider

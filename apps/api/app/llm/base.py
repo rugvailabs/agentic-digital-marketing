@@ -66,6 +66,11 @@ class ProviderBudget:
     #: Per model id, because a free-tier day can be counted per model rather
     #: than per key, and then one exhausted model is not an exhausted vendor.
     per_model: dict[str, int] = field(default_factory=dict)
+    #: Money left, where the vendor meters money rather than calls — which
+    #: OpenRouter does. Separate from `remaining_today` rather than squeezed
+    #: into it: dollars and requests are not the same quantity, and showing
+    #: "100" under a column of request counts would read as 100 calls.
+    remaining_usd: float | None = None
 
 
 class LLMProvider(abc.ABC):

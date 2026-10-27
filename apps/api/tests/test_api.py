@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.time import utcnow
 from app.db.base import Base
 from app.db.session import get_session
+from app.llm.openrouter import BASE_URL as OPENROUTER_BASE
 from app.main import app
 from app.models import PipelineStatus, Region, RegionKind, SafetyFlag, Trend
 
@@ -210,6 +211,11 @@ async def test_health_reports_counts_and_ist(client: httpx.AsyncClient) -> None:
         respx.get(f"{settings.renderer_url}/health").mock(
             return_value=httpx.Response(200, json={"ok": True})
         )
+        # /health asks OpenRouter what is left on the key. Mocked rather
+        # than passed through: a test must not depend on a vendor being up.
+        respx.get(f"{OPENROUTER_BASE}/auth/key").mock(
+            return_value=httpx.Response(200, json={"data": {"limit_remaining": 100}})
+        )
         respx.route(host="test").pass_through()
         body = (await client.get("/health")).json()
 
@@ -226,6 +232,11 @@ async def test_health_degrades_when_the_renderer_is_down(client: httpx.AsyncClie
     renderer has to show — but it must not take the board down with it."""
     with respx.mock:
         respx.get(f"{settings.renderer_url}/health").mock(side_effect=httpx.ConnectError("refused"))
+        # /health asks OpenRouter what is left on the key. Mocked rather
+        # than passed through: a test must not depend on a vendor being up.
+        respx.get(f"{OPENROUTER_BASE}/auth/key").mock(
+            return_value=httpx.Response(200, json={"data": {"limit_remaining": 100}})
+        )
         respx.route(host="test").pass_through()
         body = (await client.get("/health")).json()
 
@@ -245,12 +256,18 @@ async def test_health_lists_every_llm_provider_with_its_budget(
         respx.get(f"{settings.renderer_url}/health").mock(
             return_value=httpx.Response(200, json={"ok": True})
         )
+        # /health asks OpenRouter what is left on the key. Mocked rather
+        # than passed through: a test must not depend on a vendor being up.
+        respx.get(f"{OPENROUTER_BASE}/auth/key").mock(
+            return_value=httpx.Response(200, json={"data": {"limit_remaining": 100}})
+        )
         respx.route(host="test").pass_through()
         body = (await client.get("/health")).json()
 
     providers = body["llm_providers"]
-    # Primary first, which is also the order a call tries them in.
-    assert [p["name"] for p in providers] == ["gemini", "groq"]
+    # Primary first, which is also the order a call tries them in. Three
+    # free tiers deep, because each has its own daily ceiling.
+    assert [p["name"] for p in providers] == ["gemini", "groq", "openrouter"]
 
     gemini = providers[0]
     assert gemini["configured"] is True
@@ -262,6 +279,11 @@ async def test_health_lists_every_llm_provider_with_its_budget(
     # statement from its being spent.
     assert providers[1]["remaining_today"] is None
 
+    # OpenRouter meters money, so it reports dollars and no request count.
+    # The two are different quantities and do not share a field.
+    assert providers[2]["remaining_today"] is None
+    assert providers[2]["remaining_usd"] == 100
+
 
 async def test_health_degrades_when_nothing_can_write(
     client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
@@ -272,17 +294,23 @@ async def test_health_degrades_when_nothing_can_write(
 
     monkeypatch.setattr(settings, "gemini_api_key", "")
     monkeypatch.setattr(settings, "groq_api_key", "")
+    monkeypatch.setattr(settings, "openrouter_api_key", "")
     monkeypatch.setattr(llm_registry, "_provider", None)
 
     with respx.mock:
         respx.get(f"{settings.renderer_url}/health").mock(
             return_value=httpx.Response(200, json={"ok": True})
         )
+        # /health asks OpenRouter what is left on the key. Mocked rather
+        # than passed through: a test must not depend on a vendor being up.
+        respx.get(f"{OPENROUTER_BASE}/auth/key").mock(
+            return_value=httpx.Response(200, json={"data": {"limit_remaining": 100}})
+        )
         respx.route(host="test").pass_through()
         body = (await client.get("/health")).json()
 
     assert body["status"] == "degraded"
-    assert [p["configured"] for p in body["llm_providers"]] == [False, False]
+    assert [p["configured"] for p in body["llm_providers"]] == [False, False, False]
     # The renderer is up and the board is intact; only writing is off.
     assert body["renderer"] is True
     assert body["regions"] == 3
