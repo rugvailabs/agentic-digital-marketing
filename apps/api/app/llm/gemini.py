@@ -28,6 +28,7 @@ from app.llm.base import (
     RateLimited,
 )
 from app.llm.limiter import DailyBudget, TokenBucket
+from app.llm.priority import is_background
 
 log = get_logger("llm.gemini")
 
@@ -68,11 +69,18 @@ class GeminiProvider(LLMProvider):
         is a different story from twenty.
         """
         per_model = {model: await self._daily.remaining(model) for model in self._model_chain}
+        limit = self._daily.limit * len(self._model_chain)
+        remaining = sum(per_model.values())
         return ProviderBudget(
             name=self.name,
             configured=self.is_configured(),
-            remaining_today=sum(per_model.values()),
+            remaining_today=remaining,
             per_model=per_model,
+            used_today=limit - remaining,
+            # Per model, like the limit itself: the reserve stops a
+            # scheduled curate on each model id, so the Desk keeps this many
+            # on each of them rather than this many in total.
+            reserved_for_desk=settings.gemini_desk_reserve * len(self._model_chain),
         )
 
     # ── public API ────────────────────────────────────────────────────────
@@ -212,10 +220,14 @@ class GeminiProvider(LLMProvider):
         last_error: str = ""
         try:
             for attempt in range(1, MAX_ATTEMPTS + 1):
-                if count_daily and not await self._daily.spend(model):
+                # Scheduled work stops short of the limit so a user at the
+                # Desk still has calls left. See app.llm.priority.
+                reserve = settings.gemini_desk_reserve if is_background() else 0
+                if count_daily and not await self._daily.spend(model, reserve=reserve):
+                    held = f", holding {reserve} back for the Desk" if reserve else ""
                     raise RateLimited(
                         f"{prompt_id}: {model} has spent its daily budget of "
-                        f"{settings.gemini_rpd} calls"
+                        f"{settings.gemini_rpd} calls{held}"
                     )
                 await bucket.acquire()
 

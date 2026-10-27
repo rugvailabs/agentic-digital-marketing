@@ -219,12 +219,29 @@ def describe_clusters(clusters: list, rows: list[RawRow]) -> str:
 async def describe_with_llm(
     llm: LLMProvider, region: Region, clusters: list, rows: list[RawRow]
 ) -> dict[str, dict[str, Any]]:
-    """Ask Gemini to name each cluster. Returns {cluster_key: fields}."""
+    """Describe each cluster. Returns {cluster_key: fields}.
+
+    Batched as large as the answer allows rather than as small as feels
+    safe: a described cluster measures ~126 output tokens, so forty fit
+    inside Gemini flash's 8,192 output ceiling with the prompt's ~4,400
+    input alongside. On a tier of 20 calls per model per day that is the
+    difference between two calls for a board and fifteen.
+
+    A short answer is split rather than lost. gemini-3.5-flash reasons
+    before it writes and that reasoning counts against the same ceiling, so
+    a large batch can come back partial for reasons nothing here can
+    predict — the undescribed remainder is retried at half the size, down
+    to a floor below which the per-call overhead is most of the cost.
+    """
     described: dict[str, dict[str, Any]] = {}
     batch_size = max(1, settings.curate_batch_size)
+    floor = max(1, min(settings.curate_min_batch_size, batch_size))
 
-    for start in range(0, len(clusters), batch_size):
-        batch = clusters[start : start + batch_size]
+    async def describe(batch: list, size: int) -> None:
+        """One call for `batch`, splitting what comes back short."""
+        if not batch:
+            return
+
         prompt = render_prompt(
             PROMPT_ID,
             region_name=region.name,
@@ -236,29 +253,50 @@ async def describe_with_llm(
         result = await llm.generate_json(
             prompt_id=PROMPT_ID, prompt=prompt, schema=CURATE_SCHEMA, temperature=0.2
         )
-        entries = _entries_of(result.data)
-        for entry in entries:
+
+        for entry in _entries_of(result.data):
             key = str(entry.get("cluster_id") or "")
             if key:
                 described[key] = entry
-        if len(entries) < len(batch):
-            # A short array means the model dropped clusters; those fall back
-            # to their source title rather than vanishing from the board.
-            log.warning(
-                "partial batch",
-                region=region.code,
-                asked=len(batch),
-                got=len(entries),
-                model=result.call.model,
-            )
+
         log.info(
             "clusters described",
             region=region.code,
             batch=len(batch),
-            described=len(entries),
+            described=sum(1 for c in batch if c.key in described),
             total_tokens=result.call.total_tokens,
             latency_ms=result.call.latency_ms,
+            model=result.call.model,
         )
+
+        missing = [c for c in batch if c.key not in described]
+        if not missing:
+            return
+
+        if size <= floor:
+            # Below the floor a retry costs about as much as it recovers.
+            # These fall back to their source title rather than vanishing.
+            log.warning(
+                "partial batch, falling back",
+                region=region.code,
+                asked=len(batch),
+                missing=len(missing),
+                model=result.call.model,
+            )
+            return
+
+        smaller = max(floor, size // 2)
+        log.info(
+            "partial batch, splitting",
+            region=region.code,
+            missing=len(missing),
+            retry_size=smaller,
+        )
+        for index in range(0, len(missing), smaller):
+            await describe(missing[index : index + smaller], smaller)
+
+    for index in range(0, len(clusters), batch_size):
+        await describe(clusters[index : index + batch_size], batch_size)
 
     return described
 
@@ -364,8 +402,16 @@ async def curate_region(session: AsyncSession, region: Region, llm: LLMProvider)
 
     described: dict[str, dict[str, Any]] = {}
     if llm.is_configured():
+        fresh, unchanged = await _needing_description(session, region, clusters, rows)
+        if unchanged:
+            log.info(
+                "skipping unchanged topics",
+                region=region.code,
+                unchanged=len(unchanged),
+                describing=len(fresh),
+            )
         try:
-            described = await describe_with_llm(llm, region, clusters, rows)
+            described = await describe_with_llm(llm, region, fresh, rows)
         except LLMError as exc:
             log.warning(
                 "curation failed, using source titles", region=region.code, error=str(exc)[:200]
@@ -392,6 +438,53 @@ def item_key(source: str, url: str | None, title: str) -> str:
         normalise_topic(title).encode("utf-8"), usedforsecurity=False
     ).hexdigest()[:12]
     return f"{source}:h{digest}"
+
+
+async def _needing_description(
+    session: AsyncSession, region: Region, clusters: list, rows: list[RawRow]
+) -> tuple[list, list]:
+    """Split clusters into those worth a call and those already described.
+
+    A cluster whose member keys exactly match an already-curated row has the
+    same evidence behind it as last time, so describing it again buys a
+    reworded title and spends one of twenty daily calls. On a board where
+    most topics persist for days, this is most of the cost.
+
+    Exact match, not overlap. Overlap is what topic *identity* is matched on
+    further down — a story that gained an article is the same story — but it
+    is not the same question: one new article can change what the story is
+    about, and the summary should follow it. Equality is the only safe
+    reading of "nothing has changed".
+
+    A row that has never been described is always fresh, whatever its keys.
+    """
+    existing = (
+        await session.scalars(
+            select(Trend).where(Trend.region_id == region.id, Trend.curated_at.is_not(None))
+        )
+    ).all()
+    if not existing:
+        return list(clusters), []
+
+    described_keys = {frozenset(row.member_keys or ()) for row in existing if row.member_keys}
+    return split_by_evidence(clusters, rows, described_keys)
+
+
+def split_by_evidence(
+    clusters: list, rows: list[RawRow], described_keys: set[frozenset[str]]
+) -> tuple[list, list]:
+    """(worth describing, already described), by exact evidence match.
+
+    Separated from the query so the rule can be read and tested on its own:
+    it decides what a day's twenty calls are spent on.
+    """
+    fresh, unchanged = [], []
+    for cluster in clusters:
+        if frozenset(cluster_member_keys(cluster, rows)) in described_keys:
+            unchanged.append(cluster)
+        else:
+            fresh.append(cluster)
+    return fresh, unchanged
 
 
 def member_key(row: RawRow) -> str:

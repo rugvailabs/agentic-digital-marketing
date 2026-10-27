@@ -202,19 +202,42 @@ class Settings(BaseSettings):
     #: matches land at 0.686-0.693 and unrelated same-genre titles at <=0.67,
     #: so the useful band is narrow. See the step 2 notes in DESIGN_NOTES.
     cluster_similarity: float = 0.68
-    #: Clusters described per call. Was 10 for curate_v2; v3 adds
-    #: platform_hashtags, why_trending and relevance_to_region to every
-    #: cluster, and at 10 the answer overran Groq's output cap and came back
-    #: as truncated JSON. Five fits with room to spare on both providers, at
-    #: the cost of more calls — which the TPM bucket now paces.
-    curate_batch_size: int = 5
+    #: Clusters described per call, sized to the answer rather than to
+    #: caution. Measured on the real India board: a described cluster is
+    #: ~126 output tokens, so 40 of them is ~5,060 output against Gemini
+    #: flash's 8,192 ceiling, with the prompt adding ~4,400 input.
+    #:
+    #: Dev budget mode exists because the free tier is 20 calls per model
+    #: per day: at 5 per batch a 75-cluster board cost 15 calls, which is
+    #: most of a day for one region. At 40 it costs two.
+    #:
+    #: gemini-3.5-flash is a thinking model and its reasoning counts against
+    #: the same output ceiling, which is why batch 25 produced partial
+    #: arrays before. So this is a target, not a promise: a short answer
+    #: splits the remainder and retries rather than losing the batch.
+    curate_batch_size: int = 40
+    #: The floor that split stops at. Below this the per-call overhead is
+    #: most of the cost and the batch is better abandoned to the fallback.
+    curate_min_batch_size: int = 5
+    #: Gemini calls held back each day for the Desk. A scheduled curate runs
+    #: unattended and a user clicking Generate is waiting, so the curate
+    #: stops this many calls early and the Desk gets the rest.
+    gemini_desk_reserve: int = 5
+    #: When the daily curate runs, in IST. 12:45, because the free tier
+    #: resets at midnight Pacific — 12:30 IST — and running just after it
+    #: means a full day's allowance rather than whatever is left.
+    curate_hour_ist: int = 12
+    curate_minute_ist: int = 45
     #: Cosine above which a cluster is judged to be the *same topic* as an
     #: existing row from an earlier run, so a reworded title updates it rather
     #: than forking a second row. Deliberately far above cluster_similarity:
     #: this decides identity, not grouping.
     topic_match_similarity: float = 0.9
-    #: Regions curated on the beat. Everything else curates when opened.
-    curate_regions: str = "IN"
+    #: Regions curated on the beat, one per scheduled run. India plus one
+    #: state, because a state board is where relevance_to_region earns its
+    #: place and IN alone would never exercise it. Everything else stays on
+    #: the non-LLM merge until somebody opens it.
+    curate_regions: str = "IN,IN-TN"
 
     # ── Video (step 3) ────────────────────────────────────────────────────
     #: The Remotion renderer, a separate Node service: it needs its own

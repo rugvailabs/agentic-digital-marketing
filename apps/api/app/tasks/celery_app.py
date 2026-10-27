@@ -50,5 +50,19 @@ celery_app.conf.beat_schedule = {
         # Every N minutes on the clock rather than N minutes after the last
         # run, so snapshot timestamps stay comparable across restarts.
         "schedule": crontab(minute=f"*/{_minutes}"),
-    }
+    },
+    # Dev budget mode: curate once a day, not once an ingest.
+    #
+    # It used to run after every cycle, which on the free tier meant 48
+    # attempts a day against an allowance of 20 per model — so it spent the
+    # budget by mid-morning and then re-described every board from source
+    # titles for the rest of the day. The timezone above is Asia/Kolkata, so
+    # this crontab is IST: 12:45, just after the tier resets at midnight
+    # Pacific, when a full day's allowance is available.
+    "curate-daily": {
+        "task": "app.tasks.curate.curate_daily",
+        "schedule": crontab(
+            hour=str(settings.curate_hour_ist), minute=str(settings.curate_minute_ist)
+        ),
+    },
 }

@@ -377,6 +377,10 @@ export interface components {
             per_model?: {
                 [key: string]: number;
             };
+            /** Used Today */
+            used_today?: number | null;
+            /** Reserved For Desk */
+            reserved_for_desk?: number | null;
             /** Remaining Usd */
             remaining_usd?: number | null;
         };

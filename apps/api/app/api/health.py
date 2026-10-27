@@ -31,6 +31,12 @@ class ProviderHealth(BaseModel):
     #: Per model id. Gemini's free tier counts a day per model, so one
     #: exhausted entry here is routine and not an exhausted provider.
     per_model: dict[str, int] = Field(default_factory=dict)
+    #: Calls spent today, against a limit that is per model and per day.
+    used_today: int | None = None
+    #: Of those, how many are held back for the Desk. A scheduled curate
+    #: stops this far short, so a user clicking Generate is not starved by
+    #: the 12:45 run.
+    reserved_for_desk: int | None = None
     #: Money left, for a vendor that meters money rather than calls.
     #: OpenRouter is the only one today. Null means either "not metered in
     #: dollars" or "could not be read" — both of which are different from 0.

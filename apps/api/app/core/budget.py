@@ -53,24 +53,30 @@ class DailyBudget:
     def _key(self, model: str) -> str:
         return f"llm:rpd:{self._name}:{model or '-'}:{_utc_day()}"
 
-    async def spend(self, key: str = "") -> bool:
+    async def spend(self, key: str = "", *, reserve: int = 0) -> bool:
         """True if there was budget left for `key`. False means stop, not retry.
 
         Counted per model, because Google's limit is per model too
         (GenerateRequestsPerDayPerProjectPerModel-FreeTier, 20/day on this
         tier). A single shared counter would block a model that still has
         budget, which is exactly what the fallback chain exists to use.
+
+        `reserve` stops this caller short of the real limit, leaving the
+        last few for someone else. Scheduled work passes it; a user waiting
+        on the Desk does not, and gets the remainder.
         """
+        ceiling = max(1, self._limit - max(0, reserve))
+
         client = _client()
         if client is None:
-            return self._local.spend(key, self._limit)
+            return self._local.spend(key, ceiling)
 
         redis_key = self._key(key)
         try:
             async with client:
                 used = await client.incr(redis_key)
                 await client.expire(redis_key, self.TTL_SECONDS)
-                if used > self._limit:
+                if used > ceiling:
                     # Put it back: this call is not happening, so it did not
                     # cost anything and must not read as though it had.
                     await client.decr(redis_key)
@@ -78,7 +84,7 @@ class DailyBudget:
                 return True
         except RedisError as exc:
             self._degrade(exc)
-            return self._local.spend(key, self._limit)
+            return self._local.spend(key, ceiling)
 
     async def remaining(self, key: str = "") -> int:
         client = _client()

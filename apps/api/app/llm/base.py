@@ -66,6 +66,14 @@ class ProviderBudget:
     #: Per model id, because a free-tier day can be counted per model rather
     #: than per key, and then one exhausted model is not an exhausted vendor.
     per_model: dict[str, int] = field(default_factory=dict)
+    #: Calls spent today, where there is a count to spend. The counterpart
+    #: of remaining_today: a board shows what is gone more usefully than
+    #: what is left when the limit itself is the thing worth knowing.
+    used_today: int | None = None
+    #: Of the day's calls, how many are held back for the Desk. Scheduled
+    #: work stops this far short, so remaining_today dropping to this number
+    #: means curation has stopped and a user can still generate a post.
+    reserved_for_desk: int | None = None
     #: Money left, where the vendor meters money rather than calls — which
     #: OpenRouter does. Separate from `remaining_today` rather than squeezed
     #: into it: dollars and requests are not the same quantity, and showing

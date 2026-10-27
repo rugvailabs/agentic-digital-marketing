@@ -23,6 +23,7 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.core.time import utcnow
 from app.db.session import SessionLocal, engine
+from app.llm.priority import background
 from app.models import (
     PipelineStatus,
     Region,
@@ -310,6 +311,44 @@ def render_video(self, job_id: int) -> dict[str, Any]:
     return asyncio.run(_run())
 
 
+@shared_task(name="app.tasks.curate.curate_daily", bind=True, max_retries=0)
+def curate_daily(self) -> dict[str, Any]:
+    """The once-a-day scheduled curate. One region per run, in order.
+
+    Sequential rather than dispatched together: two curate tasks in flight
+    share one process's rate limiters, and the second loses every batch to
+    the first — measured, when Maharashtra and Tamil Nadu were queued at the
+    same time and Tamil Nadu came back empty in two minutes.
+
+    No retry. A failure here is the daily budget being gone, and retrying
+    spends what is left of it to fail again; the next day's run is the
+    retry. The curator preserves a previously described row when it cannot
+    describe one, so a bad day costs freshness rather than content.
+    """
+    from app.tasks.curate import run_curate
+
+    regions = settings.curate_region_list
+    results: dict[str, Any] = {"regions": {}}
+
+    async def _run(code: str) -> dict[str, Any]:
+        try:
+            with background():
+                return await run_curate([code])
+        finally:
+            await engine.dispose()
+
+    for code in regions:
+        try:
+            results["regions"][code] = asyncio.run(_run(code))
+        except Exception as exc:
+            # One region failing must not cost the others their turn.
+            log.error("daily curate failed", region=code, error=f"{type(exc).__name__}: {exc}")
+            results["regions"][code] = {"error": f"{type(exc).__name__}"}
+
+    log.info("daily curate finished", regions=list(results["regions"]))
+    return results
+
+
 @shared_task(name="app.tasks.curate.curate_regions", bind=True, max_retries=1)
 def curate_regions(self, region_codes: list[str] | None = None) -> dict[str, Any]:
     """Curate after ingest. Only the configured regions run on the beat —
@@ -339,7 +378,9 @@ def ingest_all_regions(self, region_codes: list[str] | None = None) -> dict[str,
         log.error("cycle failed", error=f"{type(exc).__name__}: {exc}")
         raise self.retry(exc=exc, countdown=60) from exc
 
-    # Curate runs as its own task so a Gemini outage retries without
-    # re-fetching every source.
-    curate_regions.delay(None)
+    # No curate here any more. It used to be dispatched after every cycle,
+    # which on the free tier was 48 attempts a day against an allowance of
+    # 20 per model: the budget was gone by mid-morning and every later run
+    # re-described the boards from source titles. It now runs once a day on
+    # its own schedule — see curate_daily.
     return result
