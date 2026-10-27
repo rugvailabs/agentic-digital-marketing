@@ -35,7 +35,37 @@ class Settings(BaseSettings):
 
     # Trend source credentials. Blank => adapter reports not configured.
     youtube_api_key: str = ""
+
+    # ── X ─────────────────────────────────────────────────────────────────
+    #: App-only bearer. A real one is ~112 characters and begins "AAAA"; the
+    #: 25-character value X calls the "API Key" is the consumer key and will
+    #: return 401 here, which is worth knowing before blaming the account.
     x_bearer_token: str = ""
+    #: The consumer pair, used to mint a bearer when only these are issued.
+    x_consumer_key: str = ""
+    x_consumer_secret: str = ""
+    #: X bills per request, so a region is pulled at most this often however
+    #: many times the beat runs.
+    x_pull_interval_minutes: int = 120
+    #: Hard ceiling on requests per day, counted in Redis so the api can
+    #: report it and the worker cannot exceed it. Spends stop, never queue.
+    x_daily_cap: int = 200
+
+    # ── Reddit ────────────────────────────────────────────────────────────
+    #: Script-type app: id and secret authenticate, and Reddit requires a
+    #: descriptive user agent or it answers 429 regardless of the keys.
+    reddit_client_id: str = ""
+    reddit_client_secret: str = ""
+    reddit_user_agent: str = "trendforge/0.1 (by /u/trendforge)"
+
+    # ── Instagram (not yet issued) ────────────────────────────────────────
+    #: Hashtag search needs a Business account id and a long-lived token.
+    #: Blank => InstagramHashtagAdapter reports not configured and is skipped.
+    ig_access_token: str = ""
+    ig_business_id: str = ""
+
+    #: Stock imagery, for later use as post backgrounds.
+    pixabay_api_key: str = ""
 
     # ── Gemini ────────────────────────────────────────────────────────────
     # Model ids are config, not constants: this key's tier serves
