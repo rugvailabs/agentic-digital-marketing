@@ -29,6 +29,14 @@ each topic using AI agents. Users are small marketing teams and agencies in Indi
 - Agent pipeline = idempotent Celery tasks with explicit status on the row:
   ingest -> curate -> plan -> write -> render_image -> render_video -> review -> publish.
 - Prompts live in apps/api/app/prompts/*.md with a version in the filename. Never inline.
+- Hashtag and text normalisation lives only in app/core/hashtags.py; never write a
+  \w-based regex for Indic text anywhere else. Python's `\w` and `str.isalnum()` are
+  False for combining marks — Devanagari matras, Tamil vowel signs, nuktas, viramas are
+  Mn/Mc/Me, not letters — so such a pattern silently returns a different word: मौसम
+  becomes मसम, मझै becomes मझ. It has shipped four times here (normalise_topic, the
+  voiceover's _speakable, the Reddit literal-tag regex, the hashtag grounding filter)
+  and each time passed its tests, because the tests were ASCII. Any text-handling
+  change needs a Hindi and a Tamil case.
 - Region model: country > state > city. X WOEIDs attach to cities and roll up to states.
 - Safety: the planner skips trends tagged disaster/death/communal/election-result;
   content about real named people is descriptive only, never endorsements.
