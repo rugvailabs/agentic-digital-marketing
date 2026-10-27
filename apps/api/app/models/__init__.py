@@ -16,6 +16,7 @@ from app.models.trend import (
     SnapshotStatus,
     SourceName,
     Trend,
+    TrendPlatform,
     TrendSnapshot,
 )
 
@@ -36,5 +37,6 @@ __all__ = [
     "SourceName",
     "Trend",
     "TrendItem",
+    "TrendPlatform",
     "TrendSnapshot",
 ]

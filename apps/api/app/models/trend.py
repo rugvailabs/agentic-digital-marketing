@@ -35,6 +35,8 @@ class SourceName(enum.StrEnum):
     google_news = "google_news"
     youtube = "youtube"
     x = "x"
+    reddit = "reddit"
+    instagram = "instagram"
 
 
 class SnapshotStatus(enum.StrEnum):
@@ -177,8 +179,78 @@ class Trend(Base, TimestampMixin):
         """
         return list(self.hashtags or []) if self.curated_at else []
 
+    #: Per-platform rows for this topic. Ordered by platform so the Desk's
+    #: groups and the ladder's marks come out in a stable order rather than
+    #: whatever the planner returned.
+    platforms: Mapped[list[TrendPlatform]] = relationship(
+        back_populates="trend",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="TrendPlatform.platform",
+    )
+
     __table_args__ = (
         UniqueConstraint("region_id", "topic_key", name="uq_trends_region_id_topic_key"),
         Index("ix_trends_region_rank", "region_id", "rank"),
         Index("ix_trends_last_seen_at", "last_seen_at"),
+    )
+
+
+class TrendPlatform(Base, TimestampMixin):
+    """One platform's view of one topic. Table is `trend_sources`.
+
+    The class is not called TrendSource because CLAUDE.md gives that name to
+    the adapter interface, and two TrendSources — one you fetch with, one you
+    store — would collide on every import that touched both. The table keeps
+    the name it was specified with.
+
+    A topic is usually trending in more than one place at once, and the
+    platforms disagree about it in ways worth keeping: a story can be rank 2
+    on Reddit and rank 14 on YouTube, and the tags that work on one are not
+    the tags that work on the other. `trends` holds what is true about the
+    topic; this holds what is true about the topic *on a platform*.
+
+    Hashtags are stored per platform and never merged. Merging them was the
+    obvious thing and it is wrong: #AskReddit has no meaning on Instagram and
+    a 30-tag Instagram block reads as spam in a YouTube description. The Desk
+    groups them by platform for the same reason, and a copy button per group
+    only makes sense if they were never pooled.
+    """
+
+    __tablename__ = "trend_sources"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    trend_id: Mapped[int] = mapped_column(
+        ForeignKey("trends.id", ondelete="CASCADE"), nullable=False
+    )
+    platform: Mapped[SourceName] = mapped_column(
+        Enum(SourceName, name="source_name", native_enum=True), nullable=False
+    )
+
+    #: Rank on that platform, 1-based. Null where the platform has no
+    #: ordering of its own — Instagram hashtag search returns counts, not a
+    #: chart, and inventing a rank for it would make it sortable by accident.
+    rank: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Whatever that platform counts: X tweet volume, Reddit upvotes,
+    #: YouTube views, Instagram media count. Not comparable across
+    #: platforms, which is why it is stored per row rather than summed.
+    volume: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    hashtags: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    #: Where to see it on that platform. The Desk links the platform mark to
+    #: this, so a marketer can check the claim before posting about it.
+    url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+    trend: Mapped[Trend] = relationship(back_populates="platforms")
+
+    __table_args__ = (
+        # One row per platform per topic: an ingest cycle updates the row it
+        # already has rather than appending, so the table stays the size of
+        # the board and not of its history. `trend_snapshots` is the
+        # append-only record if you need to know what changed.
+        UniqueConstraint("trend_id", "platform", name="uq_trend_sources_trend_platform"),
+        Index("ix_trend_sources_trend_id", "trend_id"),
+        # The ?platform= filter on /trends reads this, so it is indexed with
+        # rank: filtering by platform and ordering by its rank is one query.
+        Index("ix_trend_sources_platform_rank", "platform", "rank"),
     )
