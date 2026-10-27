@@ -138,6 +138,14 @@ class Settings(BaseSettings):
     #: The consequence is worth stating plainly: at 8,000 TPM this is roughly
     #: one batch a minute, so spillover is usable for a single post and slow
     #: for bulk curation. The fix is quota, not pacing.
+    #:
+    #: And there is a second ceiling underneath that one. The free tier also
+    #: caps tokens per *day* at 200,000, which at ~7,400 a batch is about 27
+    #: batches — one full curate of three regions and nothing else. Reached
+    #: on 2026-10-28, after which both providers were out and the boards
+    #: could only be ingested, not described. Nothing in this file can pace
+    #: around a daily ceiling; it is reported so the next person recognises
+    #: "tokens per day (TPD)" in a 429 for what it is.
     groq_output_reserve: int = 5200
     #: Sent as max_completion_tokens. Without it Groq applies its own default
     #: — about 3,072 for this model — and a batch that needs more comes back

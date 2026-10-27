@@ -383,6 +383,10 @@ requests; the ceiling that actually bites is 8,000 tokens a minute, and
 | output | 5,000 |
 | **total, one batch** | **7,441 of an 8,000-token minute** |
 
+There is a daily ceiling under the per-minute one: 200,000 tokens, which at
+~7,400 a batch is roughly 27 batches — one full curate of three regions and
+nothing else. Both free tiers were exhausted within an evening on 2026-10-28.
+
 So spillover is comfortable for a single post and runs at roughly one batch
 a minute for bulk curation — about ten minutes a region. Pacing it properly
 (see `groq_output_reserve`) stops the 429s; it cannot make it fast. The fix
