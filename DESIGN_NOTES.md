@@ -362,6 +362,42 @@ table suggests:
 | X | yes | yes | paid per request; credits exhausted, on fixtures |
 | Instagram | **no** | **no** | no trending endpoint exists; measures named hashtags only |
 
+### What curation costs, and why the batch is five
+
+Measured 2026-10-28, when both providers ran out at once and the board spent
+an evening falling back to source titles.
+
+The curator is the expensive part of the pipeline and neither free tier is
+sized for it. Gemini's is 20 generate calls per model per day — the model
+chain exists to multiply that — and its embedding endpoint shares the same
+quota, so when it goes, clustering degrades to title matching at the same
+moment the descriptions do.
+
+Groq as spillover is limited by tokens, not calls. `GROQ_RPM` throttles
+requests; the ceiling that actually bites is 8,000 tokens a minute, and
+`gpt-oss-120b` is a reasoning model whose output is mostly thinking:
+
+| | tokens |
+| --- | --- |
+| prompt, 5 clusters | 2,441 |
+| output | 5,000 |
+| **total, one batch** | **7,441 of an 8,000-token minute** |
+
+So spillover is comfortable for a single post and runs at roughly one batch
+a minute for bulk curation — about ten minutes a region. Pacing it properly
+(see `groq_output_reserve`) stops the 429s; it cannot make it fast. The fix
+for a full re-curation is quota, not tuning.
+
+`CURATE_BATCH_SIZE` is 5 rather than 10 because v3 adds `platform_hashtags`,
+`why_trending` and `relevance_to_region` to every cluster, and ten of those
+overran Groq's default completion cap. A truncated array is reported as
+"Failed to validate JSON. Please adjust your prompt", which reads as a
+prompt problem and is a length one.
+
+Practical consequence: a long curate belongs on the Celery queue
+(`curate_regions.delay([...])`), not in a foreground shell that an
+interruption will kill halfway.
+
 ### Instagram runs on demand, never on the cycle
 
 Decided 2026-10-27. `ig_hashtag_search` allows **30 unique hashtags per

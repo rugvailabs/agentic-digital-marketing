@@ -6,6 +6,8 @@ board — so most of these are about the cases where it must *not* fire.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 from app.models import RegionKind, SourceName
@@ -14,8 +16,10 @@ from app.tasks.curate import (
     CURATE_SCHEMA,
     PROMPT_ID,
     RELEVANCE_FLOOR,
+    RawRow,
     _clean_relevance,
     _one_line,
+    fallback_fields,
     keeps_region_relevance,
     platform_hashtags_of,
 )
@@ -192,3 +196,44 @@ class TestRelevanceFloor:
         every state board the moment Gemini was unavailable, and the board is
         supposed to degrade to step 1, not to nothing."""
         assert keeps_region_relevance(RegionKind.state, None) is True
+
+
+class TestFallbackPreservesPriorCuration:
+    """A run that could not describe a cluster must not undo one that did.
+
+    "Never worse than step 1" was the stated intent; what it has to mean is
+    "never worse than the last good run". With the quota gone, the
+    half-hourly beat was overwriting described topics with raw source
+    headlines and nulling summary, why_trending and relevance every cycle.
+    """
+
+    def test_fallback_fields_are_marked_as_such(self) -> None:
+        cluster = SimpleNamespace(key="c1", members=[0])
+        rows = [
+            RawRow(
+                source=SourceName.google_news,
+                snapshot_id=1,
+                rank=1,
+                title="Some source headline",
+                url=None,
+                volume=None,
+                extra={},
+            )
+        ]
+
+        assert fallback_fields(cluster, rows)["_fallback"] is True
+
+    def test_a_described_cluster_carries_no_fallback_mark(self) -> None:
+        """The writer keys on its absence, so a described payload must not
+        acquire one by accident."""
+        described = {
+            "title": "India win the series",
+            "category": "Sports",
+            "hashtags": ["#IndiaWin"],
+            "summary": "India won by three wickets.",
+            "why_trending": "Won in the last over.",
+            "relevance_to_region": 1.0,
+            "safety_flag": "none",
+        }
+
+        assert "_fallback" not in described

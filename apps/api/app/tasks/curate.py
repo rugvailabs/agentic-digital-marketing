@@ -118,6 +118,11 @@ CURATE_SCHEMA: dict[str, Any] = {
             "drop",
             "why_trending",
             "relevance_to_region",
+            # Required, or it simply does not come back. Gemini may omit an
+            # optional field and Groq sees the schema only as prose in the
+            # system message, so both left platform_hashtags out of every
+            # response and authored_platform_tags stayed 0 on every region.
+            "platform_hashtags",
         ],
     },
 }
@@ -263,6 +268,13 @@ def fallback_fields(cluster: Any, rows: list[RawRow]) -> dict[str, Any]:
 
     Used when Gemini is unconfigured or the call failed. The board stays
     exactly as good as step 1 rather than going blank.
+
+    Marked `_fallback` so the writer can tell a real description from this
+    one. Without that mark a failed run overwrote a previously curated row
+    with a source title and nulled its summary, why_trending and relevance —
+    so the half-hourly beat quietly destroyed good curation every cycle the
+    quota was gone. "Never worse than step 1" was the intent; "never worse
+    than the last good run" is what it has to mean.
     """
     members = sorted(cluster.members, key=lambda i: (-rows[i].weight, rows[i].rank))
     best = rows[members[0]]
@@ -272,6 +284,7 @@ def fallback_fields(cluster: Any, rows: list[RawRow]) -> dict[str, Any]:
         "hashtags": hashtags_for(best.title),
         "summary": None,
         "safety_flag": SafetyFlag.none.value,
+        "_fallback": True,
     }
 
 
@@ -727,13 +740,22 @@ async def _write(
         row.topic_key = topic_key
         by_key[topic_key] = row
 
-        row.topic = title
-        row.category = _clean_category(fields.get("category"))
+        # A fallback run keeps whatever a previous successful curate wrote.
+        # It still updates rank, score, velocity and evidence — those are
+        # this run's facts — but it must not replace a described topic with
+        # a raw source headline.
+        described_now = not fields.get("_fallback")
+        keep_previous = not described_now and row.curated_at is not None
+
+        row.topic = row.topic if keep_previous else title
+        if not keep_previous:
+            row.category = _clean_category(fields.get("category"))
         row.rank = position
         row.score = score
         row.volume = max((rows[i].volume or 0) for i in members)
         row.velocity = next_velocity(row.velocity, score)
-        row.hashtags = _clean_hashtags(fields.get("hashtags"), title)
+        if not keep_previous:
+            row.hashtags = _clean_hashtags(fields.get("hashtags"), title)
         row.sources = sources
         row.evidence = [
             {
@@ -749,11 +771,12 @@ async def _write(
             }
             for i in members[:12]
         ]
-        row.summary = fields.get("summary")
-        authored_tags[id(row)] = (row, platform_hashtags_of(fields))
-        row.why_trending = _one_line(fields.get("why_trending"))
-        row.relevance_to_region = _clean_relevance(fields.get("relevance_to_region"))
-        row.safety_flag = _clean_flag(fields.get("safety_flag"))
+        if not keep_previous:
+            row.summary = fields.get("summary")
+            authored_tags[id(row)] = (row, platform_hashtags_of(fields))
+            row.why_trending = _one_line(fields.get("why_trending"))
+            row.relevance_to_region = _clean_relevance(fields.get("relevance_to_region"))
+            row.safety_flag = _clean_flag(fields.get("safety_flag"))
         row.cluster_id = row.cluster_id or new_topic_id()
         # Unioned, never replaced: a run that happens to see only two of a
         # topic's five articles must not forget the other three.
