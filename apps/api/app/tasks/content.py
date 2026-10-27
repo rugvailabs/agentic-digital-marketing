@@ -157,6 +157,11 @@ async def build_brief(session: AsyncSession, job: ContentJob) -> dict[str, Any]:
         # its source headline camel-cased into one word, and showing the
         # writer that as prior art is how it ends up in a caption.
         "curator_hashtags": trend.curator_hashtags,
+        # Not in the prompt; both are haystack for grounding a hashtag, where
+        # a tag generalising from the topic to its category or region is
+        # doing its job rather than wandering off.
+        "category": trend.category or "",
+        "region_name": trend.region.name if trend.region else "",
         "known_hashtags": ", ".join(trend.curator_hashtags) or "(none)",
         "evidence": evidence,
         "language": job.language.value,
@@ -190,6 +195,25 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
     if not caption:
         raise ContentError("The writer returned an empty caption.")
 
+    # What a hashtag may be traced to: the copy just written, and what the
+    # topic itself is. Deliberately wide — a tag that generalises from
+    # "Jaipur" to "#UrbanIndia" is doing its job, and a haystack of only the
+    # caption would call that ungrounded.
+    grounding = " ".join(
+        str(part or "")
+        for part in (
+            caption,
+            data.get("hook"),
+            data.get("image_headline"),
+            data.get("image_subline"),
+            data.get("alt_text"),
+            brief["topic"],
+            brief.get("summary"),
+            brief.get("category"),
+            brief.get("region_name"),
+        )
+    )
+
     return Post(
         hook=str(data.get("hook") or "").strip(),
         caption=caption,
@@ -197,6 +221,7 @@ async def write_post(llm: LLMProvider, brief: dict[str, Any]) -> Post:
             clean_hashtags(data.get("hashtags"), HASHTAG_COUNT),
             brief.get("curator_hashtags") or [],
             HASHTAG_COUNT,
+            context=grounding,
         ),
         image_headline=str(data.get("image_headline") or brief["topic"]).strip(),
         image_subline=str(data.get("image_subline") or "").strip(),

@@ -11,6 +11,8 @@ from app.tasks.merge import (
     camel_hashtag,
     clean_hashtags,
     display_topic,
+    grounded_hashtags,
+    hashtag_tokens,
     hashtags_for,
     merge,
     merge_hashtags,
@@ -297,3 +299,87 @@ class TestMergeHashtags:
         tags = merge_hashtags([], [f"#C{i}" for i in range(9)], 4)
 
         assert len(tags) == 4
+
+
+class TestHashtagTokens:
+    def test_camel_case_splits_into_words(self) -> None:
+        assert hashtag_tokens("#PinkCity") == ["pink", "city"]
+
+    def test_an_acronym_stays_whole(self) -> None:
+        assert hashtag_tokens("#AINews") == ["ai", "news"]
+        assert hashtag_tokens("#INSVikrant") == ["ins", "vikrant"]
+
+    def test_digits_are_their_own_token(self) -> None:
+        assert hashtag_tokens("#AI882Flight") == ["ai", "882", "flight"]
+
+    def test_an_indic_tag_yields_a_token(self) -> None:
+        """The reason the pattern is not ASCII-only. A tag with no tokens is
+        ungrounded by construction, and measured against the real corpus an
+        ASCII pattern deleted every Tamil-script hashtag in it."""
+        assert hashtag_tokens("#மழை") == ["மழை"]
+        assert hashtag_tokens("#मौसम") == ["मौसम"]
+
+
+class TestGroundedHashtags:
+    """Deliberately narrow. A tag is dropped only when it is both ungrounded
+    and shaped like a raw search query."""
+
+    CONTEXT = (
+        "Anthropic is preparing for a public listing. The artificial "
+        "intelligence startup shows rapid revenue growth as investors weigh "
+        "its costs. Technology India"
+    )
+
+    def test_a_bare_ungrounded_search_term_is_dropped(self) -> None:
+        """The tag that prompted this: one lowercase word, nothing to do with
+        the story, published next to seven good ones."""
+        assert grounded_hashtags(["#Anthropic", "#royal", "#IPO"], self.CONTEXT) == [
+            "#Anthropic",
+            "#IPO",
+        ]
+
+    def test_a_composed_tag_is_kept_even_when_ungrounded(self) -> None:
+        """#UrbanIndia under a story about Jaipur is reach, not drift, and
+        requiring grounding here cost an eighth of the real tags."""
+        assert grounded_hashtags(["#UrbanIndia", "#CityMakeover"], self.CONTEXT) == [
+            "#UrbanIndia",
+            "#CityMakeover",
+        ]
+
+    def test_a_capitalised_single_word_is_kept(self) -> None:
+        """#Aviation and #Climate are ordinary category tags. They read as
+        deliberate; #royal does not."""
+        assert grounded_hashtags(["#Aviation", "#Climate"], self.CONTEXT) == [
+            "#Aviation",
+            "#Climate",
+        ]
+
+    def test_a_grounded_lowercase_tag_survives(self) -> None:
+        """Lowercase alone is not the test — being ungrounded as well is."""
+        assert grounded_hashtags(["#anthropic", "#startup"], self.CONTEXT) == [
+            "#anthropic",
+            "#startup",
+        ]
+
+    def test_a_shared_root_counts_as_grounded(self) -> None:
+        """ "investments" against "investors", "startups" against "startup"."""
+        assert grounded_hashtags(["#investments"], self.CONTEXT) == ["#investments"]
+
+    def test_an_indic_tag_is_never_dropped_for_being_one_word(self) -> None:
+        """Devanagari and Tamil have no case, so a lowercase test would call
+        every Indic tag a bare search term. CLAUDE.md requires these render
+        and publish; silently deleting them is not an option."""
+        tags = ["#மழை", "#வானிலை", "#मौसम"]
+
+        assert grounded_hashtags(tags, self.CONTEXT) == tags
+
+    def test_no_context_means_no_filtering(self) -> None:
+        """An empty haystack would otherwise call everything ungrounded."""
+        assert merge_hashtags(["#royal"], [], 8) == ["#royal"]
+
+    def test_the_merge_grounds_the_writer_but_not_the_curator(self) -> None:
+        """The curator chose its tags for this topic and is the authority on
+        it, so they are not second-guessed against the caption."""
+        tags = merge_hashtags(["#royal"], ["#zzz"], 8, context=self.CONTEXT)
+
+        assert tags == ["#zzz"]

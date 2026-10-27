@@ -12,6 +12,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.logging import get_logger
 from app.sources.base import RawTrendItem
 
 #: How many points the sparkline carries: current score + previous 5 snapshots.
@@ -123,7 +124,96 @@ def clean_hashtags(raw: object, limit: int) -> list[str]:
     return tags[:limit]
 
 
-def merge_hashtags(writer: list[str], curator: list[str], limit: int) -> list[str]:
+#: Splits a hashtag into words. The ASCII alternatives handle CamelCase;
+#: the last one takes any run of non-ASCII characters whole.
+#:
+#: It has to be an explicit ASCII range and not `\w`, for the third time in this
+#: codebase. Python's `\w` follows `str.isalnum()`, which is False for every
+#: combining mark — Devanagari matras, Tamil vowel signs, nuktas, viramas are
+#: category Mn/Mc/Me, not letters. A `\w`-based pattern cut #மழை down to
+#: "மழ", a different word, and the same mistake has already been made in
+#: `normalise_topic` and in the voiceover's `_speakable`.
+#:
+#: A tag with no tokens would also be ungrounded by construction: measured
+#: against the posts already generated, an ASCII-only pattern silently
+#: deleted every Tamil-script hashtag in the corpus.
+_HASHTAG_TOKEN = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z]+|[a-z]+|\d+|[^\x00-\x7F]+")
+
+#: Same reason, for the text a tag is grounded against.
+_CONTEXT_WORD = re.compile(r"[A-Za-z]+|\d+|[^\x00-\x7F]+")
+
+#: Letters shared before two words count as the same root: "investments"
+#: against "investors", "startups" against "startup".
+_ROOT_CHARS = 6
+
+log = get_logger("tasks.hashtags")
+
+
+def hashtag_tokens(tag: str) -> list[str]:
+    """The words inside a hashtag, lowercased. #PinkCity -> [pink, city]."""
+    return [part.lower() for part in _HASHTAG_TOKEN.findall(tag.lstrip("#")) if part]
+
+
+def _context_words(context: str) -> set[str]:
+    return {word.lower() for word in _CONTEXT_WORD.findall(context or "")}
+
+
+def _is_grounded(tag: str, words: set[str]) -> bool:
+    for token in hashtag_tokens(tag):
+        if token in words:
+            return True
+        if len(token) >= _ROOT_CHARS and any(
+            word[:_ROOT_CHARS] == token[:_ROOT_CHARS] and len(word) >= _ROOT_CHARS for word in words
+        ):
+            return True
+    return False
+
+
+def _is_bare_search_term(tag: str) -> bool:
+    """One lowercase ASCII word — what a trending query looks like, not a
+    hashtag. The prompt asks for CamelCase and the writer obliges, so the
+    tags that come back like this are the ones it did not really compose."""
+    body = tag.lstrip("#")
+    return len(hashtag_tokens(tag)) == 1 and body.isascii() and body.isalpha() and body.islower()
+
+
+def grounded_hashtags(tags: list[str], context: str) -> list[str]:
+    """Drop tags that are neither composed nor traceable to the content.
+
+    Narrow on purpose, and the narrowness is measured rather than guessed.
+    Against the 131 hashtags on the posts already generated:
+
+        require every token grounded        drops 47-49%
+        require any token grounded          drops 20-27%
+        ... or be multi-word                drops  8%
+        ... or not be a bare search term    drops  0.8%  (one tag: #royal)
+
+    The looser rules take #TamilNadu, #Aviation, #MaritimeSecurity and
+    #INSVikrant with them, because a good hashtag is deliberately broader
+    than the sentence it sits under — that is what makes it reach. So only
+    the last rule ships: a tag has to be both ungrounded *and* shaped like a
+    raw query to be dropped.
+
+    This does not catch an ungrounded tag that happens to be capitalised.
+    Tightening it costs an eighth of the real tags, which is the worse trade.
+    """
+    words = _context_words(context)
+    kept, dropped = [], []
+    for tag in tags:
+        if _is_bare_search_term(tag) and not _is_grounded(tag, words):
+            dropped.append(tag)
+        else:
+            kept.append(tag)
+    if dropped:
+        # Logged, never silent. A filter that quietly deletes output is how
+        # you find out months later that half the tags were missing.
+        log.info("dropped ungrounded hashtags", tags=dropped)
+    return kept
+
+
+def merge_hashtags(
+    writer: list[str], curator: list[str], limit: int, *, context: str = ""
+) -> list[str]:
     """What a post or reel publishes: the writer's tags and the curator's.
 
     The curator's survive the cap and the writer's surplus is what gets
@@ -134,7 +224,15 @@ def merge_hashtags(writer: list[str], curator: list[str], limit: int) -> list[st
     Raw trend tags are not an input here and must not become one. They are
     the source headline camel-cased into a single word, and they reached a
     published caption once by being handed to the writer as prior art.
+
+    `context` is whatever the tag can legitimately be traced to — the caption
+    just written, the topic, its summary and region. The writer's tags are
+    grounded against it; the curator's are not, because the curator chose
+    them for this topic and is the authority on it.
     """
+    if context:
+        writer = grounded_hashtags(writer, context)
+
     kept: list[str] = []
     seen: set[str] = set()
 

@@ -334,6 +334,18 @@ async def _from_model(llm: LLMProvider, brief: dict[str, Any]) -> ReelScript:
             clean_hashtags(data.get("hashtags"), REEL_HASHTAGS),
             brief.get("hashtags") or [],
             REEL_HASHTAGS,
+            # Every line of the script, plus the topic: a reel's tags belong
+            # to the whole reel, not just its headline.
+            context=" ".join(
+                [
+                    headline,
+                    str(data.get("alt_text") or ""),
+                    brief["topic"],
+                    str(brief.get("summary") or ""),
+                    str(brief.get("region_name") or ""),
+                    *(f"{s.text} {s.detail} {s.say}" for s in beats),
+                ]
+            ),
         ),
         alt_text=str(data.get("alt_text") or "").strip(),
     )
