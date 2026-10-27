@@ -48,6 +48,8 @@ class GroqProvider(LLMProvider):
         self._key = settings.groq_api_key if api_key is None else api_key
         self._model = settings.groq_model if model is None else model
         self._rpm = TokenBucket(settings.groq_rpm, 60.0, name="groq-rpm")
+        #: The limit that actually bites — see settings.groq_tpm.
+        self._tpm = TokenBucket(settings.groq_tpm, 60.0, name="groq-tpm")
 
     def is_configured(self) -> bool:
         return bool(self._key)
@@ -92,9 +94,20 @@ class GroqProvider(LLMProvider):
             ],
             "response_format": {"type": "json_object"},
             "temperature": temperature,
+            # Explicit, because Groq's default for this model truncates a
+            # batch mid-array and reports it as a JSON validation failure.
+            "max_completion_tokens": settings.groq_max_output_tokens,
         }
 
-        body, attempts = await self._post("/chat/completions", payload, prompt_id=prompt_id)
+        # Reserve the whole call — prompt plus room for the answer — before
+        # making it. Groq counts both halves against TPM, and a reservation
+        # taken afterwards would already be too late.
+        body, attempts = await self._post(
+            "/chat/completions",
+            payload,
+            prompt_id=prompt_id,
+            tokens=_estimate_tokens(payload) + settings.groq_output_reserve,
+        )
 
         try:
             text = body["choices"][0]["message"]["content"]
@@ -141,7 +154,7 @@ class GroqProvider(LLMProvider):
         raise LLMError("groq has no embedding model; embeddings stay on Gemini")
 
     async def _post(
-        self, path: str, payload: dict[str, Any], *, prompt_id: str
+        self, path: str, payload: dict[str, Any], *, prompt_id: str, tokens: int = 0
     ) -> tuple[dict[str, Any], int]:
         headers = {
             "Authorization": f"Bearer {self._key}",
@@ -152,6 +165,8 @@ class GroqProvider(LLMProvider):
         async with httpx.AsyncClient(timeout=settings.groq_timeout_seconds) as client:
             for attempt in range(1, MAX_ATTEMPTS + 1):
                 await self._rpm.acquire()
+                if tokens:
+                    await self._tpm.acquire(tokens)
                 try:
                     response = await client.post(f"{BASE_URL}{path}", json=payload, headers=headers)
                 except httpx.HTTPError as exc:
@@ -192,3 +207,17 @@ def _detail(response: httpx.Response) -> str:
     except Exception:
         pass
     return response.text[:200]
+
+
+def _estimate_tokens(payload: dict[str, Any]) -> int:
+    """Rough token count for a request, before it is sent.
+
+    Four characters to a token is the usual approximation and is close enough
+    for a limiter: the cost of being wrong is waiting slightly too long or
+    taking one 429, not a wrong answer. Deliberately a slight over-estimate —
+    under-reserving is what produces the 429 this exists to avoid.
+    """
+    characters = sum(
+        len(str(message.get("content") or "")) for message in payload.get("messages") or []
+    )
+    return characters // 4 + 64

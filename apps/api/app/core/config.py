@@ -119,6 +119,32 @@ class Settings(BaseSettings):
     #: gpt-oss-20b fails json_object validation outright.
     groq_model: str = "openai/gpt-oss-120b"
     groq_rpm: int = 30
+    #: Tokens per minute, which is the limit that actually bites. Measured on
+    #: this key 2026-10-27: a single curate_v3 call is 2,448 prompt + 3,072
+    #: output = 5,520 tokens, so at the free tier's 8,000 TPM the second call
+    #: in a minute is refused. Without pacing, spillover works for one call
+    #: and then 429s, which is the same as not working.
+    groq_tpm: int = 8000
+    #: Reserved for the answer before it exists, since the limit counts both
+    #: halves and the response cannot be measured in advance.
+    #:
+    #: 5,200 because that is what the answers actually cost, not what the
+    #: visible JSON suggests. gpt-oss-120b is a reasoning model: a five-
+    #: cluster curate_v3 batch measured 2,441 prompt + 5,000 output = 7,441
+    #: total, almost the whole minute, with most of the output spent
+    #: thinking rather than on the array. Reserving 3,200 let a second call
+    #: start inside the same window and take the 429 this exists to avoid.
+    #:
+    #: The consequence is worth stating plainly: at 8,000 TPM this is roughly
+    #: one batch a minute, so spillover is usable for a single post and slow
+    #: for bulk curation. The fix is quota, not pacing.
+    groq_output_reserve: int = 5200
+    #: Sent as max_completion_tokens. Without it Groq applies its own default
+    #: — about 3,072 for this model — and a batch that needs more comes back
+    #: truncated mid-array, which surfaces as "Failed to validate JSON" and
+    #: reads like a prompt problem rather than a length one. Kept under the
+    #: TPM ceiling so prompt plus answer still fit one minute's allowance.
+    groq_max_output_tokens: int = 5000
     groq_timeout_seconds: float = 90.0
 
     # ── Curation ──────────────────────────────────────────────────────────
@@ -126,7 +152,12 @@ class Settings(BaseSettings):
     #: matches land at 0.686-0.693 and unrelated same-genre titles at <=0.67,
     #: so the useful band is narrow. See the step 2 notes in DESIGN_NOTES.
     cluster_similarity: float = 0.68
-    curate_batch_size: int = 10
+    #: Clusters described per call. Was 10 for curate_v2; v3 adds
+    #: platform_hashtags, why_trending and relevance_to_region to every
+    #: cluster, and at 10 the answer overran Groq's output cap and came back
+    #: as truncated JSON. Five fits with room to spare on both providers, at
+    #: the cost of more calls — which the TPM bucket now paces.
+    curate_batch_size: int = 5
     #: Cosine above which a cluster is judged to be the *same topic* as an
     #: existing row from an earlier run, so a reworded title updates it rather
     #: than forking a second row. Deliberately far above cluster_similarity:

@@ -50,18 +50,29 @@ class TokenBucket:
         self._tokens = min(self._capacity, self._tokens + (now - self._updated) * self.rate)
         self._updated = now
 
-    async def acquire(self) -> float:
-        """Take one token, waiting if necessary. Returns seconds waited."""
+    async def acquire(self, cost: float = 1.0) -> float:
+        """Take `cost` tokens, waiting if necessary. Returns seconds waited.
+
+        `cost` is what lets one bucket meter requests per minute and another
+        meter *tokens* per minute: Groq's free tier caps both, and a single
+        curate call is most of a minute's token allowance on its own.
+
+        A cost above the bucket's whole capacity would wait forever, so it is
+        clamped. One oversized call then gets through after a full window
+        rather than deadlocking the cycle — the provider's own 429 is the
+        backstop for a request that is genuinely too large.
+        """
+        cost = max(0.0, min(float(cost), float(self._capacity)))
         waited = 0.0
         while True:
             async with self._lock:
                 self._refill()
-                if self._tokens >= 1:
-                    self._tokens -= 1
+                if self._tokens >= cost:
+                    self._tokens -= cost
                     return waited
-                deficit = (1 - self._tokens) / self.rate
+                deficit = (cost - self._tokens) / self.rate
             waited += deficit
-            log.debug("throttling", bucket=self._name, sleep_s=round(deficit, 2))
+            log.debug("throttling", bucket=self._name, sleep_s=round(deficit, 2), cost=cost)
             await asyncio.sleep(deficit)
 
     def tokens_left(self) -> float:
