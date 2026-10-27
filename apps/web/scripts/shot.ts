@@ -3,6 +3,7 @@
  *
  *   pnpm --filter @trendforge/web shot            # all shots
  *   pnpm --filter @trendforge/web shot -- --region IN-MH
+ *   pnpm --filter @trendforge/web shot -- --only platforms,settings
  *
  * Expects the stack up (`.\tf.ps1 up`), at least one ingest cycle
  * (`.\tf.ps1 ingest`) and the dev server running (`.\tf.ps1 dev`).
@@ -43,6 +44,13 @@ type Shot = {
   selectTopic?: string
   /** Wait for a rendered reel to load, and frame the panel rather than the top. */
   reel?: boolean
+  /** Apply the platform filter, as `?platform=`. */
+  platform?: string
+  /**
+   * A page other than the board. Skips the ladder and clock waits, which a
+   * page with no ladder would otherwise fail on after 15s.
+   */
+  path?: string
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -110,6 +118,44 @@ function shots(regionOverride?: string): Shot[] {
       selectTopic: 'Zimbabwe vs afghanistan',
       reel: true,
     },
+    // Step 4: the platform strip, a filter applied, and the settings page
+    // that the "connect" chips open.
+    {
+      name: 'platforms-1440-light',
+      region: state,
+      theme: 'light',
+      viewport: DESKTOP,
+      selectRank: 2,
+    },
+    {
+      name: 'platforms-1440-dark',
+      region: state,
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectRank: 2,
+    },
+    {
+      name: 'platform-filtered-1440-light',
+      region: state,
+      theme: 'light',
+      viewport: DESKTOP,
+      platform: 'google_news',
+      selectRank: 1,
+    },
+    {
+      name: 'settings-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/settings',
+    },
+    {
+      name: 'settings-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/settings',
+    },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
     { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },
     {
@@ -141,12 +187,19 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   // enough under networkidle to come back 500. Retry once; a second failure
   // is real and worth naming here rather than surfacing later as an
   // unexplained "selector never appeared".
-  const url = `${BASE_URL}/?region=${encodeURIComponent(shot.region)}`
-  let response = await page.goto(url, { waitUntil: 'networkidle' })
+  const query = new URLSearchParams({ region: shot.region })
+  if (shot.platform) query.set('platform', shot.platform)
+  const url = shot.path ? `${BASE_URL}${shot.path}` : `${BASE_URL}/?${query}`
+  // `domcontentloaded`, not `networkidle`. The dev server holds an HMR
+  // websocket open and recompiles on demand, so networkidle is reached by
+  // luck: the same route would capture fine once and time out at 30s the
+  // next run. Readiness here is not "the network went quiet" — it is the
+  // ladder having rendered, which the explicit waits below already check.
+  let response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   if (response && !response.ok()) {
     console.log(`  ! ${shot.name}: ${response.status()} on a cold route, retrying`)
     await page.waitForTimeout(3000)
-    response = await page.goto(url, { waitUntil: 'networkidle' })
+    response = await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 60_000 })
   }
   if (response && !response.ok()) {
     throw new Error(`${BASE_URL} returned ${response.status()} — is \`.\\tf.ps1 dev\` ready?`)
@@ -156,6 +209,17 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   // custom element works regardless of Next version; `devIndicators: false` in
   // next.config does not remove this portal in 15.5.
   await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' })
+
+  if (shot.path) {
+    // Not a board: no ladder to wait for and no clock in its header. Wait on
+    // the page's own heading instead, so a 200 that rendered an error state
+    // still fails here rather than shipping a blank screenshot.
+    await page.waitForSelector('h1', { timeout: 30_000 })
+    await page.waitForTimeout(SETTLE_MS)
+    const file = join(OUT_DIR, `${shot.name}.png`)
+    await page.screenshot({ path: file, fullPage: true })
+    return file
+  }
 
   // Fail loudly rather than shipping a screenshot of an empty board.
   await page.waitForSelector('[role="option"]', { timeout: 15_000 })
@@ -244,6 +308,17 @@ async function capture(page: Page, shot: Shot): Promise<string> {
 async function main(): Promise<void> {
   const regionArg = process.argv.indexOf('--region')
   const regionOverride = regionArg > -1 ? process.argv[regionArg + 1] : undefined
+  // `--only board,settings` captures the shots whose names contain any of
+  // these. Useful when one shot's topic has been re-curated away and its
+  // failure would otherwise abandon the rest of the run.
+  const onlyArg = process.argv.indexOf('--only')
+  const only =
+    onlyArg > -1
+      ? (process.argv[onlyArg + 1] ?? '')
+          .split(',')
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : []
 
   await mkdir(OUT_DIR, { recursive: true })
 
@@ -259,6 +334,7 @@ async function main(): Promise<void> {
   const written: string[] = []
   try {
     for (const shot of shots(regionOverride)) {
+      if (only.length > 0 && !only.some((pattern) => shot.name.includes(pattern))) continue
       written.push(await capture(page, shot))
       console.log(`  ✓ ${written.at(-1)}`)
     }
@@ -279,6 +355,9 @@ async function main(): Promise<void> {
       '- `panel-390-*` — the Desk as a slide-in panel over the ladder.',
       '- `studio-*` — the content studio with posts generated live by Gemini.',
       '- `reel-*` — the reel panel with a narrated video rendered end to end.',
+      '- `platforms-*` — the platform filter strip above the ladder.',
+      '- `platform-filtered-*` — the ladder with one platform selected.',
+      '- `settings-*` — which platforms are connected, and the variables to set.',
       '',
       ...written.map((w) => `- ${w}`),
       '',

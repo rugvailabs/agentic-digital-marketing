@@ -30,16 +30,56 @@ export type AssetKind = Schemas['AssetKind']
 /** Query parameters accepted by `GET /trends`. */
 export type TrendsQuery = NonNullable<paths['/trends']['get']['parameters']['query']>
 
-/** Source names the merge can attribute a topic to. */
-export const SOURCE_NAMES = ['google_trends', 'google_news', 'youtube', 'x'] as const
-export type SourceName = (typeof SOURCE_NAMES)[number]
+/**
+ * Platforms a topic can be attributed to.
+ *
+ * Taken from the generated schema rather than written out here. It used to be
+ * a hand-kept array, and when the API gained `reddit` and `instagram` nothing
+ * complained: the two lists were independent, so `SOURCE_LABELS` quietly
+ * stopped covering every platform the board could return.
+ */
+export type SourceName = Schemas['SourceName']
 
-/** Short labels for the source chips on a ladder row. */
+/** In display order: discovery sources first, then the posting platforms. */
+export const SOURCE_NAMES = [
+  'google_trends',
+  'google_news',
+  'youtube',
+  'reddit',
+  'x',
+  'instagram',
+] as const satisfies readonly SourceName[]
+
+/**
+ * Fails to compile if the API gains a platform this array has not listed,
+ * which is the guard the hand-kept version was missing.
+ */
+type EveryPlatformListed =
+  Exclude<SourceName, (typeof SOURCE_NAMES)[number]> extends never ? true : never
+export const PLATFORMS_COVERED: EveryPlatformListed = true
+
+/** Short labels for the platform marks on a ladder row. */
 export const SOURCE_LABELS: Record<SourceName, string> = {
   google_trends: 'Trends',
   google_news: 'News',
   youtube: 'YouTube',
+  reddit: 'Reddit',
   x: 'X',
+  instagram: 'Instagram',
+}
+
+/**
+ * Two-letter marks for the ladder, where a row has room for provenance but
+ * not for six words of it. Letters rather than icons: CLAUDE.md rules out an
+ * icon beside every label, and a wire desk labels its sources in type.
+ */
+export const SOURCE_MARKS: Record<SourceName, string> = {
+  google_trends: 'GT',
+  google_news: 'GN',
+  youtube: 'YT',
+  reddit: 'RD',
+  x: 'X',
+  instagram: 'IG',
 }
 
 /**

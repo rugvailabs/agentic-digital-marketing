@@ -1,7 +1,7 @@
 'use client'
 
 import type { Trend } from '@trendforge/types'
-import { SOURCE_LABELS, type SourceName } from '@trendforge/types'
+import { SOURCE_LABELS, SOURCE_MARKS, type SourceName } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
 import { Sparkline } from '@/components/Sparkline'
@@ -106,12 +106,28 @@ function Row({
   const headline = trend.rank <= HEADLINE_RANKS
   // A single source is the norm, so a chip saying so is noise on every row. It
   // earns its place only when corroboration is the interesting fact.
-  const corroborated = trend.sources.length > 1
+  // Prefer the per-platform rows: they carry that platform's own rank and
+  // volume, so a mark can say "2nd on Reddit, 18,400 upvotes" rather than
+  // just naming it. `sources` is the fallback for a board whose platform rows
+  // have not been synced yet.
+  const marks: Array<{ name: SourceName; title: string }> =
+    trend.platforms.length > 0
+      ? trend.platforms.map((p) => ({
+          name: p.platform as SourceName,
+          title: platformTitle(p.platform as SourceName, p.rank, p.volume),
+        }))
+      : trend.sources.map((s) => ({
+          name: s as SourceName,
+          title: SOURCE_LABELS[s as SourceName] ?? s,
+        }))
+  // A single platform is the norm, so marks on every row would be noise. They
+  // earn their place when corroboration is the interesting fact.
+  const corroborated = marks.length > 1
   // News and YouTube report no volume, so a news-only topic has no series to
   // chart. Drawing a sparkline from its score would invent a trend line out of
   // ranking noise, so the row says where it came from instead.
   const hasSeries = trend.volume > 0
-  const origin = SOURCE_LABELS[trend.sources[0] as SourceName] ?? trend.sources[0] ?? ''
+  const origin = SOURCE_LABELS[marks[0]?.name as SourceName] ?? marks[0]?.name ?? ''
 
   return (
     <div
@@ -169,11 +185,24 @@ function Row({
               <span className="block truncate">{shortCategory(trend.category)}</span>
             </Chip>
           ) : null}
-          {corroborated
-            ? trend.sources.map((source) => (
-                <Chip key={source}>{SOURCE_LABELS[source as SourceName] ?? source}</Chip>
-              ))
-            : null}
+          {corroborated ? (
+            // Plain type, not chips. Six bordered boxes would not fit the
+            // 420px column, and CLAUDE.md puts hierarchy in type rather than
+            // in boxes — a wire desk sets its source codes, it does not
+            // frame them.
+            <span className="flex shrink-0 items-center gap-1 text-[11px] leading-5 tracking-wide text-slate">
+              {marks.map((mark) => (
+                <abbr
+                  key={mark.name}
+                  title={mark.title}
+                  className="no-underline"
+                  aria-label={mark.title}
+                >
+                  {SOURCE_MARKS[mark.name] ?? mark.name.slice(0, 2).toUpperCase()}
+                </abbr>
+              ))}
+            </span>
+          ) : null}
         </div>
       </div>
 
@@ -190,4 +219,26 @@ function Row({
       </div>
     </div>
   )
+}
+
+/**
+ * A mark's tooltip: the platform, its rank there, and what it counted.
+ *
+ * The number is named rather than shown bare, because it is not comparable
+ * across platforms — upvotes on Reddit, views on YouTube, posts on Instagram —
+ * and an unlabelled figure invites exactly that comparison.
+ */
+function platformTitle(name: SourceName, rank: number | null, volume: number): string {
+  const label = SOURCE_LABELS[name] ?? name
+  const position = rank ? `#${rank} on ${label}` : label
+  if (!volume) return position
+  const counted: Partial<Record<SourceName, string>> = {
+    reddit: 'upvotes',
+    youtube: 'views',
+    instagram: 'posts',
+    google_trends: 'searches',
+    x: 'posts',
+  }
+  const unit = counted[name]
+  return unit ? `${position} — ${volume.toLocaleString('en-IN')} ${unit}` : position
 }

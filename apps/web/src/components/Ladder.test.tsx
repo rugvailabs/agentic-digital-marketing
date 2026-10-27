@@ -17,8 +17,11 @@ function trend(rank: number, over: Partial<Trend> = {}): Trend {
     score: 100 - rank,
     updated_at: '2026-10-23T06:15:00Z',
     summary: null,
+    why_trending: null,
+    relevance_to_region: null,
     safety_flag: null,
     evidence: [],
+    platforms: [],
     ...over,
   }
 }
@@ -41,7 +44,7 @@ describe('Ladder', () => {
     expect(screen.getByText('Rank 2:')).toBeDefined()
   })
 
-  it('shows source chips only once a topic is corroborated', () => {
+  it('shows platform marks only once a topic is corroborated', () => {
     render(
       <Ladder
         trends={[trend(1, { sources: ['google_trends', 'google_news', 'youtube'] })]}
@@ -50,9 +53,54 @@ describe('Ladder', () => {
       />,
     )
 
-    expect(screen.getByText('Trends')).toBeDefined()
-    expect(screen.getByText('News')).toBeDefined()
-    expect(screen.getByText('YouTube')).toBeDefined()
+    // Letter marks rather than words: six bordered chips do not fit a 420px
+    // column, and CLAUDE.md rules out an icon beside every label.
+    expect(screen.getByText('GT')).toBeDefined()
+    expect(screen.getByText('GN')).toBeDefined()
+    expect(screen.getByText('YT')).toBeDefined()
+  })
+
+  it('prefers the per-platform rows over sources, and names what each counted', () => {
+    render(
+      <Ladder
+        trends={[
+          trend(1, {
+            sources: ['google_trends'],
+            platforms: [
+              {
+                platform: 'reddit',
+                rank: 2,
+                volume: 18400,
+                hashtags: ['#Cricket'],
+                url: null,
+                seen_at: '2026-10-27T06:15:00Z',
+              },
+              {
+                platform: 'youtube',
+                rank: 14,
+                volume: 902000,
+                hashtags: [],
+                url: null,
+                seen_at: '2026-10-27T06:15:00Z',
+              },
+            ],
+          }),
+        ]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
+    )
+
+    // The platform rows win: `sources` says Trends only, and the row shows
+    // the two platforms that actually reported it.
+    expect(screen.getByText('RD')).toBeDefined()
+    expect(screen.getByText('YT')).toBeDefined()
+    expect(screen.queryByText('GT')).toBeNull()
+
+    // The unit is named, because 18,400 upvotes and 902,000 views are not
+    // comparable and a bare number invites comparing them.
+    expect(screen.getByLabelText('#2 on Reddit — 18,400 upvotes')).toBeDefined()
+    expect(screen.getByLabelText('#14 on YouTube — 9,02,000 views')).toBeDefined()
   })
 
   it('hides the source chip on a single-source row, where it says nothing', () => {

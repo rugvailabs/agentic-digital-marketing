@@ -1,4 +1,4 @@
-import type { Brand, Health, Region, TrendsResponse } from '@trendforge/types'
+import type { Brand, Health, Platform, Region, SourceName, TrendsResponse } from '@trendforge/types'
 
 /**
  * Server-side API access. Every board page is a server component, so the
@@ -78,9 +78,24 @@ export async function fetchRegions(): Promise<Region[]> {
   return get<Region[]>('/regions')
 }
 
-export async function fetchTrends(region: string, limit = 20): Promise<TrendsResponse> {
+export async function fetchTrends(
+  region: string,
+  limit = 20,
+  platform?: SourceName,
+): Promise<TrendsResponse> {
   const params = new URLSearchParams({ region, limit: String(limit) })
+  if (platform) params.set('platform', platform)
   return get<TrendsResponse>(`/trends?${params}`)
+}
+
+export async function fetchPlatforms(): Promise<Platform[]> {
+  try {
+    return await get<Platform[]>('/platforms')
+  } catch {
+    // Deployment configuration, not board data. An empty list renders the
+    // strip as "All" alone rather than taking the board down with it.
+    return []
+  }
 }
 
 export async function fetchBrands(): Promise<Brand[]> {

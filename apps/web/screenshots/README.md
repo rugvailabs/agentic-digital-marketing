@@ -7,21 +7,12 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `board-390-*` — the ladder full width below the 800px Desk breakpoint.
 - `panel-390-*` — the Desk as a slide-in panel over the ladder.
 - `studio-*` — the content studio with posts generated live by Gemini.
-- `reel-1440-*` — the reel panel with a narrated video rendered end to end.
-- `reel-hindi-*` / `reel-tamil-*` — frames at 0s, 8s, 16s and 24s from reels
-  narrated in those languages, showing the burned-in captions. The Noto face
-  per script is what sets them; the matras and vowel signs are what to check.
+- `reel-*` — the reel panel with a narrated video rendered end to end.
+- `platforms-*` — the platform filter strip above the ladder.
+- `platform-filtered-*` — the ladder with one platform selected.
+- `settings-*` — which platforms are connected, and the variables to set.
 
-- board-1440-light.png (IN, 1440px, 20 rows)
-- board-1440-dark.png (IN, 1440px, 20 rows)
-- board-state-1440-light.png (IN-MH, 1440px, 20 rows)
-- board-state-1440-dark.png (IN-MH, 1440px, 20 rows)
-- studio-english.png (IN-GA, 1440px, 20 rows)
-- studio-hindi.png (IN-GA, 1440px, 20 rows)
-- studio-tamil.png (IN-GA, 1440px, 20 rows)
-- reel-1440-light.png (IN-GA, 1440px, 20 rows)
-- reel-1440-dark.png (IN-GA, 1440px, 20 rows)
-- board-390-light.png (IN, 390px, 20 rows)
-- board-390-dark.png (IN, 390px, 20 rows)
-- panel-390-light.png (IN, 390px, 20 rows)
-- panel-390-dark.png (IN, 390px, 20 rows)
+- platforms-1440-light.png (IN-MH, 1440px, 20 rows)
+- platforms-1440-dark.png (IN-MH, 1440px, 20 rows)
+- D:\agentic-digital-marketing\apps\web\screenshots\settings-1440-light.png
+- D:\agentic-digital-marketing\apps\web\screenshots\settings-1440-dark.png

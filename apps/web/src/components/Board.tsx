@@ -1,10 +1,11 @@
 'use client'
 
-import type { Brand, Region, TrendsResponse } from '@trendforge/types'
+import type { Brand, Platform, Region, SourceName, TrendsResponse } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
 import { Desk } from '@/components/Desk'
 import { Ladder } from '@/components/Ladder'
+import { PlatformStrip } from '@/components/PlatformStrip'
 import { RegionStrip } from '@/components/RegionStrip'
 import { Code, Empty, SectionLabel, cx } from '@/components/primitives'
 import { formatIstTime } from '@/lib/format'
@@ -23,10 +24,14 @@ export function Board({
   regions,
   board,
   brands,
+  platforms,
+  activePlatform,
 }: {
   regions: Region[]
   board: TrendsResponse
   brands: Brand[]
+  platforms: Platform[]
+  activePlatform?: SourceName
 }) {
   const [selectedRank, setSelectedRank] = useState(board.trends[0]?.rank ?? 0)
   const [panelOpen, setPanelOpen] = useState(false)
@@ -55,6 +60,12 @@ export function Board({
     <div className="desk:flex-row flex min-h-[calc(100vh-var(--spacing-topbar))] flex-col">
       <div className="desk:w-wire desk:border-r flex w-full shrink-0 flex-col border-rule">
         <RegionStrip regions={regions} selected={board.region.code} />
+        <PlatformStrip
+          platforms={platforms}
+          available={board.region.platforms}
+          region={board.region.code}
+          selected={activePlatform}
+        />
 
         <div className="flex items-baseline justify-between px-4 py-3">
           <SectionLabel>
