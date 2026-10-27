@@ -20,7 +20,14 @@ from __future__ import annotations
 from typing import Any
 
 from app.core.logging import get_logger
-from app.llm.base import EmbedResult, JSONResult, LLMError, LLMProvider, RateLimited
+from app.llm.base import (
+    EmbedResult,
+    JSONResult,
+    LLMError,
+    LLMProvider,
+    ProviderBudget,
+    RateLimited,
+)
 
 log = get_logger("llm.spillover")
 
@@ -34,6 +41,25 @@ class SpilloverProvider(LLMProvider):
 
     def is_configured(self) -> bool:
         return self.primary.is_configured() or self.standby.is_configured()
+
+    async def statuses(self) -> list[ProviderBudget]:
+        """Both vendors, primary first — which is also the order they are tried.
+
+        Flattened rather than nested: a reader wants to know what can answer
+        right now, not the shape of the wrapper holding them.
+        """
+        return [*await self.primary.statuses(), *await self.standby.statuses()]
+
+    async def budget(self) -> ProviderBudget:
+        """The chain as one line: configured if either is, and today's
+        remaining summed over whichever of them meters a day."""
+        parts = await self.statuses()
+        metered = [p.remaining_today for p in parts if p.remaining_today is not None]
+        return ProviderBudget(
+            name=f"{self.primary.name}->{self.standby.name}",
+            configured=self.is_configured(),
+            remaining_today=sum(metered) if metered else None,
+        )
 
     async def generate_json(
         self,

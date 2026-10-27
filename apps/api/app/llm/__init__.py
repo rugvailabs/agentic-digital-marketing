@@ -6,6 +6,7 @@ from app.llm.base import (
     LLMCall,
     LLMError,
     LLMProvider,
+    ProviderBudget,
     RateLimited,
 )
 from app.llm.gemini import GeminiProvider
@@ -20,6 +21,7 @@ __all__ = [
     "LLMCall",
     "LLMError",
     "LLMProvider",
+    "ProviderBudget",
     "RateLimited",
     "SpilloverProvider",
     "get_llm",

@@ -219,6 +219,41 @@ class TestUnusableLines:
         assert bad
         assert "No summary available" in bad[0]
 
+    def test_the_headline_is_checked_too(self) -> None:
+        """The headline is not in `segments` — the opening and closing cards
+        show it instead of carrying their own text — so a loop over segments
+        never reads it. It is also the largest type in the reel, which made
+        it the worst line to leave unguarded."""
+        script = self.script_with()
+        script.headline = "No summary available; work from the headlines below."
+
+        bad = unusable_lines(script)
+
+        assert bad
+        assert bad[0].startswith("headline:")
+
+    def test_an_empty_headline_is_refused(self) -> None:
+        """Every card is laid out around it; blank leaves an empty title."""
+        script = self.script_with()
+        script.headline = "   "
+
+        assert unusable_lines(script) == ["headline: empty"]
+
+    def test_a_placeholder_alt_text_is_refused(self) -> None:
+        """Not rendered, but published as the description of what was."""
+        script = self.script_with()
+        script.alt_text = "TBD"
+
+        assert unusable_lines(script)
+
+    def test_an_absent_alt_text_is_allowed(self) -> None:
+        """Optional, unlike the headline: empty means the model gave none,
+        not that something went wrong."""
+        script = self.script_with()
+        script.alt_text = ""
+
+        assert unusable_lines(script) == []
+
     def test_it_is_caught_on_the_card_as_well_as_in_the_voice(self) -> None:
         assert unusable_lines(
             self.script_with(text="No summary available; work from the headlines below.")

@@ -18,7 +18,15 @@ import httpx
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.llm.base import EmbedResult, JSONResult, LLMCall, LLMError, LLMProvider, RateLimited
+from app.llm.base import (
+    EmbedResult,
+    JSONResult,
+    LLMCall,
+    LLMError,
+    LLMProvider,
+    ProviderBudget,
+    RateLimited,
+)
 from app.llm.limiter import DailyBudget, TokenBucket
 
 log = get_logger("llm.gemini")
@@ -50,6 +58,22 @@ class GeminiProvider(LLMProvider):
 
     def is_configured(self) -> bool:
         return bool(self._api_key)
+
+    async def budget(self) -> ProviderBudget:
+        """Today's allowance, per model and in total.
+
+        The total is a sum across the chain rather than one model's figure,
+        because a call walks the chain until something answers: the budget
+        that matters is the whole ladder's, and eight models at twenty a day
+        is a different story from twenty.
+        """
+        per_model = {model: await self._daily.remaining(model) for model in self._model_chain}
+        return ProviderBudget(
+            name=self.name,
+            configured=self.is_configured(),
+            remaining_today=sum(per_model.values()),
+            per_model=per_model,
+        )
 
     # ── public API ────────────────────────────────────────────────────────
 
@@ -188,7 +212,7 @@ class GeminiProvider(LLMProvider):
         last_error: str = ""
         try:
             for attempt in range(1, MAX_ATTEMPTS + 1):
-                if count_daily and not self._daily.spend(model):
+                if count_daily and not await self._daily.spend(model):
                     raise RateLimited(
                         f"{prompt_id}: {model} has spent its daily budget of "
                         f"{settings.gemini_rpd} calls"
@@ -208,7 +232,7 @@ class GeminiProvider(LLMProvider):
 
                 if response.status_code == 200:
                     body = response.json()
-                    call = self._record(body, prompt_id, model, started, attempt, quiet=quiet)
+                    call = await self._record(body, prompt_id, model, started, attempt, quiet=quiet)
                     return body, call
 
                 last_error = _error_message(response)
@@ -240,7 +264,7 @@ class GeminiProvider(LLMProvider):
         )
         await asyncio.sleep(delay)
 
-    def _record(
+    async def _record(
         self,
         body: dict[str, Any],
         prompt_id: str,
@@ -259,11 +283,17 @@ class GeminiProvider(LLMProvider):
             output_tokens=int(usage.get("candidatesTokenCount") or 0),
             total_tokens=int(usage.get("totalTokenCount") or 0),
             attempts=attempts,
+            # Which vendor served this call. Gemini answering is the ordinary
+            # case and so the easiest one to leave unlabelled, which is
+            # exactly what makes a spillover hard to see afterwards: a line
+            # with a model id and no vendor reads as "the usual one".
+            extra={"provider": self.name},
         )
         if not quiet:
             # Every LLM call is logged with prompt id, model, tokens, latency.
             log.info(
                 "llm call",
+                provider=self.name,
                 prompt_id=call.prompt_id,
                 model=call.model,
                 prompt_tokens=call.prompt_tokens,
@@ -271,7 +301,7 @@ class GeminiProvider(LLMProvider):
                 total_tokens=call.total_tokens,
                 latency_ms=call.latency_ms,
                 attempts=call.attempts,
-                daily_remaining=self._daily.remaining(model),
+                daily_remaining=await self._daily.remaining(model),
             )
         return call
 

@@ -236,6 +236,58 @@ async def test_health_degrades_when_the_renderer_is_down(client: httpx.AsyncClie
     assert body["regions"] == 3
 
 
+async def test_health_lists_every_llm_provider_with_its_budget(
+    client: httpx.AsyncClient,
+) -> None:
+    """The writing half of the app is answerable from one endpoint: which
+    vendor is wired up, and whether there is any day left on it."""
+    with respx.mock:
+        respx.get(f"{settings.renderer_url}/health").mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+        respx.route(host="test").pass_through()
+        body = (await client.get("/health")).json()
+
+    providers = body["llm_providers"]
+    # Primary first, which is also the order a call tries them in.
+    assert [p["name"] for p in providers] == ["gemini", "groq"]
+
+    gemini = providers[0]
+    assert gemini["configured"] is True
+    # Per model, because the free-tier day is counted per model id.
+    assert set(gemini["per_model"]) == set(settings.gemini_model_chain)
+    assert gemini["remaining_today"] == settings.gemini_rpd * len(settings.gemini_model_chain)
+
+    # Null rather than 0: Groq's day is not metered here, which is a different
+    # statement from its being spent.
+    assert providers[1]["remaining_today"] is None
+
+
+async def test_health_degrades_when_nothing_can_write(
+    client: httpx.AsyncClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A board with no writer still ranks topics and can generate nothing
+    about them, which is the same shape of problem as a dead renderer."""
+    import app.llm as llm_registry
+
+    monkeypatch.setattr(settings, "gemini_api_key", "")
+    monkeypatch.setattr(settings, "groq_api_key", "")
+    monkeypatch.setattr(llm_registry, "_provider", None)
+
+    with respx.mock:
+        respx.get(f"{settings.renderer_url}/health").mock(
+            return_value=httpx.Response(200, json={"ok": True})
+        )
+        respx.route(host="test").pass_through()
+        body = (await client.get("/health")).json()
+
+    assert body["status"] == "degraded"
+    assert [p["configured"] for p in body["llm_providers"]] == [False, False]
+    # The renderer is up and the board is intact; only writing is off.
+    assert body["renderer"] is True
+    assert body["regions"] == 3
+
+
 async def test_regions_are_ordered_and_carry_parent_and_counts(client: httpx.AsyncClient) -> None:
     body = (await client.get("/regions")).json()
 

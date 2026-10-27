@@ -249,6 +249,8 @@ export interface components {
             sources_configured: string[];
             /** Renderer */
             renderer: boolean;
+            /** Llm Providers */
+            llm_providers: components["schemas"]["ProviderHealth"][];
         };
         /** IngestRunResponse */
         IngestRunResponse: {
@@ -320,6 +322,22 @@ export interface components {
          * @enum {string}
          */
         Language: "english" | "hinglish" | "hindi" | "tamil" | "telugu" | "bengali" | "marathi";
+        /**
+         * ProviderHealth
+         * @description One LLM provider's wiring and remaining day.
+         */
+        ProviderHealth: {
+            /** Name */
+            name: string;
+            /** Configured */
+            configured: boolean;
+            /** Remaining Today */
+            remaining_today?: number | null;
+            /** Per Model */
+            per_model?: {
+                [key: string]: number;
+            };
+        };
         /**
          * RegionKind
          * @enum {string}

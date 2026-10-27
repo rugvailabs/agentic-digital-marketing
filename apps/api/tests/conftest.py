@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from app.core.config import settings
 from app.models import Region, RegionKind
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -79,3 +80,16 @@ def mumbai() -> Region:
         sort_order=101,
         is_active=True,
     )
+
+
+@pytest.fixture(autouse=True)
+def _no_redis(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No test reaches a Redis server, including by failing to.
+
+    The daily budget keeps its count in Redis, and an unset url is what tells
+    it to count in-process instead. Without this the suite would try to open a
+    socket per budget check and rely on the refusal being fast, which is a
+    network call either way. Tests that mean to exercise the Redis path
+    install a fake client explicitly.
+    """
+    monkeypatch.setattr(settings, "redis_url", "", raising=False)

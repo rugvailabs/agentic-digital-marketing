@@ -190,6 +190,19 @@ async def test_an_embedding_without_values_is_an_error(client) -> None:
         await provider(client).embed(prompt_id="p", texts=["x"])
 
 
+@respx.mock
+async def test_a_call_records_which_provider_served_it(client) -> None:
+    """Matches what Groq records, so a spillover is visible in the logs
+    afterwards rather than inferred from which model id turned up."""
+    respx.route(GENERATE).mock(return_value=httpx.Response(200, json=CURATE_RESPONSE))
+
+    result = await provider(client).generate_json(
+        prompt_id="curate_v1", prompt="...", schema=SCHEMA
+    )
+
+    assert result.call.extra["provider"] == "gemini"
+
+
 class TestLimiter:
     async def test_bucket_allows_up_to_capacity_without_waiting(self) -> None:
         bucket = TokenBucket(3, 60.0, name="t")
@@ -207,10 +220,13 @@ class TestLimiter:
 
         assert await bucket.acquire() > 0
 
-    def test_daily_budget_stops_rather_than_throttling(self) -> None:
+    async def test_daily_budget_stops_rather_than_throttling(self) -> None:
+        """Async since the count moved to Redis. With no url configured — the
+        suite default — it falls back to counting in-process, which is what
+        this asserts. The shared path is in test_llm_budget.py."""
         budget = DailyBudget(2, name="d")
 
-        assert budget.spend() is True
-        assert budget.spend() is True
-        assert budget.spend() is False
-        assert budget.remaining() == 0
+        assert await budget.spend() is True
+        assert await budget.spend() is True
+        assert await budget.spend() is False
+        assert await budget.remaining() == 0

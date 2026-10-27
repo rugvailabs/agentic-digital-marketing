@@ -22,7 +22,15 @@ import httpx
 
 from app.core.config import settings
 from app.core.logging import get_logger
-from app.llm.base import EmbedResult, JSONResult, LLMCall, LLMError, LLMProvider, RateLimited
+from app.llm.base import (
+    EmbedResult,
+    JSONResult,
+    LLMCall,
+    LLMError,
+    LLMProvider,
+    ProviderBudget,
+    RateLimited,
+)
 from app.llm.limiter import TokenBucket
 
 log = get_logger("llm.groq")
@@ -43,6 +51,16 @@ class GroqProvider(LLMProvider):
 
     def is_configured(self) -> bool:
         return bool(self._key)
+
+    async def budget(self) -> ProviderBudget:
+        """Configured or not, and no daily figure.
+
+        Groq's free tier meters tokens per day as well as requests, and
+        nothing here counts tokens. Reporting a request count as "the budget"
+        would be a number that runs out at the wrong time, so the field stays
+        null and the only honest claim — whether there is a key — is made.
+        """
+        return ProviderBudget(name=self.name, configured=self.is_configured())
 
     async def generate_json(
         self,

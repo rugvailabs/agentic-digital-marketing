@@ -109,6 +109,17 @@ def unusable_lines(script: ReelScript) -> list[str]:
     because a placeholder is just as wrong read aloud as printed.
     """
     bad: list[str] = []
+
+    # The headline first, and it is not part of `segments`: the opening and
+    # closing cards show it rather than carrying their own text, so it is
+    # both the largest type in the reel and the one line a loop over
+    # segments never looks at. Checking only the segments left the most
+    # prominent line in the render unguarded.
+    bad += _rejects("headline", script.headline, required=True)
+    # Not rendered, but it is published as the description of what was
+    # rendered, and a placeholder there is still a placeholder shipped.
+    bad += _rejects("alt_text", script.alt_text, required=False)
+
     for segment in script.segments:
         # Every card is narrated, so `say` is always required. `text` is the
         # beat's own line and only a beat has one — the opening and closing
@@ -121,15 +132,20 @@ def unusable_lines(script: ReelScript) -> list[str]:
             ("text", segment.text),
             ("detail", segment.detail),
         ):
-            if not line.strip():
-                if name in required:
-                    bad.append(f"{segment.kind}.{name}: empty")
-                continue
-            lowered = line.lower()
-            placeholder = any(marker in lowered for marker in PLACEHOLDER_MARKERS)
-            if placeholder or lowered.startswith(INSTRUCTION_MARKERS):
-                bad.append(f"{segment.kind}: {line[:60]}")
+            bad += _rejects(f"{segment.kind}.{name}", line, required=name in required)
     return bad
+
+
+def _rejects(label: str, line: str, *, required: bool) -> list[str]:
+    """`label` and why it cannot be rendered, or nothing."""
+    if not line.strip():
+        return [f"{label}: empty"] if required else []
+    lowered = line.lower()
+    if any(marker in lowered for marker in PLACEHOLDER_MARKERS) or lowered.startswith(
+        INSTRUCTION_MARKERS
+    ):
+        return [f"{label}: {line[:60]}"]
+    return []
 
 
 @dataclass(slots=True)
