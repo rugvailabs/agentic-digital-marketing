@@ -18,6 +18,7 @@ from app.tasks.curate import (
     RELEVANCE_FLOOR,
     RawRow,
     _clean_relevance,
+    _entries_of,
     _one_line,
     fallback_fields,
     keeps_region_relevance,
@@ -237,3 +238,53 @@ class TestFallbackPreservesPriorCuration:
         }
 
         assert "_fallback" not in described
+
+
+class TestEntriesOf:
+    """How the described array is found, however the model wrapped it.
+
+    `response_format: {"type": "json_object"}` requires the response to be a
+    JSON object, so a model asked for an array returns it under a key.
+    Gemini has a real schema and Groq is lenient, so both returned bare
+    arrays and this went unnoticed until OpenRouter joined the chain and
+    answered with 9,110 tokens of correct JSON that the curator read as
+    nothing.
+    """
+
+    def test_a_bare_array_is_taken_as_is(self) -> None:
+        assert _entries_of([{"cluster_id": "c1"}]) == [{"cluster_id": "c1"}]
+
+    def test_an_array_under_a_key_is_unwrapped(self) -> None:
+        assert _entries_of({"clusters": [{"cluster_id": "c1"}]}) == [{"cluster_id": "c1"}]
+
+    def test_the_key_name_does_not_matter(self) -> None:
+        """Models pick their own: clusters, results, topics, data."""
+        for key in ("results", "topics", "data", "anything"):
+            assert _entries_of({key: [{"cluster_id": "c1"}]}) == [{"cluster_id": "c1"}]
+
+    def test_a_list_of_strings_alongside_is_not_ambiguous(self) -> None:
+        """Only lists *of objects* are candidates. An entry's own `hashtags`
+        is a list of strings, and treating that as the answer is what made a
+        correct reply read as described=0."""
+        assert _entries_of({"clusters": [{"cluster_id": "c1"}], "notes": ["x"]}) == [
+            {"cluster_id": "c1"}
+        ]
+
+    def test_two_lists_of_objects_are_refused_rather_than_guessed(self) -> None:
+        """Picking one would write a description onto the wrong topic."""
+        assert _entries_of({"a": [{"cluster_id": "c1"}], "b": [{"cluster_id": "c2"}]}) == []
+
+    def test_a_single_entry_returned_bare_is_taken(self) -> None:
+        """json_object forbids a top-level array, so a model given a batch
+        may answer with one cluster and nothing else. One of five beats
+        none of five."""
+        entry = {"cluster_id": "c1", "title": "Something"}
+
+        assert _entries_of(entry) == [entry]
+
+    def test_non_dict_members_are_dropped(self) -> None:
+        assert _entries_of([{"cluster_id": "c1"}, "oops", None]) == [{"cluster_id": "c1"}]
+
+    @pytest.mark.parametrize("raw", [None, "a string", 7, {}, {"a": 1}])
+    def test_anything_else_is_empty(self, raw: object) -> None:
+        assert _entries_of(raw) == []

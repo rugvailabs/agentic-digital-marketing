@@ -182,9 +182,13 @@ class Settings(BaseSettings):
     #: Model ids are config for the same reason Gemini's are: a free-tier id
     #: is withdrawn or renamed without warning, and the chain should survive
     #: it without a deploy. Probed before being set — see .env.example.
-    openrouter_model: str = "xingchen-agi/xing4.0-29b-a4b:free"
+    #: nemotron leads on the evidence of the real workload rather than the
+    #: probe. xing4.0 won a 200-token probe and then returned an empty body
+    #: on every 2,300-token curate prompt it was given — the probe was not
+    #: representative, so it is last now.
+    openrouter_model: str = "nvidia/nemotron-3.5-super-vl:free"
     openrouter_model_fallbacks: str = ",".join(
-        ("nvidia/nemotron-3.5-super-vl:free", "recursive/flint-v1.0:free")
+        ("recursive/flint-v1.0:free", "xingchen-agi/xing4.0-29b-a4b:free")
     )
     openrouter_rpm: int = 20
     openrouter_timeout_seconds: float = 90.0

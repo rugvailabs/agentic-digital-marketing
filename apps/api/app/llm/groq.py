@@ -86,8 +86,9 @@ class GroqProvider(LLMProvider):
                     # about its shape, where Gemini is given the schema
                     # directly. Saying it twice is cheaper than a retry.
                     "content": (
-                        "You return a single JSON object and nothing else. "
-                        "It must match this schema: " + json.dumps(schema)
+                        _shape_instruction(schema)
+                        + " It must match this schema: "
+                        + json.dumps(schema)
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -221,3 +222,19 @@ def _estimate_tokens(payload: dict[str, Any]) -> int:
         len(str(message.get("content") or "")) for message in payload.get("messages") or []
     )
     return characters // 4 + 64
+
+
+def _shape_instruction(schema: dict[str, Any]) -> str:
+    """How to carry the answer inside the object json_object mode requires.
+
+    A schema asking for an array cannot be honoured literally — the mode
+    forbids a top-level array — so the array needs a named home. Without
+    this a model handed a five-cluster batch returns one cluster as a bare
+    object, which parses cleanly and contains none of what was asked for.
+    """
+    if str(schema.get("type", "")).upper() == "ARRAY":
+        return (
+            'You return a single JSON object of the form {"items": [ ... ]} and '
+            "nothing else, where items is the array described below."
+        )
+    return "You return a single JSON object and nothing else."

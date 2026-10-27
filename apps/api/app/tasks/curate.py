@@ -236,7 +236,7 @@ async def describe_with_llm(
         result = await llm.generate_json(
             prompt_id=PROMPT_ID, prompt=prompt, schema=CURATE_SCHEMA, temperature=0.2
         )
-        entries = result.data if isinstance(result.data, list) else []
+        entries = _entries_of(result.data)
         for entry in entries:
             key = str(entry.get("cluster_id") or "")
             if key:
@@ -261,6 +261,47 @@ async def describe_with_llm(
         )
 
     return described
+
+
+def _entries_of(data: Any) -> list[dict[str, Any]]:
+    """The array of described clusters, however the model wrapped it.
+
+    OpenAI-compatible `response_format: {"type": "json_object"}` requires the
+    response to be a JSON *object*, so a model asked for an array returns it
+    under a key — `{"clusters": [...]}`, `{"results": [...]}`, whatever it
+    chose. Gemini has a real schema and Groq is lenient, so both happened to
+    return bare arrays and this went unnoticed until OpenRouter joined the
+    chain: it answered with 9,110 tokens of correct JSON and the curator read
+    `described=0` from it, then fell the whole region back to source titles.
+
+    Only unwrapped when the object holds exactly one list. Two would be a
+    guess about which is the answer, and guessing here writes the wrong
+    description onto a topic.
+    """
+    if isinstance(data, list):
+        return [e for e in data if isinstance(e, dict)]
+    if not isinstance(data, dict):
+        return []
+
+    # A single described cluster, returned bare. json_object mode forbids a
+    # top-level array, so a model given a five-cluster batch may answer with
+    # the first one and nothing else. One of five is worth having; the rest
+    # fall back per cluster.
+    if "cluster_id" in data:
+        return [data]
+
+    # The array under whatever key the model chose. Only when there is
+    # exactly one list *of objects* — an entry's own `hashtags` is a list of
+    # strings, and unwrapping that returns nothing while looking like it
+    # worked, which is how this read described=0 from a correct answer.
+    lists = [
+        v
+        for v in data.values()
+        if isinstance(v, list) and v and all(isinstance(e, dict) for e in v)
+    ]
+    if len(lists) == 1:
+        return list(lists[0])
+    return []
 
 
 def fallback_fields(cluster: Any, rows: list[RawRow]) -> dict[str, Any]:

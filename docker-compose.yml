@@ -46,8 +46,8 @@ x-api-env: &api-env
   GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-120b}
   GROQ_RPM: ${GROQ_RPM:-30}
   OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
-  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-xingchen-agi/xing4.0-29b-a4b:free}
-  OPENROUTER_MODEL_FALLBACKS: ${OPENROUTER_MODEL_FALLBACKS:-nvidia/nemotron-3.5-super-vl:free,recursive/flint-v1.0:free}
+  OPENROUTER_MODEL: ${OPENROUTER_MODEL:-nvidia/nemotron-3.5-super-vl:free}
+  OPENROUTER_MODEL_FALLBACKS: ${OPENROUTER_MODEL_FALLBACKS:-recursive/flint-v1.0:free,xingchen-agi/xing4.0-29b-a4b:free}
   OPENROUTER_RPM: ${OPENROUTER_RPM:-20}
   GROQ_TPM: ${GROQ_TPM:-8000}
   GROQ_MAX_OUTPUT_TOKENS: ${GROQ_MAX_OUTPUT_TOKENS:-5000}
