@@ -62,12 +62,7 @@ export function Desk({
         ) : null}
       </div>
 
-      <div>
-        <SectionLabel>Hashtags</SectionLabel>
-        <div className="mt-2">
-          <Hashtags trend={trend} platforms={platforms} />
-        </div>
-      </div>
+      <Hashtags trend={trend} platforms={platforms} />
 
       {/*
         One line of facts, divided by hairlines rather than laid out on a grid:

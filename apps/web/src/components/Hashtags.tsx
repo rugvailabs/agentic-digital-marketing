@@ -4,7 +4,7 @@ import type { Platform, SourceName, Trend } from '@trendforge/types'
 import { SOURCE_LABELS } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
-import { cx } from '@/components/primitives'
+import { SectionLabel, cx } from '@/components/primitives'
 
 /** How long "Copied" stays before the button says what it does again. */
 const COPIED_MS = 1600
@@ -48,19 +48,25 @@ export function Hashtags({
   if (trend.hashtags.length === 0 && groups.length === 0 && !showInstagramPending) return null
 
   return (
-    <div className="flex flex-col">
-      {trend.hashtags.length > 0 ? <Group label="Topic" tags={trend.hashtags} emphasis /> : null}
+    // The heading lives here, not in the Desk, because this is the only
+    // place that knows whether there is anything under it. With it outside,
+    // a topic with no tags rendered "Hashtags" over empty space.
+    <div>
+      <SectionLabel>Hashtags</SectionLabel>
+      <div className="mt-2 flex flex-col">
+        {trend.hashtags.length > 0 ? <Group label="Topic" tags={trend.hashtags} emphasis /> : null}
 
-      {groups.map((group) => (
-        <Group key={group.key} label={group.label} tags={group.tags} />
-      ))}
+        {groups.map((group) => (
+          <Group key={group.key} label={group.label} tags={group.tags} />
+        ))}
 
-      {showInstagramPending ? (
-        <div className="flex items-baseline gap-4 border-t border-dotted border-rule py-2.5">
-          <span className="w-24 shrink-0 text-xs text-slate">Instagram</span>
-          <span className="text-sm text-slate">Not measured yet</span>
-        </div>
-      ) : null}
+        {showInstagramPending ? (
+          <div className="flex items-baseline gap-4 border-t border-dotted border-rule py-2.5">
+            <span className="w-24 shrink-0 text-xs text-slate">Instagram</span>
+            <span className="text-sm text-slate">Not measured yet</span>
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

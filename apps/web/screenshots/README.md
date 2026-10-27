@@ -13,5 +13,7 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `settings-*` — which platforms are connected, and the variables to set.
 - `desk-platforms-*` — why a topic is trending, and its hashtags by platform.
 
+- board-1440-light.png (IN, 1440px, 20 rows)
+- board-1440-dark.png (IN, 1440px, 20 rows)
 - desk-platforms-1440-light.png (IN-TN, 1440px, 20 rows)
 - desk-platforms-1440-dark.png (IN-TN, 1440px, 20 rows)
