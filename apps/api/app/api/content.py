@@ -120,6 +120,11 @@ async def create_job(
     )
 
     job = ContentJob(
+        # One workspace until auth exists, and the job records it rather
+        # than reaching through its brand: the library and the calendar
+        # filter on it, and a join through brands on every query is a cost
+        # paid forever to avoid one column.
+        workspace_id=brand.workspace_id,
         trend_id=trend.id,
         brand_id=brand.id,
         kind=payload.kind,

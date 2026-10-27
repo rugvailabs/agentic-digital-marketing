@@ -4,11 +4,13 @@ from app.models.content import (
     Brand,
     ContentAsset,
     ContentJob,
+    EditorialStatus,
     JobKind,
     JobStatus,
     Language,
     SafetyFlag,
     TrendItem,
+    Workspace,
 )
 from app.models.region import Region, RegionKind
 from app.models.trend import (
@@ -26,6 +28,7 @@ __all__ = [
     "Brand",
     "ContentAsset",
     "ContentJob",
+    "EditorialStatus",
     "JobKind",
     "JobStatus",
     "Language",
@@ -39,4 +42,5 @@ __all__ = [
     "TrendItem",
     "TrendPlatform",
     "TrendSnapshot",
+    "Workspace",
 ]

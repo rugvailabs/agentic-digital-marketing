@@ -31,6 +31,7 @@ from app.models import (
     SourceName,
     Trend,
     TrendItem,
+    Workspace,
 )
 from app.tasks.cluster import Cluster
 from app.tasks.curate import (
@@ -179,10 +180,19 @@ class TestRecurateKeepsContent:
             assert trend is not None
             trend_id, identity = trend.id, trend.cluster_id
 
-            brand = Brand(slug="demo", name="Demo", languages=["english"])
+            # merge, not add: the engine is module-scoped so this fixture
+            # runs against a database that may already hold the row.
+            await session.merge(
+                Workspace(id=Workspace.DEFAULT_ID, slug="default", name="Default workspace")
+            )
+            await session.flush()
+            brand = Brand(
+                workspace_id=Workspace.DEFAULT_ID, slug="demo", name="Demo", languages=["english"]
+            )
             session.add(brand)
             await session.flush()
             job = ContentJob(
+                workspace_id=Workspace.DEFAULT_ID,
                 trend_id=trend_id,
                 brand_id=brand.id,
                 language=Language.english,
@@ -578,10 +588,19 @@ class TestChurnedMembership:
     async def attach_post(self, session_factory, trend_id: int, slug: str) -> int:
         """Give a topic a generated post, which is what identity protects."""
         async with session_factory() as session:
-            brand = Brand(slug=slug, name="Demo", languages=["english"])
+            # merge, not add: the engine is module-scoped so this fixture
+            # runs against a database that may already hold the row.
+            await session.merge(
+                Workspace(id=Workspace.DEFAULT_ID, slug="default", name="Default workspace")
+            )
+            await session.flush()
+            brand = Brand(
+                workspace_id=Workspace.DEFAULT_ID, slug=slug, name="Demo", languages=["english"]
+            )
             session.add(brand)
             await session.flush()
             job = ContentJob(
+                workspace_id=Workspace.DEFAULT_ID,
                 trend_id=trend_id,
                 brand_id=brand.id,
                 language=Language.english,

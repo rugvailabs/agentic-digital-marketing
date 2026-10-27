@@ -27,6 +27,7 @@ from app.models import (
     Region,
     RegionKind,
     Trend,
+    Workspace,
 )
 
 TEST_DB = "trendforge_maintenance_test"
@@ -93,10 +94,19 @@ async def seeded(engine):
         session.add_all(rows.values())
         await session.flush()
 
-        brand = Brand(slug="demo", name="Demo", languages=["english"])
+        # merge, not add: the engine is module-scoped so this fixture runs
+        # against a database that may already hold the row.
+        await session.merge(
+            Workspace(id=Workspace.DEFAULT_ID, slug="default", name="Default workspace")
+        )
+        await session.flush()
+        brand = Brand(
+            workspace_id=Workspace.DEFAULT_ID, slug="demo", name="Demo", languages=["english"]
+        )
         session.add(brand)
         await session.flush()
         job = ContentJob(
+            workspace_id=Workspace.DEFAULT_ID,
             trend_id=rows["stale"].id,
             brand_id=brand.id,
             language=Language.english,

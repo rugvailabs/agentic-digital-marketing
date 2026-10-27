@@ -84,13 +84,59 @@ class TrendItem(Base, TimestampMixin):
     )
 
 
+class Workspace(Base, TimestampMixin):
+    """Who owns a brand and its content.
+
+    There is exactly one of these today and no way to make another, because
+    there is no auth yet. It exists now so that adding auth is a matter of
+    creating rows and filtering queries, rather than a migration that
+    backfills an owner onto every brand, job and asset already in the
+    database — which is the expensive kind of change to make later.
+
+    The trend board is deliberately not workspace-owned. What is trending in
+    India is the same fact for everyone, so regions, trends and snapshots
+    stay shared; only what a team makes from them is theirs.
+    """
+
+    __tablename__ = "workspaces"
+
+    #: The single workspace everything belongs to until auth exists. Fixed
+    #: rather than looked up by slug, so the default cannot drift.
+    DEFAULT_ID = 1
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(128), nullable=False)
+
+
+class EditorialStatus(enum.StrEnum):
+    """Where a finished item is in a human's workflow.
+
+    Separate from JobStatus, which is where the *pipeline* got to. The two
+    answer different questions and move independently: a job can be `ready`
+    and still `draft`, and a `posted` item is still `ready`. One column
+    carrying both would have to describe a render failure and an editor's
+    approval in the same vocabulary.
+    """
+
+    draft = "draft"
+    approved = "approved"
+    scheduled = "scheduled"
+    posted = "posted"
+
+
 class Brand(Base, TimestampMixin):
     """Who the post sounds like and looks like."""
 
     __tablename__ = "brands"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    slug: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    #: Unique per workspace, not globally: two teams may both have a brand
+    #: called "acme", and the slug is how a URL names one.
+    slug: Mapped[str] = mapped_column(String(64), nullable=False)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     #: Free text dropped into the writer prompt.
     voice_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
@@ -101,6 +147,23 @@ class Brand(Base, TimestampMixin):
     languages: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     #: "display" | "ui" — which bundled face the templates set headlines in.
     font_choice: Mapped[str] = mapped_column(String(32), nullable=False, default="display")
+
+    #: What the brand sells, in its own words. Goes to the writer so a post
+    #: about a trend can connect it to something the brand actually offers.
+    products: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+    #: Region whose board this brand opens on. A code rather than a foreign
+    #: key: regions are seeded reference data and a brand pointing at one
+    #: should not be able to block reseeding them.
+    default_region_code: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    #: Words, people and competitors this brand will not mention. Enforced in
+    #: the writer prompt and checked after, because a prompt is a request
+    #: rather than a guarantee.
+    do_not_mention: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "slug", name="uq_brands_workspace_slug"),
+        Index("ix_brands_workspace_id", "workspace_id"),
+    )
 
 
 class Language(enum.StrEnum):
@@ -154,6 +217,9 @@ class ContentJob(Base, TimestampMixin):
     __tablename__ = "content_jobs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(
+        ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
     trend_id: Mapped[int] = mapped_column(
         ForeignKey("trends.id", ondelete="CASCADE"), nullable=False
     )
@@ -185,11 +251,30 @@ class ContentJob(Base, TimestampMixin):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    #: Where a human has taken it. Independent of `status` above — see
+    #: EditorialStatus.
+    editorial_status: Mapped[EditorialStatus] = mapped_column(
+        Enum(EditorialStatus, name="editorial_status", native_enum=True),
+        nullable=False,
+        default=EditorialStatus.draft,
+        server_default=EditorialStatus.draft.value,
+    )
+    #: When this is meant to go out, in UTC. Set by the calendar and nothing
+    #: else reads it yet: scheduling stores a time, and publishing is a later
+    #: step. Null for anything not scheduled.
+    scheduled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     assets: Mapped[list[ContentAsset]] = relationship(
         back_populates="job", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    __table_args__ = (Index("ix_content_jobs_trend_kind", "trend_id", "kind"),)
+    __table_args__ = (
+        Index("ix_content_jobs_trend_kind", "trend_id", "kind"),
+        # The library lists one workspace's items newest first, and the
+        # calendar asks for a date range; both read this.
+        Index("ix_content_jobs_workspace_created", "workspace_id", "created_at"),
+        Index("ix_content_jobs_scheduled_at", "scheduled_at"),
+    )
 
 
 class ContentAsset(Base, TimestampMixin):
