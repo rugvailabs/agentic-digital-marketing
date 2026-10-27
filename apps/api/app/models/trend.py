@@ -161,6 +161,15 @@ class Trend(Base, TimestampMixin):
     #: Updated as an exponential moving average, so it drifts with the story
     #: rather than snapping to the most recent run.
     embedding: Mapped[list[float] | None] = mapped_column(Vector(EMBED_DIM), nullable=True)
+    #: One line from the curator on what set this off — the event, not the
+    #: subject. Shown under the topic title on the Desk. None until curated.
+    why_trending: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: 0-1: how much the story is *about* this region, not how interesting it
+    #: is. A state board filling with national cricket and Bollywood is the
+    #: failure this exists to catch, so rows below the floor are dropped for
+    #: states and kept for the country, where a national story is local.
+    #: None means never curated, which is not the same as scoring zero.
+    relevance_to_region: Mapped[float | None] = mapped_column(Float, nullable=True)
     curated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     first_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

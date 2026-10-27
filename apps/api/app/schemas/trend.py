@@ -89,6 +89,14 @@ class TrendOut(BaseModel):
     score: float = Field(examples=[100.0])
     #: Curator's one-line brief. None until a region has been curated.
     summary: str | None = Field(examples=["England face Sri Lanka in the third T20I."])
+    #: One line on what set this off — the event, not the subject. Shown
+    #: under the title on the Desk. None until the region is curated.
+    why_trending: str | None = Field(examples=["Won by three wickets in the last over."])
+    #: 0-1: how much the story is about this region. None means not scored,
+    #: which is not the same as scoring zero — rows below the floor are not
+    #: served to a state board at all, so a visible 0.0 would be a
+    #: contradiction.
+    relevance_to_region: float | None = Field(examples=[0.8])
     #: none | sensitive | skip. `skip` rows are not served by default.
     safety_flag: str | None = Field(examples=["none"])
     updated_at: datetime

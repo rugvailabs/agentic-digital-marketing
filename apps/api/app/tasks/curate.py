@@ -30,10 +30,12 @@ from app.models import (
     ContentJob,
     PipelineStatus,
     Region,
+    RegionKind,
     SafetyFlag,
     SourceName,
     Trend,
     TrendItem,
+    TrendPlatform,
     TrendSnapshot,
 )
 from app.prompts import render_prompt
@@ -51,7 +53,7 @@ log = get_logger("curate")
 #: Weight given to this run's centroid when blending with the stored one.
 CENTROID_ALPHA = 0.3
 
-PROMPT_ID = "curate_v2"
+PROMPT_ID = "curate_v3"
 
 #: Short, mutually exclusive, and sized for a 420px ladder chip. "Other" is
 #: last in the list and last in the prompt's order of preference.
@@ -89,6 +91,22 @@ CURATE_SCHEMA: dict[str, Any] = {
             "summary": {"type": "STRING"},
             "safety_flag": {"type": "STRING", "enum": ["none", "sensitive", "skip"]},
             "drop": {"type": "BOOLEAN"},
+            # Per-platform tags. Declared as named properties rather than a
+            # free-form map: Gemini's responseSchema has no additionalProperties,
+            # so an OBJECT with no properties comes back empty every time.
+            # Google Trends and News are deliberately absent — nobody posts
+            # there, so a hashtag for them has no audience.
+            "platform_hashtags": {
+                "type": "OBJECT",
+                "properties": {
+                    "youtube": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "reddit": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "x": {"type": "ARRAY", "items": {"type": "STRING"}},
+                    "instagram": {"type": "ARRAY", "items": {"type": "STRING"}},
+                },
+            },
+            "why_trending": {"type": "STRING"},
+            "relevance_to_region": {"type": "NUMBER"},
         },
         "required": [
             "cluster_id",
@@ -98,6 +116,8 @@ CURATE_SCHEMA: dict[str, Any] = {
             "summary",
             "safety_flag",
             "drop",
+            "why_trending",
+            "relevance_to_region",
         ],
     },
 }
@@ -204,6 +224,7 @@ async def describe_with_llm(
             PROMPT_ID,
             region_name=region.name,
             region_code=region.code,
+            region_kind=region.kind.value.replace("_", " "),
             cluster_count=len(batch),
             clusters=describe_clusters(batch, rows),
         )
@@ -583,6 +604,7 @@ async def _write(
     scored: list[tuple[float, Any, dict[str, Any]]] = []
     pool = len(rows)
     dropped = 0
+    irrelevant = 0
     for cluster in clusters:
         fields = described.get(cluster.key) or fallback_fields(cluster, rows)
         if fields.get("drop") or not str(fields.get("title") or "").strip():
@@ -591,12 +613,24 @@ async def _write(
             # row that says nothing.
             dropped += 1
             continue
+
+        relevance = _clean_relevance(fields.get("relevance_to_region"))
+        if not keeps_region_relevance(region.kind, relevance):
+            # A national story that merely surfaced in this region's trends.
+            # Kept out rather than ranked low: a state board of national
+            # cricket and Bollywood is the failure this number exists for.
+            irrelevant += 1
+            continue
+
         score = sum(rows[i].rank_points(pool) for i in cluster.members) * 100
         scored.append((round(score, 2), cluster, fields))
     scored.sort(key=lambda s: (-s[0], s[1].key))
 
     seen: set[str] = set()
     claimed: set[int] = set()
+    #: id(row) -> (row, {platform: tags}). Applied after the flush, when the
+    #: rows have ids to key trend_sources on.
+    authored_tags: dict[int, tuple[Trend, dict[SourceName, list[str]]]] = {}
     multi_source = 0
     carried = 0
     merged = 0
@@ -716,6 +750,9 @@ async def _write(
             for i in members[:12]
         ]
         row.summary = fields.get("summary")
+        authored_tags[id(row)] = (row, platform_hashtags_of(fields))
+        row.why_trending = _one_line(fields.get("why_trending"))
+        row.relevance_to_region = _clean_relevance(fields.get("relevance_to_region"))
         row.safety_flag = _clean_flag(fields.get("safety_flag"))
         row.cluster_id = row.cluster_id or new_topic_id()
         # Unioned, never replaced: a run that happens to see only two of a
@@ -748,6 +785,8 @@ async def _write(
                 )
             )
 
+    authored = await _apply_platform_hashtags(session, authored_tags)
+
     for row in existing_rows:
         if id(row) in claimed:
             continue
@@ -773,6 +812,8 @@ async def _write(
         "multi_source": multi_source,
         "carried": carried,
         "dropped": dropped,
+        "irrelevant": irrelevant,
+        "authored_platform_tags": authored,
         "merged": merged,
         "stranded": stranded,
     }
@@ -798,6 +839,113 @@ def _clean_category(raw: Any) -> str:
     """Every topic carries a category; an unrecognised one becomes Other."""
     value = str(raw or "").strip()
     return value if value in CATEGORIES else FALLBACK_CATEGORY
+
+
+#: Below this a story is not about the region, it merely surfaced there.
+#: Applied to states, union territories and cities, never to the country —
+#: on India's own board a national story genuinely is local.
+RELEVANCE_FLOOR = 0.3
+
+
+def keeps_region_relevance(kind: RegionKind, relevance: float | None) -> bool:
+    """Whether a topic is local enough for this region's board.
+
+    A separate function because it is the one piece of v3 that decides what a
+    user sees, and it has two cases that are easy to get backwards.
+
+    The country keeps everything: on India's own board a national story is
+    local, so the floor would be throwing away the best rows.
+
+    An unscored topic is kept. `None` means the curator did not answer — the
+    fallback path when the LLM is unconfigured or over budget, or a model that
+    skipped the field — and treating that as 0.0 would empty every state board
+    the moment Gemini was unavailable. The degrade-gracefully rule in this
+    module's docstring is the whole point: the board must never be worse than
+    step 1.
+    """
+    if kind is RegionKind.country or relevance is None:
+        return True
+    return relevance >= RELEVANCE_FLOOR
+
+
+async def _apply_platform_hashtags(
+    session: AsyncSession,
+    authored: dict[int, tuple[Trend, dict[SourceName, list[str]]]],
+) -> int:
+    """Overwrite `trend_sources.hashtags` where the curator wrote tags for a
+    platform. Returns the number of rows updated.
+
+    The curator wins over the adapter for the same reason it wins on the
+    topic's own hashtags: the adapter scrapes whatever was in a title, and the
+    curator chose tags for this story on this platform. Where it said nothing
+    the scraped tags stay.
+
+    Updates only. A platform the curator named but which has no row did not
+    report this story, and inventing a row for it would mean inventing a rank
+    and a volume. In practice that is Instagram, which has no row until a user
+    opens the topic and `measure()` creates one — so its tags land on the next
+    curate rather than this one, and the Desk reads a missing row as "not
+    measured yet".
+    """
+    updated = 0
+    for row, by_platform in authored.values():
+        if not by_platform or row.id is None:
+            continue
+        for platform, tags in by_platform.items():
+            result = await session.execute(
+                update(TrendPlatform)
+                .where(TrendPlatform.trend_id == row.id, TrendPlatform.platform == platform)
+                .values(hashtags=tags)
+            )
+            # CursorResult carries rowcount; the base Result protocol does not,
+            # which is all mypy can see through session.execute().
+            updated += int(getattr(result, "rowcount", 0) or 0)
+    return updated
+
+
+def _one_line(raw: Any, limit: int = 160) -> str | None:
+    """Collapse to a single line. None where the model said nothing."""
+    text = " ".join(str(raw or "").split())
+    return text[:limit] or None
+
+
+def _clean_relevance(raw: Any) -> float | None:
+    """0-1, or None when the model gave nothing usable.
+
+    None rather than a default, because every default is a lie here: 0.0
+    would drop the row and 1.0 would keep it, and neither is a judgement the
+    curator made. A null is read downstream as "not scored".
+    """
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if value != value:  # NaN, which float() accepts from "nan"
+        return None
+    return round(min(1.0, max(0.0, value)), 2)
+
+
+def platform_hashtags_of(fields: dict[str, Any]) -> dict[SourceName, list[str]]:
+    """The curator's per-platform tags, keyed by platform.
+
+    Only platforms it actually answered for, and only tags that survive the
+    same length cap as the topic's own. An empty list is dropped rather than
+    stored: it would overwrite the adapter's scraped tags with nothing.
+    """
+    raw = fields.get("platform_hashtags")
+    if not isinstance(raw, dict):
+        return {}
+
+    out: dict[SourceName, list[str]] = {}
+    for key, value in raw.items():
+        try:
+            platform = SourceName(str(key))
+        except ValueError:
+            continue
+        tags = [t for t in clean_hashtags(value, 5) if len(t) <= MAX_HASHTAG_CHARS]
+        if tags:
+            out[platform] = tags
+    return out
 
 
 def _clean_flag(raw: Any) -> str:

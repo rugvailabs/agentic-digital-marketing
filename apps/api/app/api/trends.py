@@ -111,6 +111,8 @@ async def list_trends(
                 sources=t.sources,
                 score=t.score,
                 summary=t.summary,
+                why_trending=t.why_trending,
+                relevance_to_region=t.relevance_to_region,
                 safety_flag=t.safety_flag,
                 updated_at=t.last_seen_at,
                 evidence=t.evidence,

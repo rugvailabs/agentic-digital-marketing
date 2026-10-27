@@ -429,6 +429,10 @@ export interface components {
             score: number;
             /** Summary */
             summary: string | null;
+            /** Why Trending */
+            why_trending: string | null;
+            /** Relevance To Region */
+            relevance_to_region: number | null;
             /** Safety Flag */
             safety_flag: string | null;
             /**
