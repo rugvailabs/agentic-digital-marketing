@@ -20,6 +20,7 @@ from app.core.hashtags import (
     # move to app.core.hashtags was about breaking an import cycle, not about
     # relocating the public name.
     camel_hashtag,
+    is_publishable_hashtag,
 )
 from app.core.logging import get_logger
 from app.sources.base import RawTrendItem
@@ -65,6 +66,7 @@ def clean_hashtags(raw: object, limit: int) -> list[str]:
     no spaces inside a tag.
     """
     tags: list[str] = []
+    dropped: list[str] = []
     for item in raw if isinstance(raw, (list, tuple)) else []:
         if item is None:
             # str(None) would otherwise become the tag "#None".
@@ -74,8 +76,19 @@ def clean_hashtags(raw: object, limit: int) -> list[str]:
             if not token:
                 continue
             tag = f"#{token}"
+            # The shape check, which lives in core.hashtags with the rest of
+            # the text handling. Without it `#me=1` reached a published
+            # caption: it is not a bare search term and not ungrounded, so
+            # every filter downstream of here had a reason to keep it.
+            if not is_publishable_hashtag(tag):
+                dropped.append(tag)
+                continue
             if tag not in tags:
                 tags.append(tag)
+    if dropped:
+        # Logged for the same reason the grounding filter logs: a filter
+        # that deletes output silently is one you discover months later.
+        log.info("dropped malformed hashtags", tags=dropped)
     return tags[:limit]
 
 

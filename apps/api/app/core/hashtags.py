@@ -93,9 +93,52 @@ def literal_hashtags(*texts: str, limit: int = 8) -> list[str]:
         for body in _TYPED_TAG.findall(text or ""):
             tag = f"#{body}".rstrip(".,!?:;)")
             key = tag.lower()
+            # The same shape check the writer's tags get. A description is
+            # full of URLs, and `youtu.be/x#t=30` reads as a typed tag to
+            # anything that only looks for a `#`.
+            if not is_publishable_hashtag(tag):
+                continue
             if len(tag) > 1 and key not in seen:
                 seen.add(key)
                 out.append(tag)
             if len(out) >= limit:
                 return out
     return out
+
+
+#: Characters that mean the "tag" came from a URL, a query string or a
+#: template rather than from someone naming a topic.
+_NOT_IN_A_TAG = frozenset(r"""=&?/%@:;<>{}[]()\|"'`^~+*,""")
+
+
+def is_publishable_hashtag(tag: str) -> bool:
+    r"""Whether a tag is well-formed enough to put under a published post.
+
+    Not about taste — `grounded_hashtags` judges whether a tag belongs to
+    this topic. This is the shape check that was missing underneath it: the
+    writer returned `#me=1`, `#me=2`, `#me=3`, `#me=4` on one caption and
+    every filter in the path waved them through, because an invented tag
+    with a digit in it is not a bare search term and is not ungrounded by
+    any measure that looks at words.
+
+    Three rules, all of which an invented or scraped-from-a-URL tag fails
+    and a real one cannot:
+
+    * no query-string punctuation — `=`, `&`, `?`, `/` and friends
+    * at least one letter, so `#2026` and `#___` are not tags
+    * not only digits and marks
+
+    "At least one letter" is Unicode category `L*`, not `str.isalpha()` on
+    the whole string and emphatically not `\w`: #மழை is L followed by two
+    combining marks, and every ASCII-shaped test in this codebase has at
+    some point answered False for it. The category test says True for #மझै
+    and #मौसम and False for #1234, which is the distinction wanted.
+    """
+    if not tag.startswith("#"):
+        return False
+    body = tag[1:]
+    if not body:
+        return False
+    if any(ch in _NOT_IN_A_TAG for ch in body):
+        return False
+    return any(unicodedata.category(ch).startswith("L") for ch in body)

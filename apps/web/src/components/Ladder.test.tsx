@@ -117,16 +117,52 @@ describe('Ladder', () => {
     expect(screen.getByText('Sports')).toBeDefined()
   })
 
-  it('gives the top three ranks the headline numeral and the rest the small one', () => {
+  it('gives the top three positions the headline numeral and the rest the small one', () => {
+    // Sized by position in the list, not by board rank: these three rows
+    // are the top of what is being looked at even though the board calls
+    // them 1, 3 and 4.
     const { container } = render(
-      <Ladder trends={[trend(1), trend(3), trend(4)]} selectedRank={1} onSelect={() => {}} />,
+      <Ladder
+        trends={[trend(1), trend(3), trend(4), trend(6)]}
+        selectedRank={1}
+        onSelect={() => {}}
+      />,
     )
 
     const numerals = [...container.querySelectorAll('.rank-numeral')]
     expect(numerals[0]?.className).toContain('text-rank')
     expect(numerals[0]?.className).not.toContain('text-rank-sm')
     expect(numerals[1]?.className).not.toContain('text-rank-sm')
-    expect(numerals[2]?.className).toContain('text-rank-sm')
+    expect(numerals[2]?.className).not.toContain('text-rank-sm')
+    expect(numerals[3]?.className).toContain('text-rank-sm')
+  })
+
+  it('numbers the visible list, and names the board rank when it differs', () => {
+    // The bug: a platform filter returns ranks 17, 18, 20, 22 and the
+    // ladder opened at seventeen and skipped, which reads as missing rows.
+    const { container } = render(
+      <Ladder
+        trends={[trend(17), trend(18), trend(20), trend(22)]}
+        selectedRank={17}
+        onSelect={() => {}}
+      />,
+    )
+
+    const numerals = [...container.querySelectorAll('.rank-numeral')]
+    expect(numerals.map((n) => n.textContent)).toEqual(['1', '2', '3', '4'])
+
+    // The board's own numbering is not lost, only demoted to a label.
+    expect(screen.getByText('rank 17')).toBeInTheDocument()
+    expect(screen.getByText('rank 22')).toBeInTheDocument()
+  })
+
+  it('says nothing about board rank when the list is unfiltered', () => {
+    const { container } = render(
+      <Ladder trends={[trend(1), trend(2), trend(3)]} selectedRank={1} onSelect={() => {}} />,
+    )
+
+    expect(container.textContent).not.toContain('rank 1')
+    expect(container.textContent).not.toContain('rank 2')
   })
 
   it('never tints a rank numeral with the accent, including the selected row', () => {

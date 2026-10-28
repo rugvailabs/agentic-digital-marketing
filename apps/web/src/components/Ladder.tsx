@@ -77,6 +77,7 @@ export function Ladder({
         <Row
           key={trend.rank}
           trend={trend}
+          position={i + 1}
           selected={trend.rank === selectedRank}
           tabIndex={i === index ? 0 : -1}
           onSelect={() => onSelect(trend.rank)}
@@ -90,6 +91,7 @@ export function Ladder({
 
 function Row({
   trend,
+  position,
   selected,
   tabIndex,
   onSelect,
@@ -97,13 +99,26 @@ function Row({
   delayMs,
 }: {
   trend: Trend
+  /**
+   * Where this row sits in the list being looked at, counting from 1.
+   *
+   * Not `trend.rank`, which is the topic's rank on the whole board. With a
+   * platform filter on, the board's ranks arrive as 17, 18, 20, 22, 23 — so
+   * the ladder opened at seventeen and skipped, which reads as missing
+   * rows rather than as a filtered list. The numeral is the folio of the
+   * list you are reading; the board rank is a fact about the topic, and it
+   * is shown as one below when the two differ.
+   */
+  position: number
   selected: boolean
   tabIndex: number
   onSelect: () => void
   animate: boolean
   delayMs: number
 }) {
-  const headline = trend.rank <= HEADLINE_RANKS
+  const headline = position <= HEADLINE_RANKS
+  // Only worth saying when it is not what the numeral already says.
+  const boardRank = trend.rank === position ? null : trend.rank
   // A single source is the norm, so a chip saying so is noise on every row. It
   // earns its place only when corroboration is the interesting fact.
   // Prefer the per-platform rows: they carry that platform's own rank and
@@ -156,7 +171,7 @@ function Row({
           headline ? 'text-rank' : 'text-rank-sm',
         )}
       >
-        {trend.rank}
+        {position}
       </span>
 
       <div className={cx('min-w-0', headline ? 'pt-2' : 'pt-0.5')}>
@@ -169,7 +184,11 @@ function Row({
           className="text-[15px] leading-[1.3] text-ink [display:-webkit-box] [overflow:hidden] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]"
           title={trend.topic}
         >
-          <span className="sr-only">Rank {trend.rank}: </span>
+          <span className="sr-only">
+            {boardRank === null
+              ? `Rank ${position}: `
+              : `${position} of the filtered list, rank ${boardRank} on the board: `}
+          </span>
           {trend.topic}
         </p>
         {/*
@@ -184,6 +203,16 @@ function Row({
             <Chip className="min-w-0 shrink" title={trend.category}>
               <span className="block truncate">{shortCategory(trend.category)}</span>
             </Chip>
+          ) : null}
+          {/*
+            The topic's rank on the unfiltered board, shown only when the
+            numeral to the left is not already it. Muted and set in the
+            number face: it is a reference, not the row's position.
+          */}
+          {boardRank !== null ? (
+            <span className="shrink-0 font-display text-xs whitespace-nowrap text-muted tabular-nums">
+              rank {boardRank}
+            </span>
           ) : null}
           {corroborated ? (
             // Plain type, not chips. Six bordered boxes would not fit the
