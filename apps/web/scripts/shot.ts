@@ -11,7 +11,7 @@
  */
 
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join, resolve } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { chromium, type Page } from '@playwright/test'
@@ -262,6 +262,20 @@ function shots(regionOverride?: string): Shot[] {
       viewport: PHONE,
       path: '/brands/1',
     },
+    {
+      name: 'brands-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/brands',
+    },
+    {
+      name: 'library-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      path: '/library',
+    },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
     { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },
     {
@@ -283,7 +297,10 @@ function shots(regionOverride?: string): Shot[] {
   ]
 }
 
-async function capture(page: Page, shot: Shot): Promise<string> {
+/** What one shot produced: the file, and anything worth saying about it. */
+type ShotResult = { file: string; note: string }
+
+async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   await page.setViewportSize(shot.viewport)
   // data-theme wins over prefers-color-scheme in globals.css; emulating the
   // media feature too keeps next/font and ::selection consistent.
@@ -324,7 +341,7 @@ async function capture(page: Page, shot: Shot): Promise<string> {
     await page.waitForTimeout(SETTLE_MS)
     const file = join(OUT_DIR, `${shot.name}.png`)
     await page.screenshot({ path: file, fullPage: true })
-    return file
+    return { file, note: `${shot.viewport.width}px` }
   }
 
   // Fail loudly rather than shipping a screenshot of an empty board.
@@ -422,9 +439,9 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   }
 
   await page.waitForTimeout(SETTLE_MS)
-  const path = join(OUT_DIR, `${shot.name}.png`)
-  await page.screenshot({ path, fullPage: shot.studio === true || shot.reel === true })
-  return `${shot.name}.png (${shot.region}, ${shot.viewport.width}px, ${rows} rows)`
+  const file = join(OUT_DIR, `${shot.name}.png`)
+  await page.screenshot({ path: file, fullPage: shot.studio === true || shot.reel === true })
+  return { file, note: `${shot.region}, ${shot.viewport.width}px, ${rows} rows` }
 }
 
 async function main(): Promise<void> {
@@ -453,12 +470,13 @@ async function main(): Promise<void> {
   })
   const page = await context.newPage()
 
-  const written: string[] = []
+  const written: ShotResult[] = []
   try {
     for (const shot of shots(regionOverride)) {
       if (only.length > 0 && !only.some((pattern) => shot.name.includes(pattern))) continue
-      written.push(await capture(page, shot))
-      console.log(`  ✓ ${written.at(-1)}`)
+      const done = await capture(page, shot)
+      written.push(done)
+      console.log(`  ✓ ${basename(done.file)} (${done.note})`)
     }
   } finally {
     await browser.close()
@@ -481,8 +499,18 @@ async function main(): Promise<void> {
       '- `platform-filtered-*` — the ladder with one platform selected.',
       '- `settings-*` — which platforms are connected, and the variables to set.',
       '- `desk-platforms-*` — why a topic is trending, and its hashtags by platform.',
+      '- `batch-*` — "Generate for the top topics" above the ladder.',
+      '- `brands-*` — every brand in the workspace.',
+      '- `brand-editor-*` — the brand form with the three templates redrawing beside it.',
+      '- `library-*` — every generated post and reel, filtered.',
+      '- `calendar-*` — scheduled items; a grid at 1440px and an agenda at 390px.',
       '',
-      ...written.map((w) => `- ${w}`),
+      `## Captured ${written.length} shot${written.length === 1 ? '' : 's'} this run`,
+      '',
+      // Basenames, not the absolute paths the console prints. The file list
+      // was briefly a column of D:\... which is useless to anyone else
+      // and changes on every machine.
+      ...written.map((done) => `- \`${basename(done.file)}\` — ${done.note}`),
       '',
     ].join('\n'),
     'utf8',

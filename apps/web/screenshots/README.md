@@ -12,6 +12,25 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `platform-filtered-*` — the ladder with one platform selected.
 - `settings-*` — which platforms are connected, and the variables to set.
 - `desk-platforms-*` — why a topic is trending, and its hashtags by platform.
+- `batch-*` — "Generate for the top topics" above the ladder.
+- `brands-*` — every brand in the workspace.
+- `brand-editor-*` — the brand form with the three templates redrawing beside it.
+- `library-*` — every generated post and reel, filtered.
+- `calendar-*` — scheduled items; a grid at 1440px and an agenda at 390px.
 
-- batch-1440-light.png (IN, 1440px, 20 rows)
-- batch-1440-dark.png (IN, 1440px, 20 rows)
+## Captured 14 shots this run
+
+- `batch-1440-light.png` — IN, 1440px, 20 rows
+- `batch-1440-dark.png` — IN, 1440px, 20 rows
+- `calendar-month-1440-light.png` — 1440px
+- `calendar-month-1440-dark.png` — 1440px
+- `calendar-390-light.png` — 390px
+- `library-1440-light.png` — 1440px
+- `library-1440-dark.png` — 1440px
+- `library-390-light.png` — 390px
+- `brands-1440-light.png` — 1440px
+- `brand-editor-1440-light.png` — 1440px
+- `brand-editor-1440-dark.png` — 1440px
+- `brand-editor-390-light.png` — 390px
+- `brands-390-light.png` — 390px
+- `library-390-dark.png` — 390px
