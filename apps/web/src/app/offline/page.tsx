@@ -1,4 +1,4 @@
-import { Empty } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
 
 export const metadata = { title: 'Offline — TrendForge' }
 
@@ -14,7 +14,8 @@ export default function OfflinePage() {
     <main className="mx-auto max-w-xl px-6 py-16">
       <h1 className="font-display text-[28px] leading-tight font-bold text-ink">You are offline</h1>
       <div className="mt-6">
-        <Empty
+        <EmptyState
+          art="plug"
           title="The board is live data, so there is nothing useful to show from memory."
           hint="Reload when you have a connection and the ladder will be current."
         />

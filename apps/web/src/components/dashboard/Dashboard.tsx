@@ -4,7 +4,8 @@ import Link from 'next/link'
 
 import { HeatMap } from '@/components/dashboard/HeatMap'
 import { Sparkline } from '@/components/Sparkline'
-import { Card, Empty, Panel, SectionLabel, cx } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { Card, Panel, SectionLabel, cx } from '@/components/ui'
 import { formatAge, formatCompactVolume, formatIstDateTime, formatIstTime } from '@/lib/format'
 
 /**
@@ -64,7 +65,8 @@ function Movers({ movers }: { movers: Mover[] }) {
       <SectionLabel>Moving fastest</SectionLabel>
       {movers.length === 0 ? (
         <div className="mt-3">
-          <Empty
+          <EmptyState
+            art="map"
             title="Nothing is climbing right now."
             hint="Every board is flat or cooling. The next ingest cycle may change that."
           />
@@ -114,7 +116,8 @@ function Scheduled({ items }: { items: DashboardData['scheduled'] }) {
       </div>
       {items.length === 0 ? (
         <div className="mt-3">
-          <Empty
+          <EmptyState
+            art="calendar"
             title="Nothing is scheduled."
             hint={
               <>
@@ -174,7 +177,8 @@ function Week({ week }: { week: DashboardData['week'] }) {
 
       {week.items.length === 0 ? (
         <div className="mt-3">
-          <Empty
+          <EmptyState
+            art="grid"
             title="Nothing generated in the last seven days."
             hint={
               <>
@@ -263,7 +267,8 @@ function Budget({ bars }: { bars: ProviderBar[] }) {
       <SectionLabel>Model budget today</SectionLabel>
       {metered.length === 0 ? (
         <div className="mt-3">
-          <Empty
+          <EmptyState
+            art="plug"
             title="No model provider is configured."
             hint="Nothing can be written until one is. Settings lists the variables."
           />

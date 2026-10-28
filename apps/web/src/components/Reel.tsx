@@ -3,7 +3,8 @@
 import type { ContentAsset, ContentJob } from '@trendforge/types'
 
 import { AssetCard } from '@/components/desk/AssetCard'
-import { Empty, SectionLabel, cx } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { SectionLabel, cx } from '@/components/ui'
 
 /**
  * The reel: what it will say, and the file once it exists.
@@ -55,8 +56,8 @@ export function Reel({ job, busy }: { job: ContentJob | null; busy: boolean }) {
         // Said once, plainly. A reel narrates, renders every frame through
         // a browser and then mixes; without this the first run looks stuck.
         <p className="text-sm text-slate">
-          Narrating, then rendering every frame. This takes a few minutes — the script
-          below appears as soon as it is written.
+          Narrating, then rendering every frame. This takes a few minutes — the script below appears
+          as soon as it is written.
         </p>
       ) : null}
 
@@ -67,7 +68,8 @@ export function Reel({ job, busy }: { job: ContentJob | null; busy: boolean }) {
       ) : null}
 
       {!job && !busy ? (
-        <Empty
+        <EmptyState
+          art="grid"
           title="No reel for this topic yet."
           hint="A narrated vertical video, in the language above. It takes a few minutes."
         />

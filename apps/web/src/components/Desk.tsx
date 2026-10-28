@@ -7,7 +7,8 @@ import { useEffect, useState } from 'react'
 import { Hashtags } from '@/components/Hashtags'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
-import { Empty, MetaCell, SectionLabel, Tabs } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { MetaCell, SectionLabel, Tabs } from '@/components/ui'
 import { formatCompactVolume, formatIstDateTime, formatNumber, velocity } from '@/lib/format'
 
 /**
@@ -52,7 +53,8 @@ export function Desk({
   if (!trend) {
     return (
       <section className="max-w-desk p-6">
-        <Empty
+        <EmptyState
+          art="ladder"
           title={`Nothing selected for ${region.name}.`}
           hint="Pick a topic from the ladder to see its sources and start a post."
         />
@@ -148,7 +150,8 @@ function Evidence({ trend }: { trend: Trend }) {
     <div className="flex flex-col gap-2">
       <SectionLabel>Where this came from</SectionLabel>
       {trend.evidence.length === 0 ? (
-        <Empty
+        <EmptyState
+          art="search"
           title="No links recorded for this topic."
           hint="It was ranked from search volume alone, with no article behind it."
         />

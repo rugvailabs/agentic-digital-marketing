@@ -260,11 +260,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
           </div>
         </fieldset>
 
-        <Field
-          label="Default region"
-          hint="The board this brand opens on."
-          className={SECTION}
-        >
+        <Field label="Default region" hint="The board this brand opens on." className={SECTION}>
           <Select
             value={form.default_region_code ?? ''}
             onChange={(e) => set('default_region_code', e.target.value || null)}
@@ -303,11 +299,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
         </Field>
 
         <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-5">
-          <Button
-            type="submit"
-            variant="primary"
-            disabled={busy || !form.name.trim()}
-          >
+          <Button type="submit" variant="primary" disabled={busy || !form.name.trim()}>
             {busy ? 'Saving…' : saved ? 'Save brand' : 'Create brand'}
           </Button>
           {saved ? <DeleteBrand brand={saved} /> : null}
@@ -497,4 +489,3 @@ function suggestSlug(name: string): string {
     .replace(/^-|-$/g, '')
   return slug || 'madras-filter-coffee'
 }
-

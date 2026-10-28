@@ -7,17 +7,8 @@ import Link from 'next/link'
 
 import { AssetCard } from '@/components/desk/AssetCard'
 import { Reel } from '@/components/Reel'
-import {
-  Button,
-  Chip,
-  Code,
-  Empty,
-  Field,
-  SectionLabel,
-  Select,
-  Textarea,
-  cx,
-} from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { Button, Chip, Code, Field, SectionLabel, Select, Textarea, cx } from '@/components/ui'
 import { statusLabel, useJob } from '@/lib/jobs'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
@@ -104,7 +95,8 @@ export function Studio({
 
   if (brands.length === 0) {
     return (
-      <Empty
+      <EmptyState
+        art="grid"
         title="There is no brand to generate for."
         hint={
           <>
@@ -120,7 +112,8 @@ export function Studio({
 
   if (blocked) {
     return (
-      <Empty
+      <EmptyState
+        art="plug"
         title="This topic is flagged as one we do not market against."
         hint="The studio is off for it. The curator decides this, not the writer."
       />
@@ -191,7 +184,8 @@ export function Studio({
             <Images images={images} brandName={brand?.name} jobId={job.job?.id} />
           ) : null}
           {!job.job && !job.error ? (
-            <Empty
+            <EmptyState
+              art="grid"
               title="Nothing generated for this topic yet."
               hint="Pick a brand and a language, then generate a caption and three post images."
             />

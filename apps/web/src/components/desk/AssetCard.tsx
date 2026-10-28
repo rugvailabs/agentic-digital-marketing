@@ -138,8 +138,16 @@ export function AssetCard({
  */
 function Action(
   props:
-    | ({ as: 'a'; label: string; icon: React.ReactNode } & React.AnchorHTMLAttributes<HTMLAnchorElement>)
-    | ({ as: 'button'; label: string; icon: React.ReactNode } & React.ButtonHTMLAttributes<HTMLButtonElement>),
+    | ({
+        as: 'a'
+        label: string
+        icon: React.ReactNode
+      } & React.AnchorHTMLAttributes<HTMLAnchorElement>)
+    | ({
+        as: 'button'
+        label: string
+        icon: React.ReactNode
+      } & React.ButtonHTMLAttributes<HTMLButtonElement>),
 ) {
   const { as, label, icon, ...rest } = props
   const className = cx(

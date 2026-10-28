@@ -5,7 +5,8 @@ import { Film, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Button, Card, Empty, SectionLabel, Segmented, cx } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { Button, Card, SectionLabel, Segmented, cx } from '@/components/ui'
 import {
   type CalendarView,
   WEEKDAYS,
@@ -230,7 +231,8 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
 
       {items.length === 0 ? (
         <div className="mt-8">
-          <Empty
+          <EmptyState
+            art="calendar"
             title="Nothing scheduled in this window."
             hint={
               <>

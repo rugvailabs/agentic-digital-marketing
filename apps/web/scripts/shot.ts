@@ -55,6 +55,14 @@ type Shot = {
   batch?: boolean
   /** Collapse the sidebar to its icon rail. */
   rail?: boolean
+  /**
+   * Type this into the library's search box.
+   *
+   * The library filters in the client — there is no `?q=` to navigate to —
+   * so the only way to photograph "nothing matches those filters" is to
+   * filter it down the way a reader would.
+   */
+  librarySearch?: string
   /** Put the pointer on the first generated asset, to show its actions. */
   hoverAsset?: boolean
   /** The library's list view, which is a stored preference rather than a route. */
@@ -193,6 +201,23 @@ function shots(regionOverride?: string): Shot[] {
       path: '/settings',
     },
     { name: 'dashboard-1440-dark', region: national, theme: 'dark', viewport: DESKTOP, path: '/' },
+    // An empty state, reached by filtering the library down to nothing.
+    {
+      name: 'empty-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/library',
+      librarySearch: 'zzzznothing',
+    },
+    {
+      name: 'empty-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/library',
+      librarySearch: 'zzzznothing',
+    },
     {
       name: 'dashboard-1440-light',
       region: national,
@@ -451,6 +476,28 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     // the page's own heading instead, so a 200 that rendered an error state
     // still fails here rather than shipping a blank screenshot.
     await page.waitForSelector('h1', { timeout: 30_000 })
+
+    if (shot.librarySearch) {
+      const box = page.getByPlaceholder('cricket')
+      await box.waitFor({ timeout: 10_000 })
+      const empty = page.getByText('Nothing matches those filters.')
+      // Typed in a loop, because a fill before hydration is accepted by the
+      // input and ignored by React: the value lands, no onChange fires, and
+      // the list never filters. Retrying is cheaper than guessing how long
+      // hydration takes on a cold dev server.
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await box.fill('')
+        await box.fill(shot.librarySearch)
+        // The debounce, then the fetch.
+        const filtered = await empty.waitFor({ timeout: 5_000 }).then(
+          () => true,
+          () => false,
+        )
+        if (filtered) break
+        if (attempt === 5) throw new Error(`library search never filtered: ${shot.name}`)
+      }
+    }
+
     await page.waitForTimeout(SETTLE_MS)
     const file = join(OUT_DIR, `${shot.name}.png`)
     await page.screenshot({ path: file, fullPage: true })

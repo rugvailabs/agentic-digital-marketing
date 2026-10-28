@@ -500,16 +500,6 @@ export function SectionLabel({ children, className }: { children: ReactNode; cla
   return <h2 className={cx('text-xs font-medium text-slate', className)}>{children}</h2>
 }
 
-/** Empty state. Always says what to do next. */
-export function Empty({ title, hint }: { title: string; hint?: ReactNode }) {
-  return (
-    <div className="border-t border-border pt-4">
-      <p className="text-sm text-ink">{title}</p>
-      {hint ? <p className="mt-1.5 text-sm text-slate">{hint}</p> : null}
-    </div>
-  )
-}
-
 /** Inline code, used in hints that name a command or a variable. */
 export function Code({ children }: { children: ReactNode }) {
   return (

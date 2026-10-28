@@ -8,7 +8,8 @@ import { Ladder } from '@/components/Ladder'
 import { BatchGenerate } from '@/components/BatchGenerate'
 import { PlatformStrip } from '@/components/PlatformStrip'
 import { RegionStrip } from '@/components/RegionStrip'
-import { Code, Empty, SectionLabel, cx } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { Code, SectionLabel, cx } from '@/components/ui'
 import { formatIstTime } from '@/lib/format'
 
 /**
@@ -95,7 +96,8 @@ export function Board({
 
         {board.trends.length === 0 ? (
           <div className="px-4 pb-6">
-            <Empty
+            <EmptyState
+              art="ladder"
               title={`No topics for ${board.region.name} yet.`}
               hint={
                 <>

@@ -1,5 +1,5 @@
 import { Dashboard } from '@/components/dashboard/Dashboard'
-import { Empty } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
 import { fetchDashboard } from '@/lib/api'
 
 /**
@@ -15,7 +15,8 @@ export default async function HomePage() {
   if (!data) {
     return (
       <div className="mx-auto max-w-2xl px-5 py-10">
-        <Empty
+        <EmptyState
+          art="plug"
           title="The API is not answering, so there is nothing to show."
           hint="Start the stack and reload. Nothing on this page can be filled in from memory."
         />

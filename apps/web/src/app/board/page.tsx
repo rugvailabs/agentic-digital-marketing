@@ -1,5 +1,6 @@
 import { Board } from '@/components/Board'
-import { Code, Empty } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { Code } from '@/components/ui'
 import { ApiUnavailable, fetchBrands, fetchPlatforms, fetchRegions, fetchTrends } from '@/lib/api'
 import { SOURCE_NAMES, type SourceName } from '@trendforge/types'
 
@@ -47,7 +48,8 @@ export default async function BoardPage({ searchParams }: Props) {
     if (!(error instanceof ApiUnavailable)) throw error
     content = (
       <div className="p-6">
-        <Empty
+        <EmptyState
+          art="plug"
           title="The API is not answering."
           hint={
             <>

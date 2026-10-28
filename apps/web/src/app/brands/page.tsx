@@ -3,7 +3,8 @@ import { Plus } from 'lucide-react'
 import Link from 'next/link'
 
 import { TemplatePreview } from '@/components/TemplatePreview'
-import { ButtonLink, Card, Chip, Empty, SectionLabel } from '@/components/ui'
+import { EmptyState } from '@/components/Empty'
+import { ButtonLink, Card, Chip, SectionLabel } from '@/components/ui'
 import { fetchBrands } from '@/lib/api'
 
 /**
@@ -36,8 +37,8 @@ export default async function BrandsPage() {
         <div>
           <h1 className="font-display text-xl font-bold text-ink">Brands</h1>
           <p className="mt-1.5 max-w-prose text-sm text-slate">
-            A brand carries the voice a caption is written in, and the colours, face and logo
-            every post and reel is drawn with.
+            A brand carries the voice a caption is written in, and the colours, face and logo every
+            post and reel is drawn with.
           </p>
         </div>
         <ButtonLink href="/brands/new" variant="primary">
@@ -51,7 +52,8 @@ export default async function BrandsPage() {
 
         {brands.length === 0 ? (
           <div className="mt-4">
-            <Empty
+            <EmptyState
+              art="grid"
               title="No brands yet."
               hint={
                 <>

@@ -7,11 +7,12 @@ import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
 import { Film, Image as ImageIcon, LayoutGrid, List } from 'lucide-react'
 
+import { EmptyState } from '@/components/Empty'
+
 import {
   Button,
   Card,
   Chip,
-  Empty,
   Field,
   Input,
   Panel,
@@ -156,7 +157,8 @@ export function Library({ initial, facets }: { initial: LibraryPage; facets: Lib
 
         {page.items.length === 0 ? (
           <div className="mt-4">
-            <Empty
+            <EmptyState
+              art={Object.keys(filters).length > 0 ? 'search' : 'grid'}
               title={
                 Object.keys(filters).length > 0
                   ? 'Nothing matches those filters.'
@@ -669,4 +671,3 @@ function tomorrowMorning(): string {
   }).format(tomorrow)
   return `${day}T09:00:00+05:30`
 }
-
