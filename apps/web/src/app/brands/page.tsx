@@ -1,7 +1,9 @@
 import type { Brand } from '@trendforge/types'
+import { Plus } from 'lucide-react'
 import Link from 'next/link'
 
-import { Empty, SectionLabel } from '@/components/ui'
+import { TemplatePreview } from '@/components/TemplatePreview'
+import { ButtonLink, Card, Chip, Empty, SectionLabel } from '@/components/ui'
 import { fetchBrands } from '@/lib/api'
 
 /**
@@ -16,36 +18,39 @@ export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Brands — TrendForge' }
 
 /**
- * Every brand in the workspace.
+ * Every brand in the workspace, as cards.
  *
- * A list rather than a grid of cards: cards are for generated assets, per
- * CLAUDE.md, and a brand is a row of facts. The swatches are the only colour
- * on the page and they are the brand's own, which is the one thing a user is
- * scanning for.
+ * This was a list of rows, on the reasoning that cards are for generated
+ * assets and a brand is a row of facts. That was wrong about what a brand
+ * is: a brand *is* a look, and "which one is this" can only be answered by
+ * showing what it makes. Each card carries the three templates at
+ * thumbnail size in that brand's colours, face and logo — the same preview
+ * the editor shows beside the form, at a quarter of the size.
  */
 export default async function BrandsPage() {
   const brands = await fetchBrands()
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mt-6 flex flex-wrap items-baseline justify-between gap-4">
-        <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Brands</h1>
-        <Link
-          href="/brands/new"
-          className="border border-ink bg-ink px-3.5 py-1.5 text-sm text-page"
-        >
+    <div className="mx-auto max-w-[1400px] px-5 py-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-4">
+        <div>
+          <h1 className="font-display text-xl font-bold text-ink">Brands</h1>
+          <p className="mt-1.5 max-w-prose text-sm text-slate">
+            A brand carries the voice a caption is written in, and the colours, face and logo
+            every post and reel is drawn with.
+          </p>
+        </div>
+        <ButtonLink href="/brands/new" variant="primary">
+          <Plus aria-hidden="true" className="size-4" strokeWidth={2} />
           New brand
-        </Link>
+        </ButtonLink>
       </div>
-      <p className="mt-2 max-w-prose text-sm text-slate">
-        A brand carries the voice a caption is written in and the colours and logo every post and
-        reel is drawn with.
-      </p>
 
-      <section className="mt-8">
+      <section className="mt-6">
         <SectionLabel>{brands.length === 1 ? '1 brand' : `${brands.length} brands`}</SectionLabel>
+
         {brands.length === 0 ? (
-          <div className="mt-3">
+          <div className="mt-4">
             <Empty
               title="No brands yet."
               hint={
@@ -59,48 +64,79 @@ export default async function BrandsPage() {
             />
           </div>
         ) : (
-          <ul className="mt-3">
+          <ul className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             {brands.map((brand) => (
-              <li key={brand.id} className="border-b border-dotted border-rule">
-                <Link
-                  href={`/brands/${brand.id}`}
-                  className="flex flex-wrap items-center gap-x-5 gap-y-2 py-3.5 hover:bg-row-hover"
-                >
-                  <span className="flex shrink-0 gap-1" aria-hidden="true">
-                    <span
-                      className="block h-7 w-7 border border-border"
-                      style={{ backgroundColor: brand.primary_color }}
-                    />
-                    <span
-                      className="block h-7 w-7 border border-border"
-                      style={{ backgroundColor: brand.secondary_color }}
-                    />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-base text-ink">{brand.name}</span>
-                    {/* Plain prose rather than fields strung on middle dots,
-                        which CLAUDE.md rules out. */}
-                    <span className="block truncate text-xs text-slate">{summarise(brand)}</span>
-                  </span>
-                  <span className="shrink-0 font-mono text-xs text-slate">{brand.slug}</span>
-                </Link>
-              </li>
+              <BrandCard key={brand.id} brand={brand} />
             ))}
           </ul>
         )}
       </section>
-    </main>
+    </div>
   )
 }
 
-/** One readable line: languages, whether there is a logo, where it opens. */
-function summarise(brand: Brand): string {
-  const parts = [
-    brand.languages.length === 1
-      ? `Writes in ${brand.languages[0]}`
-      : `Writes in ${brand.languages.length} languages`,
-  ]
-  if (brand.logo_url) parts.push('has a logo')
-  if (brand.default_region_code) parts.push(`opens on ${brand.default_region_code}`)
-  return parts.join(', ')
+function BrandCard({ brand }: { brand: Brand }) {
+  const preview = {
+    name: brand.name,
+    logoUrl: brand.logo_url,
+    primaryColor: brand.primary_color,
+    secondaryColor: brand.secondary_color,
+    fontChoice: brand.font_choice,
+  }
+
+  return (
+    <li>
+      <Card className="flex h-full flex-col overflow-hidden transition-[border-color] duration-150 hover:border-border-hover">
+        <Link href={`/brands/${brand.id}`} className="flex h-full flex-col">
+          <div className="flex items-center gap-3 p-3">
+            {/* The logo where there is one, the swatches where there is
+                not. Both answer "whose is this" at a glance, which is the
+                only question a list of brands is ever asked. */}
+            {brand.logo_url ? (
+              /* A MinIO URL on a published port, which next/image cannot
+                 be configured for without pinning the dev host. */
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={brand.logo_url} alt="" className="h-8 max-w-20 shrink-0 object-contain" />
+            ) : (
+              <span aria-hidden="true" className="flex shrink-0 gap-1">
+                <span
+                  className="block size-8 rounded-sm border border-border"
+                  style={{ backgroundColor: brand.primary_color }}
+                />
+                <span
+                  className="block size-8 rounded-sm border border-border"
+                  style={{ backgroundColor: brand.secondary_color }}
+                />
+              </span>
+            )}
+
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-base text-ink">{brand.name}</span>
+              <span className="block truncate font-mono text-xs text-muted">{brand.slug}</span>
+            </span>
+          </div>
+
+          {/* The three templates at a quarter size. A brand is a look, and
+              this is the look. */}
+          <div className="grid grid-cols-3 gap-2 border-y border-border bg-page p-3">
+            <TemplatePreview template="poster" brand={preview} />
+            <TemplatePreview template="split" brand={preview} />
+            <TemplatePreview template="wire" brand={preview} />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5 p-3">
+            {brand.languages.slice(0, 4).map((language) => (
+              <Chip key={language} className="capitalize">
+                {language}
+              </Chip>
+            ))}
+            {brand.languages.length > 4 ? <Chip>+{brand.languages.length - 4}</Chip> : null}
+            {brand.default_region_code ? (
+              <Chip tone="solid">{brand.default_region_code}</Chip>
+            ) : null}
+          </div>
+        </Link>
+      </Card>
+    </li>
+  )
 }

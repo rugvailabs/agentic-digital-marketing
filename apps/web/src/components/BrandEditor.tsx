@@ -4,7 +4,7 @@ import type { Brand, Language, Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { SectionLabel, cx } from '@/components/ui'
+import { Button, Field, Input, SectionLabel, Select, Textarea } from '@/components/ui'
 import {
   TEMPLATES,
   TEMPLATE_LABELS,
@@ -146,17 +146,17 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
   return (
     <form onSubmit={save} className="desk:grid-cols-[minmax(0,1fr)_minmax(0,420px)] grid gap-10">
       <div className="min-w-0">
-        <Field label="Name" hint="Shown on every post that has no logo.">
-          <input
+        <Field label="Name" hint="Shown on every post that has no logo." className={SECTION}>
+          <Input
             required
             value={form.name}
             onChange={(e) => set('name', e.target.value)}
             placeholder="Madras Filter Coffee"
-            className={INPUT}
           />
         </Field>
 
         <Field
+          className={SECTION}
           label="URL name"
           hint={
             saved
@@ -164,25 +164,28 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
               : 'Left blank, it is made from the name.'
           }
         >
-          <input
+          <Input
             value={form.slug}
             onChange={(e) => set('slug', e.target.value)}
             placeholder={suggestSlug(form.name)}
-            className={cx(INPUT, 'font-mono text-sm')}
+            className="font-mono"
           />
         </Field>
 
-        <Field label="Voice" hint="Goes to the writer with every caption. Say how it sounds.">
-          <textarea
+        <Field
+          className={SECTION}
+          label="Voice"
+          hint="Goes to the writer with every caption. Say how it sounds."
+        >
+          <Textarea
             rows={3}
             value={form.voice_prompt}
             onChange={(e) => set('voice_prompt', e.target.value)}
             placeholder="Warm, specific, a little dry. Short sentences. No exclamation marks."
-            className={INPUT}
           />
         </Field>
 
-        <fieldset className="border-t border-border pt-5">
+        <fieldset className="mt-8 border-t border-border pt-5">
           <SectionLabel>Colour</SectionLabel>
           <div className="mt-3 flex flex-wrap gap-8">
             <Colour
@@ -260,12 +263,11 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
         <Field
           label="Default region"
           hint="The board this brand opens on."
-          className="mt-8 border-t border-border pt-5"
+          className={SECTION}
         >
-          <select
+          <Select
             value={form.default_region_code ?? ''}
             onChange={(e) => set('default_region_code', e.target.value || null)}
-            className={INPUT}
           >
             <option value="">India</option>
             {regions
@@ -275,36 +277,39 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
                   {region.name}
                 </option>
               ))}
-          </select>
+          </Select>
         </Field>
 
         <Field
+          className={SECTION}
           label="What you sell"
           hint="One per line. The writer uses these to tie a trend to something you actually offer."
         >
-          <textarea
+          <Textarea
             rows={4}
             value={textOf(form.products)}
             onChange={(e) => set('products', linesOf(e.target.value))}
             placeholder={'Filter coffee subscriptions\nCold brew cans'}
-            className={INPUT}
           />
         </Field>
 
         <Field label="Never mention" hint="One per line. Competitors, prices, anything off limits.">
-          <textarea
+          <Textarea
             rows={3}
             value={textOf(form.do_not_mention)}
             onChange={(e) => set('do_not_mention', linesOf(e.target.value))}
             placeholder={'Competitor Ltd\npricing'}
-            className={INPUT}
           />
         </Field>
 
         <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-5">
-          <button type="submit" disabled={busy || !form.name.trim()} className={PRIMARY}>
+          <Button
+            type="submit"
+            variant="primary"
+            disabled={busy || !form.name.trim()}
+          >
             {busy ? 'Saving…' : saved ? 'Save brand' : 'Create brand'}
-          </button>
+          </Button>
           {saved ? <DeleteBrand brand={saved} /> : null}
           {note ? <span className="text-sm text-neem">{note}</span> : null}
           {error ? (
@@ -315,18 +320,28 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
         </div>
       </div>
 
-      <aside className="min-w-0">
+      {/*
+       * Sticky, so the preview stays beside whichever field is being
+       * edited. The form is long enough that the colour pickers and the
+       * Poster template were a screen apart, which is the one pairing the
+       * preview exists for.
+       *
+       * `h-fit` is what makes it work in a grid: a grid item is stretched
+       * to the row's height by default, and a sticky element inside a
+       * full-height box has nothing to stick within.
+       */}
+      <aside className="desk:sticky desk:top-[calc(var(--spacing-topbar)+1.25rem)] min-w-0 self-start">
         <SectionLabel>Preview</SectionLabel>
-        <p className="mt-1 text-xs text-slate">
+        <p className="mt-1 text-xs text-muted">
           Every post is rendered in all three. Sample copy, your brand.
         </p>
-        <div className="mt-4 flex flex-col gap-6">
+        <div className="desk:max-h-[calc(100dvh-var(--spacing-topbar)-5rem)] mt-4 flex flex-col gap-5 overflow-y-auto pr-1">
           {TEMPLATES.map((template) => (
             <div key={template}>
               <TemplatePreview template={template} brand={previewBrand} />
               <p className="mt-2 flex items-baseline justify-between text-xs">
                 <span className="text-ink">{TEMPLATE_LABELS[template]}</span>
-                <span className="text-slate">{TEMPLATE_NOTES[template]}</span>
+                <span className="text-muted">{TEMPLATE_NOTES[template]}</span>
               </p>
             </div>
           ))}
@@ -362,20 +377,20 @@ function DeleteBrand({ brand }: { brand: Brand }) {
     return (
       <span className="flex flex-wrap items-center gap-3 text-sm">
         <span className="text-ink">{confirming}</span>
-        <button type="button" onClick={() => void go(true)} disabled={busy} className={DANGER}>
+        <Button variant="danger" onClick={() => void go(true)} disabled={busy}>
           Delete anyway
-        </button>
-        <button type="button" onClick={() => setConfirming(null)} className={QUIET}>
+        </Button>
+        <Button variant="quiet" onClick={() => setConfirming(null)}>
           Keep it
-        </button>
+        </Button>
       </span>
     )
   }
 
   return (
-    <button type="button" onClick={() => void go(false)} disabled={busy} className={QUIET}>
+    <Button variant="quiet" onClick={() => void go(false)} disabled={busy}>
       Delete brand
-    </button>
+    </Button>
   )
 }
 
@@ -420,13 +435,13 @@ function Logo({
           }}
           className="hidden"
         />
-        <button type="button" onClick={() => input.current?.click()} className={QUIET}>
+        <Button onClick={() => input.current?.click()}>
           {url ? 'Replace logo' : 'Upload logo'}
-        </button>
+        </Button>
         {url ? (
-          <button type="button" onClick={onClear} className={QUIET}>
+          <Button variant="quiet" onClick={onClear}>
             Remove
-          </button>
+          </Button>
         ) : null}
         {unsaved ? <span className="text-xs text-slate">Uploads when you save.</span> : null}
       </div>
@@ -456,11 +471,11 @@ function Colour({
           className="h-8 w-10 cursor-pointer border border-border bg-card p-0.5"
           aria-label={`${label} colour`}
         />
-        <input
+        <Input
           value={value}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
           spellCheck={false}
-          className={cx(INPUT, 'num w-28 font-mono text-sm')}
+          className="num w-28 font-mono"
           aria-label={`${label} hex`}
         />
       </span>
@@ -469,25 +484,10 @@ function Colour({
   )
 }
 
-function Field({
-  label,
-  hint,
-  className,
-  children,
-}: {
-  label: string
-  hint?: string
-  className?: string
-  children: React.ReactNode
-}) {
-  return (
-    <label className={cx('mt-8 flex flex-col gap-1.5 border-t border-border pt-5', className)}>
-      <span className="text-xs font-medium text-slate">{label}</span>
-      {children}
-      {hint ? <span className="text-xs text-slate">{hint}</span> : null}
-    </label>
-  )
-}
+/** Every field is a section of the form, separated by a rule. Spacing at
+ *  the call site rather than inside Field, which is shared with forms that
+ *  are not laid out this way. */
+const SECTION = 'mt-8 border-t border-border pt-5'
 
 /** Mirrors the API's slugify closely enough to be a placeholder, not a promise. */
 function suggestSlug(name: string): string {
@@ -498,12 +498,3 @@ function suggestSlug(name: string): string {
   return slug || 'madras-filter-coffee'
 }
 
-/* Flat inputs: a 1px rule, no radius, no shadow. The focus ring is the one
-   in globals.css, which is the only chilli on this page. */
-const INPUT =
-  'w-full border border-border bg-card px-2.5 py-1.5 text-base text-ink placeholder:text-slate/70'
-const PRIMARY =
-  'border border-ink bg-ink px-3.5 py-1.5 text-sm text-page disabled:opacity-40 hover:bg-ink/90'
-const QUIET = 'border border-border px-3 py-1.5 text-sm text-slate hover:text-ink disabled:opacity-40'
-const DANGER =
-  'border border-chilli px-3 py-1.5 text-sm text-chilli hover:bg-chilli hover:text-white'
