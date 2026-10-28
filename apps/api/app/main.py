@@ -14,6 +14,7 @@ from app.api import (
     batch,
     brands,
     content,
+    dashboard,
     health,
     ingest,
     library,
@@ -62,5 +63,6 @@ app.include_router(brands.router, prefix="/brands")
 app.include_router(library.router, prefix="/library")
 app.include_router(batch.router, prefix="/content/batch")
 app.include_router(search.router, prefix="/search")
+app.include_router(dashboard.router, prefix="/dashboard")
 # content routes carry their own full paths (/content/...).
 app.include_router(content.router)

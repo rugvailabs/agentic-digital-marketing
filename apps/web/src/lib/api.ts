@@ -1,4 +1,12 @@
-import type { Brand, Health, Platform, Region, SourceName, TrendsResponse } from '@trendforge/types'
+import type {
+  Brand,
+  Dashboard,
+  Health,
+  Platform,
+  Region,
+  SourceName,
+  TrendsResponse,
+} from '@trendforge/types'
 
 /**
  * Server-side API access. Every board page is a server component, so the
@@ -122,6 +130,16 @@ export async function fetchBrand(id: number): Promise<Brand | null> {
   } catch {
     // A deleted brand, or an id someone typed. The page renders "not found"
     // rather than the API's error.
+    return null
+  }
+}
+
+export async function fetchDashboard(): Promise<Dashboard | null> {
+  try {
+    return await get<Dashboard>('/dashboard')
+  } catch {
+    // The dashboard is entirely live data, so there is no partial page to
+    // render — the caller says so rather than drawing empty panels.
     return null
   }
 }

@@ -20,5 +20,5 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 
 ## Captured 2 shots this run
 
-- `shell-rail-1440-dark.png` — IN, 1440px, 20 rows
-- `board-390-light.png` — IN, 390px, 20 rows
+- `dashboard-1440-light.png` — 1440px
+- `dashboard-390-dark.png` — 390px

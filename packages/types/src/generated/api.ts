@@ -277,6 +277,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/dashboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dashboard */
+        get: operations["dashboard_dashboard_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content/jobs": {
         parameters: {
             query?: never;
@@ -451,6 +485,19 @@ export interface components {
             /** File */
             file: string;
         };
+        /** BrandHit */
+        BrandHit: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Slug */
+            slug: string;
+            /** Primary Color */
+            primary_color: string;
+            /** Secondary Color */
+            secondary_color: string;
+        };
         /**
          * BrandIn
          * @description Create. Everything but the name has a default, because a team should
@@ -546,6 +593,21 @@ export interface components {
             default_region_code?: string | null;
             /** Do Not Mention */
             do_not_mention?: string[] | null;
+        };
+        /** Dashboard */
+        Dashboard: {
+            /** Now Ist */
+            now_ist: string;
+            /** Heat */
+            heat: components["schemas"]["StateHeat"][];
+            /** Movers */
+            movers: components["schemas"]["Mover"][];
+            week: components["schemas"]["WeekOfWork"];
+            /** Budget */
+            budget: components["schemas"]["ProviderBar"][];
+            /** Scheduled */
+            scheduled: components["schemas"]["ScheduledItem"][];
+            pipeline: components["schemas"]["Pipeline"];
         };
         /**
          * EditorialStatus
@@ -750,6 +812,40 @@ export interface components {
             /** Offset */
             offset: number;
         };
+        /** Mover */
+        Mover: {
+            /** Trend Id */
+            trend_id: number;
+            /** Topic */
+            topic: string;
+            /** Region Code */
+            region_code: string;
+            /** Region Name */
+            region_name: string;
+            /** Rank */
+            rank: number;
+            /** Volume */
+            volume: number;
+            /** Velocity */
+            velocity: number[];
+            /** Delta */
+            delta: number;
+        };
+        /** Pipeline */
+        Pipeline: {
+            /** Database */
+            database: boolean;
+            /** Regions */
+            regions: number;
+            /** Trends */
+            trends: number;
+            /** Sources Configured */
+            sources_configured: string[];
+            /** Last Ingest At */
+            last_ingest_at: string | null;
+            /** Failed Today */
+            failed_today: number;
+        };
         /**
          * PlatformOut
          * @description One platform and whether this deployment can use it.
@@ -764,6 +860,23 @@ export interface components {
             env_vars: string[];
             /** Weight */
             weight: number;
+        };
+        /** ProviderBar */
+        ProviderBar: {
+            /** Name */
+            name: string;
+            /** Configured */
+            configured: boolean;
+            /** Used Today */
+            used_today: number | null;
+            /** Remaining Today */
+            remaining_today: number | null;
+            /** Limit */
+            limit: number | null;
+            /** Reserved For Desk */
+            reserved_for_desk: number | null;
+            /** Remaining Usd */
+            remaining_usd: number | null;
         };
         /**
          * ProviderHealth
@@ -812,6 +925,38 @@ export interface components {
             /** Platforms */
             platforms: components["schemas"]["SourceName"][];
         };
+        /** ScheduledItem */
+        ScheduledItem: {
+            /** Job Id */
+            job_id: number;
+            kind: components["schemas"]["JobKind"];
+            /** Title */
+            title: string;
+            /** Brand Name */
+            brand_name: string;
+            /** Region Code */
+            region_code: string;
+            /**
+             * Scheduled At
+             * Format: date-time
+             */
+            scheduled_at: string;
+            /** Preview Url */
+            preview_url: string | null;
+        };
+        /** SearchResults */
+        SearchResults: {
+            /** Query */
+            query: string;
+            /** Topics */
+            topics: components["schemas"]["TopicHit"][];
+            /** Brands */
+            brands: components["schemas"]["BrandHit"][];
+            /** Work */
+            work: components["schemas"]["WorkHit"][];
+            /** Total */
+            total: number;
+        };
         /**
          * Skipped
          * @description A topic that was not queued, and the reason in words a user can act
@@ -830,6 +975,37 @@ export interface components {
          * @enum {string}
          */
         SourceName: "google_trends" | "google_news" | "youtube" | "x" | "reddit" | "instagram";
+        /**
+         * StateHeat
+         * @description One state's square on the map.
+         */
+        StateHeat: {
+            /** Region Code */
+            region_code: string;
+            /** Region Name */
+            region_name: string;
+            /** Topics */
+            topics: number;
+            /** Rising */
+            rising: number;
+            /** Share */
+            share: number;
+        };
+        /** TopicHit */
+        TopicHit: {
+            /** Trend Id */
+            trend_id: number;
+            /** Topic */
+            topic: string;
+            /** Region Code */
+            region_code: string;
+            /** Region Name */
+            region_name: string;
+            /** Rank */
+            rank: number;
+            /** Also On */
+            also_on: number;
+        };
         /** TrendOut */
         TrendOut: {
             /** Id */
@@ -916,6 +1092,53 @@ export interface components {
             input?: unknown;
             /** Context */
             ctx?: Record<string, never>;
+        };
+        /** WeekOfWork */
+        WeekOfWork: {
+            /** Posts */
+            posts: number;
+            /** Reels */
+            reels: number;
+            /** Items */
+            items: components["schemas"]["WorkItem"][];
+        };
+        /** WorkHit */
+        WorkHit: {
+            /** Job Id */
+            job_id: number;
+            /** Kind */
+            kind: string;
+            /** Title */
+            title: string;
+            /** Topic */
+            topic: string;
+            /** Brand Name */
+            brand_name: string;
+            /** Region Code */
+            region_code: string;
+            /** Editorial Status */
+            editorial_status: string;
+            /** Preview Url */
+            preview_url: string | null;
+        };
+        /** WorkItem */
+        WorkItem: {
+            /** Job Id */
+            job_id: number;
+            kind: components["schemas"]["JobKind"];
+            /** Title */
+            title: string;
+            /** Brand Name */
+            brand_name: string;
+            /** Region Code */
+            region_code: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Preview Url */
+            preview_url: string | null;
         };
         /**
          * XRequests
@@ -1425,6 +1648,58 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_search_get: {
+        parameters: {
+            query?: {
+                /** @description What to look for. Under two characters returns nothing. */
+                q?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dashboard_dashboard_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Dashboard"];
                 };
             };
         };

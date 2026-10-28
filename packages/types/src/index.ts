@@ -32,6 +32,13 @@ export type EditorialStatus = Schemas['EditorialStatus']
 export type LibraryItem = Schemas['LibraryItem']
 export type LibraryPage = Schemas['LibraryPage']
 export type LibraryFacets = Schemas['LibraryFacets']
+export type Dashboard = Schemas['Dashboard']
+export type StateHeat = Schemas['StateHeat']
+export type Mover = Schemas['Mover']
+export type WorkItem = Schemas['WorkItem']
+export type ScheduledItem = Schemas['ScheduledItem']
+export type ProviderBar = Schemas['ProviderBar']
+export type SearchResults = Schemas['SearchResults']
 
 /**
  * In the order work moves through them, which is the order the filter chips

@@ -178,6 +178,15 @@ function shots(regionOverride?: string): Shot[] {
       viewport: DESKTOP,
       path: '/settings',
     },
+    { name: 'dashboard-1440-dark', region: national, theme: 'dark', viewport: DESKTOP, path: '/' },
+    {
+      name: 'dashboard-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/',
+    },
+    { name: 'dashboard-390-dark', region: national, theme: 'dark', viewport: PHONE, path: '/' },
     // The shell: the rail, which is a state no page-level shot shows.
     {
       name: 'shell-rail-1440-dark',
@@ -367,6 +376,18 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     },
     [shot.theme, shot.rail ? 'rail' : 'full'] as const,
   )
+
+  // The pipeline dot polls on mount and reads "Checking" until it answers.
+  // Soft, like the clock wait below: a shot of a checking dot is honest
+  // but looks unfinished, and failing a run over it throws away the shots
+  // that did work.
+  await page
+    .waitForFunction(
+      () => !document.querySelector('header')?.textContent?.includes('Checking'),
+      undefined,
+      { timeout: 10_000 },
+    )
+    .catch(() => undefined)
 
   if (shot.path) {
     // Not a board: no ladder to wait for and no clock in its header. Wait on

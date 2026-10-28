@@ -64,6 +64,22 @@
   --color-neem: #3fa87e;
   --color-turmeric: #f0b94a;
 
+  /*
+   * The choropleth ramp: five steps of the one accent.
+   *
+   * Tokens rather than a function in the component, because the direction
+   * has to flip between themes and a component must not know which theme
+   * it is in. On the dark page quiet is near-black and busy is bright
+   * chilli — dark recedes. On the light page it is the other way up, where
+   * pale recedes and ink-dark reads as "more". Getting this backwards was
+   * the first version, and the light map looked like a negative.
+   */
+  --color-heat-0: #211a1c;
+  --color-heat-1: #3f2225;
+  --color-heat-2: #6b2c2b;
+  --color-heat-3: #a83c33;
+  --color-heat-4: #ff5a4e;
+
   /* ── Type ────────────────────────────────────────────────────────────
    * Unchanged. The two faces and the scale are the part of the old design
    * that was right.
@@ -178,6 +194,13 @@
     --color-chilli-ink: #ffffff;
     --color-neem: #1e7d5a;
     --color-turmeric: #b87908;
+
+    /* Pale is quiet here, which is the opposite end from the dark theme. */
+    --color-heat-0: #f7e7e4;
+    --color-heat-1: #efc3bc;
+    --color-heat-2: #e0907f;
+    --color-heat-3: #c75a4c;
+    --color-heat-4: #9e2a22;
 
     --shadow-card: 0 1px 2px rgb(27 34 48 / 0.07);
     --shadow-lift: 0 14px 28px -10px rgb(27 34 48 / 0.2);
