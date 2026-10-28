@@ -140,7 +140,14 @@ class Brand(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     #: Free text dropped into the writer prompt.
     voice_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    #: Where a browser fetches the logo: the public, host-facing URL.
     logo_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    #: The same object's storage key, kept because the renderers cannot use
+    #: the URL above. `logo_url` is built from S3_PUBLIC_URL, which is
+    #: localhost from the browser's point of view and nothing at all from
+    #: inside the worker — so Pillow reads the bytes by key, and Remotion is
+    #: handed an endpoint-internal URL built from it.
+    logo_key: Mapped[str | None] = mapped_column(Text, nullable=True)
     primary_color: Mapped[str] = mapped_column(String(9), nullable=False, default="#1B2230")
     secondary_color: Mapped[str] = mapped_column(String(9), nullable=False, default="#D8322B")
     #: Languages this brand publishes in, as Language values.

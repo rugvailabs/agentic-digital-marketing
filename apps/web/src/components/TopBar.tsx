@@ -1,4 +1,5 @@
 import type { Health } from '@trendforge/types'
+import Link from 'next/link'
 
 import { IstClock } from '@/components/IstClock'
 
@@ -23,6 +24,16 @@ export function TopBar({ health, regionName }: { health: Health | null; regionNa
       </span>
 
       <div className="ml-auto flex shrink-0 items-center gap-5">
+        {/* Text links, not icons: CLAUDE.md rules out an icon beside every
+            label, and two words fit. */}
+        <nav className="hidden items-center gap-4 text-xs text-slate sm:flex">
+          <Link href="/brands" className="hover:text-ink">
+            Brands
+          </Link>
+          <Link href="/settings" className="hover:text-ink">
+            Platforms
+          </Link>
+        </nav>
         <IstClock />
         {/* CLAUDE.md requires the clock and the dot; the wording next to the
             dot is ours, so on a phone the dot carries the state alone and the

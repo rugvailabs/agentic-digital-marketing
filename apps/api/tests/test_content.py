@@ -10,7 +10,7 @@ import pytest
 import respx
 from PIL import Image, ImageDraw
 
-from app.images import ImageBrief, PillowTemplateProvider, load_font, shaping_available
+from app.images import ImageBrief, PillowTemplateProvider, load_font, pillow, shaping_available
 from app.images.fonts import font_file, missing_fonts, script_of
 from app.images.gemini_image import GeminiImageProvider
 from app.images.pillow import (
@@ -318,11 +318,32 @@ class TestPillowTemplates:
             ("#1B2230", "#FFFFFF"),
             ("#EEF1F6", "#1B2230"),
             ("#D8322B", "#FFFFFF"),
+            # Turmeric. White on it is 2.17:1 and ink is 7.33:1, which the
+            # old 0.45 threshold got backwards.
+            ("#E3A51D", "#1B2230"),
             ("zzz", "#FFFFFF"),
         ],
     )
     def test_text_colour_follows_luminance(self, background: str, expected: str) -> None:
         assert contrasting_ink(background) == expected
+
+    @pytest.mark.parametrize(
+        "background",
+        ["#1B2230", "#D8322B", "#EEF1F6", "#E3A51D", "#1E7D5A", "#FFFFFF", "#2B1A12", "#808080"],
+    )
+    def test_the_chosen_ink_clears_the_contrast_floor(self, background: str) -> None:
+        """CLAUDE.md asks for 4.5:1, and this is the function that decides
+        whether a post meets it. The threshold is derived to make exactly
+        this claim rather than chosen to look about right.
+
+        #808080 is the one colour here that cannot: a mid grey is 4.03:1
+        against ink and 3.95:1 against white, so the best available answer
+        still fails. Named rather than quietly excluded.
+        """
+        ink = contrasting_ink(background)
+        floor = 4.0 if background == "#808080" else 4.5
+
+        assert _contrast(background, ink) >= floor
 
 
 class TestHashtagLine:
@@ -516,3 +537,204 @@ class TestFooterIsNeverOverrun:
             f"{template}/{size}: {len(intruders)} pixels of content in the "
             f"footer gap, first at {intruders[0]}"
         )
+
+
+#: A colour no template and no brand in these tests draws, so counting it
+#: counts the logo. The first attempt reused the brand's secondary, and the
+#: Split template's colour block answered for it.
+LOGO_INK = (0, 158, 255)
+
+
+class TestBrandLogo:
+    """The logo slot in the footer.
+
+    Pillow runs for real here, as everywhere else in this file; only the
+    storage read is stubbed, because reading an object back from MinIO to
+    prove a paste happened is testing MinIO.
+    """
+
+    @pytest.fixture
+    def logo_png(self) -> bytes:
+        """A wide mark with transparent padding around it, which is what an
+        exported logo normally looks like."""
+        image = Image.new("RGBA", (900, 300), (0, 0, 0, 0))
+        ImageDraw.Draw(image).rectangle((0, 90, 400, 210), fill=(*LOGO_INK, 255))
+        buffer = io.BytesIO()
+        image.save(buffer, "PNG")
+        return buffer.getvalue()
+
+    @pytest.fixture
+    def stored(self, monkeypatch: pytest.MonkeyPatch, logo_png: bytes):
+        """Patched on the module under test, which is the name it resolves."""
+
+        def reader(key: str) -> bytes:
+            if key == "brands/1/logo.png":
+                return logo_png
+            raise KeyError(key)
+
+        monkeypatch.setattr(pillow.storage, "get_bytes", reader)
+        return reader
+
+    def brief(self, **kw) -> ImageBrief:
+        return ImageBrief(
+            headline="India seal the series in Chennai",
+            subline="Three wickets in the last over.",
+            hashtags=["#INDvAUS", "#Chennai"],
+            brand_name="Madras Filter Coffee",
+            primary_color="#2B1A12",
+            secondary_color="#E3A51D",
+            velocity=[10.0, 14.0, 22.0, 30.0, 61.0, 88.0],
+            region_name="Tamil Nadu",
+            **kw,
+        )
+
+    def rendered(self, **kw) -> Image.Image:
+        png = PillowTemplateProvider().render(self.brief(**kw)).png
+        return Image.open(io.BytesIO(png)).convert("RGB")
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    def test_a_logo_changes_what_is_drawn(self, stored, template: str) -> None:
+        with_logo = self.rendered(template=template, logo_key="brands/1/logo.png")
+        without = self.rendered(template=template)
+
+        assert list(with_logo.getdata()) != list(without.getdata())
+
+    @pytest.mark.parametrize("template", TEMPLATES)
+    @pytest.mark.parametrize("size", ["square", "portrait"])
+    def test_it_never_crosses_the_footer_rule(self, stored, template: str, size: str) -> None:
+        """The invariant the rest of the footer already keeps. A logo is
+        sized from a file nobody here controls, so it is the most likely
+        thing in the footer to grow through the rule."""
+        image = self.rendered(template=template, size=size, logo_key="brands/1/logo.png")
+        w, h = image.size
+        provider = PillowTemplateProvider
+
+        # The logo is the only thing drawn in the right third of the footer,
+        # so any of its colour above the rule is an overrun.
+        above = [
+            (x, y)
+            for y in range(0, provider._footer_top(h) + 1)
+            for x in range(int(w * 0.6), w, 2)
+            if _close(image.getpixel((x, y)), LOGO_INK)
+        ]
+
+        assert not above, f"{template}/{size}: logo above the footer rule at {above[0]}"
+
+    @pytest.mark.parametrize("size", ["square", "portrait"])
+    def test_it_stays_inside_the_right_margin(self, stored, size: str) -> None:
+        image = self.rendered(template="wire", size=size, logo_key="brands/1/logo.png")
+        w, h = image.size
+        margin = int(w * 0.08)
+
+        outside = [
+            (x, y)
+            for y in range(PillowTemplateProvider._footer_top(h), h)
+            for x in range(w - margin + 2, w)
+            if _close(image.getpixel((x, y)), LOGO_INK)
+        ]
+
+        assert not outside, f"{size}: logo past the margin at {outside[0]}"
+
+    def test_the_wordmark_is_replaced_rather_than_joined(self, stored) -> None:
+        """Two marks for one brand in a 30px band is clutter, so the name
+        goes when a logo arrives. The footer's right side is the logo's."""
+        with_logo = self.rendered(template="wire", logo_key="brands/1/logo.png")
+        without = self.rendered(template="wire")
+        w, h = with_logo.size
+        band = range(PillowTemplateProvider._baseline(h), h - int(h * 0.04))
+        right = range(int(w * 0.72), w - int(w * 0.08))
+
+        ink = (27, 34, 48)
+        named = sum(1 for y in band for x in right if _close(without.getpixel((x, y)), ink))
+        logoed = sum(1 for y in band for x in right if _close(with_logo.getpixel((x, y)), ink))
+
+        assert named > 0, "the wordmark should be there without a logo"
+        assert logoed == 0, "the wordmark is still drawn under the logo"
+
+    def test_transparent_padding_is_trimmed(self, stored, monkeypatch) -> None:
+        """Otherwise the box is filled by the file rather than by the mark,
+        and two brands get different logo sizes for a reason neither chose."""
+        padded = Image.new("RGBA", (900, 1200), (0, 0, 0, 0))
+        ImageDraw.Draw(padded).rectangle((0, 540, 400, 660), fill=(*LOGO_INK, 255))
+        buffer = io.BytesIO()
+        padded.save(buffer, "PNG")
+        monkeypatch.setattr(pillow.storage, "get_bytes", lambda key: buffer.getvalue())
+
+        image = self.rendered(template="wire", logo_key="brands/1/logo.png")
+        w, h = image.size
+        drawn = sum(
+            1
+            for y in range(PillowTemplateProvider._footer_top(h), h)
+            for x in range(int(w * 0.6), w)
+            if _close(image.getpixel((x, y)), LOGO_INK)
+        )
+
+        # Untrimmed, the mark is 10% of a 1200px-tall file scaled into a
+        # 59px box — a handful of pixels. Trimmed, it fills the box.
+        assert drawn > 1500, f"only {drawn} px of logo: the padding was not trimmed"
+
+    def test_a_missing_object_falls_back_to_the_name(self, stored) -> None:
+        """A post that renders without a logo is a much smaller problem than
+        a post that does not render."""
+        image = self.rendered(template="wire", logo_key="brands/1/gone.png")
+        without = self.rendered(template="wire")
+
+        assert list(image.getdata()) == list(without.getdata())
+
+    def test_bytes_that_are_not_an_image_fall_back(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(pillow.storage, "get_bytes", lambda key: b"not a png")
+
+        image = self.rendered(template="wire", logo_key="brands/1/logo.png")
+        without = self.rendered(template="wire")
+
+        assert list(image.getdata()) == list(without.getdata())
+
+    def test_a_truncated_png_falls_back(
+        self, monkeypatch: pytest.MonkeyPatch, logo_png: bytes
+    ) -> None:
+        """Image.open is lazy, so a header-only file opens cleanly and
+        raises on first pixel access. The guard has to cover the load."""
+        monkeypatch.setattr(pillow.storage, "get_bytes", lambda key: logo_png[:120])
+
+        image = self.rendered(template="wire", logo_key="brands/1/logo.png")
+        without = self.rendered(template="wire")
+
+        assert list(image.getdata()) == list(without.getdata())
+
+    def test_no_key_does_not_touch_storage(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """The common case: most briefs have no logo, and none of them
+        should cost a storage round trip."""
+
+        def boom(key: str) -> bytes:
+            raise AssertionError(f"storage was read for {key}")
+
+        monkeypatch.setattr(pillow.storage, "get_bytes", boom)
+
+        assert self.rendered(template="wire").size == (1080, 1080)
+
+
+def _close(pixel: tuple[int, int, int], target: tuple[int, int, int], within: int = 18) -> bool:
+    """Lanczos downscaling leaves edge pixels between the two colours, so
+    every colour check here is a neighbourhood rather than an equality."""
+    return all(abs(a - b) <= within for a, b in zip(pixel, target, strict=True))
+
+
+def _contrast(a: str, b: str) -> float:
+    """WCAG contrast ratio, written out here rather than imported.
+
+    `contrasting_ink` computes luminance too, and a test that reuses the
+    implementation's own maths to check the implementation proves only that
+    it is self-consistent.
+    """
+
+    def luminance(hex_color: str) -> float:
+        value = hex_color.lstrip("#")
+        r, g, b = (int(value[i : i + 2], 16) / 255 for i in (0, 2, 4))
+
+        def channel(c: float) -> float:
+            return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+
+    high, low = sorted((luminance(a), luminance(b)), reverse=True)
+    return (high + 0.05) / (low + 0.05)

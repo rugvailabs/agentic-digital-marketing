@@ -10,7 +10,7 @@
 
 import { spawnSync } from 'node:child_process'
 
-const url = process.env.TRENDFORGE_OPENAPI ?? 'http://localhost:8020/openapi.json'
+const url = process.env.TRENDFORGE_OPENAPI ?? 'http://127.0.0.1:8020/openapi.json'
 const out = 'src/generated/api.ts'
 
 console.log(`[types] ${url} -> ${out}`)

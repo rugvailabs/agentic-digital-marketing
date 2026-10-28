@@ -5,7 +5,7 @@ const config: NextConfig = {
   typedRoutes: false,
   env: {
     // Server components talk to the API over the docker-published port.
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020',
+    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020',
   },
 }
 

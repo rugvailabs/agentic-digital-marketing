@@ -5,7 +5,16 @@ import type { Brand, Health, Platform, Region, SourceName, TrendsResponse } from
  * browser never talks to the API directly and there is no client-side fetch
  * waterfall on first paint.
  */
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'
+/*
+ * 127.0.0.1 rather than localhost, deliberately.
+ *
+ * Node resolves "localhost" to ::1 before 127.0.0.1, and a Docker published
+ * port whose IPv6 binding has stopped answering — which happens on Windows
+ * after the host sleeps — then costs a 60-second connect timeout on every
+ * request rather than failing. The board rendered its "API unavailable"
+ * page a minute late, which looks like a slow API and is not.
+ */
+const BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
 
 /**
  * No disk cache, deliberately.
@@ -104,6 +113,16 @@ export async function fetchBrands(): Promise<Brand[]> {
   } catch {
     // The studio degrades to disabled rather than taking the board down.
     return []
+  }
+}
+
+export async function fetchBrand(id: number): Promise<Brand | null> {
+  try {
+    return await get<Brand>(`/brands/${id}`)
+  } catch {
+    // A deleted brand, or an id someone typed. The page renders "not found"
+    // rather than the API's error.
+    return null
   }
 }
 

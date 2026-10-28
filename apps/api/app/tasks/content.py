@@ -255,6 +255,7 @@ def render_assets(
                 secondary_color=job.brand.secondary_color,
                 alt_text=post.alt_text,
                 logo_url=job.brand.logo_url,
+                logo_key=job.brand.logo_key,
                 size=size,
                 template=template,
                 font_role=job.brand.font_choice,

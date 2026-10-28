@@ -14,6 +14,4 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `desk-platforms-*` — why a topic is trending, and its hashtags by platform.
 
 - board-1440-light.png (IN, 1440px, 20 rows)
-- board-1440-dark.png (IN, 1440px, 20 rows)
-- desk-platforms-1440-light.png (IN-TN, 1440px, 20 rows)
-- desk-platforms-1440-dark.png (IN-TN, 1440px, 20 rows)
+- D:\agentic-digital-marketing\apps\web\screenshots\brands-1440-light.png

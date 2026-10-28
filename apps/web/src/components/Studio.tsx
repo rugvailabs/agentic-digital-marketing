@@ -7,7 +7,7 @@ import { Reel } from '@/components/Reel'
 import { Chip, Code, SectionLabel, cx } from '@/components/primitives'
 import { statusLabel, useJob } from '@/lib/jobs'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
 
 const LANGUAGE_LABELS: Record<string, string> = {
   english: 'English',

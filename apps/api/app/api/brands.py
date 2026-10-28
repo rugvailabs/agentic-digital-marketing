@@ -40,11 +40,14 @@ HEX = re.compile(r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$")
 #: megabytes is a camera roll upload rather than a logo. Enforced while
 #: reading rather than from content-length, which the client controls.
 MAX_LOGO_BYTES = 2 * 1024 * 1024
+#: No SVG, deliberately. Pillow cannot rasterise one, so an SVG logo would
+#: look right on the brand page and then silently fall back to the wordmark
+#: on every post — the worst of both. Accepting only what all three renderers
+#: can draw means what a team uploads is what they get.
 LOGO_TYPES = {
     "image/png": "png",
     "image/jpeg": "jpg",
     "image/webp": "webp",
-    "image/svg+xml": "svg",
 }
 #: Lists that arrive from a textarea. Capped so one paste cannot make every
 #: later writer prompt enormous.
@@ -282,6 +285,10 @@ async def update_brand(
         if value is None and key not in ("logo_url", "default_region_code"):
             continue
         setattr(brand, key, value)
+        if key == "logo_url" and value is None:
+            # Or the renderers would keep drawing a logo the brand page says
+            # has been removed.
+            brand.logo_key = None
 
     try:
         await session.flush()
@@ -377,7 +384,11 @@ async def upload_logo(
     # care.
     url = await asyncio.to_thread(put_bytes, key, data, file.content_type)
 
+    # Both, because they are for different readers: the URL is what a browser
+    # fetches and the key is what the renderers read, since the URL is
+    # host-facing and resolves to nothing inside the worker.
     brand.logo_url = url
+    brand.logo_key = key
     await session.commit()
     log.info("logo stored", brand_id=brand.id, key=key, bytes=len(data))
     return brand

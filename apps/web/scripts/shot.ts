@@ -19,7 +19,7 @@ import { chromium, type Page } from '@playwright/test'
 const HERE = dirname(fileURLToPath(import.meta.url))
 const OUT_DIR = resolve(HERE, '..', 'screenshots')
 
-const BASE_URL = process.env.TRENDFORGE_WEB_URL ?? 'http://localhost:3020'
+const BASE_URL = process.env.TRENDFORGE_WEB_URL ?? 'http://127.0.0.1:3020'
 /** Blocks the one load-in animation from smearing a shot. */
 const SETTLE_MS = 500
 
@@ -173,6 +173,36 @@ function shots(regionOverride?: string): Shot[] {
       theme: 'dark',
       viewport: DESKTOP,
       path: '/settings',
+    },
+    // Step 5: brands. The editor rather than the list, because the preview
+    // beside the form is the thing worth looking at.
+    {
+      name: 'brands-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/brands',
+    },
+    {
+      name: 'brand-editor-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/brands/1',
+    },
+    {
+      name: 'brand-editor-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/brands/1',
+    },
+    {
+      name: 'brand-editor-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/brands/1',
     },
     { name: 'board-390-light', region: national, theme: 'light', viewport: PHONE },
     { name: 'board-390-dark', region: national, theme: 'dark', viewport: PHONE },

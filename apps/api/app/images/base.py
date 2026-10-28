@@ -26,6 +26,10 @@ class ImageBrief:
     secondary_color: str
     alt_text: str = ""
     logo_url: str | None = None
+    #: The logo's storage key. The renderers read bytes by key, because
+    #: `logo_url` is host-facing and resolves to nothing inside a
+    #: container.
+    logo_key: str | None = None
     #: "square" | "portrait"
     size: str = "square"
     template: str = "poster"

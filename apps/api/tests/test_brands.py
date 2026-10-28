@@ -432,7 +432,11 @@ class TestLogo:
 
     @pytest.mark.parametrize(
         ("filename", "content_type"),
-        [("logo.pdf", "application/pdf"), ("logo.txt", "text/plain"), ("logo.gif", "image/gif")],
+        [
+            ("logo.pdf", "application/pdf"),
+            ("logo.txt", "text/plain"),
+            ("logo.gif", "image/gif"),
+        ],
     )
     async def test_a_type_the_renderers_cannot_draw_is_refused(
         self, client: httpx.AsyncClient, filename: str, content_type: str
@@ -445,17 +449,68 @@ class TestLogo:
 
         assert response.status_code == 415
 
-    async def test_a_charset_parameter_does_not_confuse_it(self, client: httpx.AsyncClient) -> None:
-        """Browsers send `image/svg+xml; charset=utf-8` and that is still an
-        svg."""
+    async def test_a_parameter_on_the_content_type_does_not_confuse_it(
+        self, client: httpx.AsyncClient
+    ) -> None:
+        """Clients append parameters, and `image/png; charset=binary` is
+        still a png."""
         brand = await make(client)
 
         response = await client.post(
             f"/brands/{brand['id']}/logo",
-            files={"file": ("logo.svg", b"<svg/>", "image/svg+xml; charset=utf-8")},
+            files={"file": ("logo.png", PNG, "image/png; charset=binary")},
         )
 
         assert response.status_code == 200
+
+    async def test_svg_is_refused(self, client: httpx.AsyncClient) -> None:
+        """Pillow cannot rasterise one. Accepting it would mean a logo that
+        looks right on the brand page and silently falls back to the
+        wordmark on every post — the worst of both."""
+        brand = await make(client)
+
+        response = await client.post(
+            f"/brands/{brand['id']}/logo",
+            files={"file": ("logo.svg", b"<svg/>", "image/svg+xml")},
+        )
+
+        assert response.status_code == 415
+
+    async def test_the_key_is_stored_beside_the_url(
+        self, client: httpx.AsyncClient, factory, stub_storage
+    ) -> None:
+        """The two have different readers: a browser fetches the URL and the
+        renderers read the key, because the URL is host-facing and resolves
+        to nothing inside the worker."""
+        brand = await make(client)
+        await client.post(
+            f"/brands/{brand['id']}/logo", files={"file": ("a.png", PNG, "image/png")}
+        )
+
+        async with factory() as session:
+            row = await session.get(Brand, brand["id"])
+
+        assert row is not None
+        assert row.logo_key == stub_storage[0][0]
+        assert row.logo_url is not None
+
+    async def test_removing_the_logo_removes_the_key(
+        self, client: httpx.AsyncClient, factory, stub_storage
+    ) -> None:
+        """Or the renderers keep drawing a logo the brand page says is
+        gone."""
+        brand = await make(client)
+        await client.post(
+            f"/brands/{brand['id']}/logo", files={"file": ("a.png", PNG, "image/png")}
+        )
+
+        await client.patch(f"/brands/{brand['id']}", json={"logo_url": None})
+
+        async with factory() as session:
+            row = await session.get(Brand, brand["id"])
+
+        assert row is not None
+        assert row.logo_key is None
 
     async def test_a_camera_roll_upload_is_refused(self, client: httpx.AsyncClient) -> None:
         brand = await make(client)

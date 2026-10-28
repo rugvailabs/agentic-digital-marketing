@@ -51,7 +51,7 @@ export default async function BoardPage({ searchParams }: Props) {
           hint={
             <>
               Start the stack with <Code>.\tf.ps1 up</Code>, then <Code>.\tf.ps1 ingest</Code>.
-              Checked <Code>{process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'}</Code>.
+              Checked <Code>{process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'}</Code>.
             </>
           }
         />

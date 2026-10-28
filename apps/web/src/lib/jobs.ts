@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
  * two copies that drift apart the first time a status is added.
  */
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8020'
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
 
 /** A job is terminal when it will not change again without a new request. */
 const TERMINAL = new Set(['ready', 'failed'])

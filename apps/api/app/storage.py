@@ -82,6 +82,29 @@ def public_url(key: str) -> str:
     return f"{settings.s3_public_url.rstrip('/')}/{settings.s3_bucket}/{key}"
 
 
+def internal_url(key: str) -> str:
+    """The same object, addressed from inside the compose network.
+
+    `public_url` is what a browser uses, and locally that is localhost on a
+    published port — which resolves to nothing inside a container. The
+    Remotion renderer is a container fetching an `<Img src>`, so it needs
+    this one.
+    """
+    return f"{settings.s3_endpoint_url.rstrip('/')}/{settings.s3_bucket}/{key}"
+
+
+def get_bytes(key: str) -> bytes:
+    """Read an object back. Raises ClientError when it is not there.
+
+    Used by the Pillow templates to draw a brand logo. They run in the
+    worker, where `public_url` is unreachable, so they go through the S3
+    client rather than over HTTP.
+    """
+    response = _client().get_object(Bucket=settings.s3_bucket, Key=key)
+    data: bytes = response["Body"].read()
+    return data
+
+
 def put_bytes(key: str, data: bytes, content_type: str | None = None) -> str:
     """Upload and return the browser-reachable URL."""
     ensure_bucket()

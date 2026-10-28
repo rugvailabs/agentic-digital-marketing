@@ -22,7 +22,14 @@
  */
 
 import { useMemo } from 'react'
-import { AbsoluteFill, Sequence, interpolate, useCurrentFrame, useVideoConfig } from 'remotion'
+import {
+  AbsoluteFill,
+  Img,
+  Sequence,
+  interpolate,
+  useCurrentFrame,
+  useVideoConfig,
+} from 'remotion'
 
 import { Captions } from '../components/Captions'
 import { Reveal, Wipe, outCubic } from '../components/Reveal'
@@ -298,9 +305,29 @@ function Footer({ props, format, fonts }: { props: ReelProps; format: Format; fo
           <span style={{ overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
             {props.hashtags.slice(0, 3).join(' ')}
           </span>
-          <span style={{ color: colours.ink, whiteSpace: 'nowrap', fontWeight: 700 }}>
-            {props.brandName}
-          </span>
+          {props.logoUrl ? (
+            /*
+             * The logo replaces the wordmark rather than sitting beside it,
+             * exactly as the still templates do — two marks for one brand in
+             * a 30px footer is clutter. `height` is set and `width` left to
+             * the aspect ratio, capped so a wide wordmark cannot reach the
+             * hashtags.
+             */
+            <Img
+              src={props.logoUrl}
+              alt={props.brandName}
+              style={{
+                height: px(width, 0.055),
+                maxWidth: px(width, 0.3),
+                objectFit: 'contain',
+                objectPosition: 'right bottom',
+              }}
+            />
+          ) : (
+            <span style={{ color: colours.ink, whiteSpace: 'nowrap', fontWeight: 700 }}>
+              {props.brandName}
+            </span>
+          )}
         </div>
       </Reveal>
     </div>

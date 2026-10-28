@@ -106,7 +106,64 @@ export interface paths {
         /** List Brands */
         get: operations["list_brands_brands_get"];
         put?: never;
+        /** Create Brand */
+        post: operations["create_brand_brands_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/brands/{brand_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Brand */
+        get: operations["get_brand_brands__brand_id__get"];
+        put?: never;
         post?: never;
+        /**
+         * Delete Brand
+         * @description Delete a brand, refusing while it still has content.
+         *
+         *     `content_jobs.brand_id` is ON DELETE RESTRICT on purpose: a brand is a
+         *     settings page and the library is a body of work, and a stray click on a
+         *     settings page should not be able to destroy the work. So the first
+         *     attempt counts what would go and refuses with the number, which is what
+         *     a confirm dialog needs to say. `?force=true` is the answer to it.
+         *
+         *     Not a soft delete either, because the slug has to come free — a brand
+         *     nobody can see but whose name is still taken is its own kind of bug.
+         */
+        delete: operations["delete_brand_brands__brand_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Brand */
+        patch: operations["update_brand_brands__brand_id__patch"];
+        trace?: never;
+    };
+    "/brands/{brand_id}/logo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Upload Logo
+         * @description Store a logo and point the brand at it.
+         *
+         *     The key carries a digest of the bytes, so re-uploading the same file is
+         *     the same URL and a different file is a different one. The bucket's cache
+         *     headers are immutable, and a stable key would serve the old logo for a
+         *     year.
+         */
+        post: operations["upload_logo_brands__brand_id__logo_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -226,6 +283,51 @@ export interface components {
              */
             wait: boolean;
         };
+        /** Body_upload_logo_brands__brand_id__logo_post */
+        Body_upload_logo_brands__brand_id__logo_post: {
+            /** File */
+            file: string;
+        };
+        /**
+         * BrandIn
+         * @description Create. Everything but the name has a default, because a team should
+         *     be able to make a brand and generate something, then fill the rest in
+         *     once they have seen what the posts look like.
+         */
+        BrandIn: {
+            /** Name */
+            name: string;
+            /** Slug */
+            slug?: string | null;
+            /**
+             * Voice Prompt
+             * @default
+             */
+            voice_prompt: string;
+            /**
+             * Primary Color
+             * @default #1B2230
+             */
+            primary_color: string;
+            /**
+             * Secondary Color
+             * @default #D8322B
+             */
+            secondary_color: string;
+            /** Languages */
+            languages?: components["schemas"]["Language"][];
+            /**
+             * Font Choice
+             * @default display
+             */
+            font_choice: string;
+            /** Products */
+            products?: string[];
+            /** Default Region Code */
+            default_region_code?: string | null;
+            /** Do Not Mention */
+            do_not_mention?: string[];
+        };
         /** BrandOut */
         BrandOut: {
             /** Id */
@@ -246,6 +348,41 @@ export interface components {
             languages: string[];
             /** Font Choice */
             font_choice: string;
+            /** Products */
+            products: string[];
+            /** Default Region Code */
+            default_region_code: string | null;
+            /** Do Not Mention */
+            do_not_mention: string[];
+        };
+        /**
+         * BrandPatch
+         * @description Update. Every field optional, and absent is not null — the form sends
+         *     only what the user touched.
+         */
+        BrandPatch: {
+            /** Name */
+            name?: string | null;
+            /** Slug */
+            slug?: string | null;
+            /** Voice Prompt */
+            voice_prompt?: string | null;
+            /** Logo Url */
+            logo_url?: string | null;
+            /** Primary Color */
+            primary_color?: string | null;
+            /** Secondary Color */
+            secondary_color?: string | null;
+            /** Languages */
+            languages?: components["schemas"]["Language"][] | null;
+            /** Font Choice */
+            font_choice?: string | null;
+            /** Products */
+            products?: string[] | null;
+            /** Default Region Code */
+            default_region_code?: string | null;
+            /** Do Not Mention */
+            do_not_mention?: string[] | null;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -682,6 +819,171 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BrandOut"][];
+                };
+            };
+        };
+    };
+    create_brand_brands_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_brand_brands__brand_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_brand_brands__brand_id__delete: {
+        parameters: {
+            query?: {
+                force?: boolean;
+            };
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_brand_brands__brand_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BrandPatch"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    upload_logo_brands__brand_id__logo_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                brand_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_logo_brands__brand_id__logo_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BrandOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

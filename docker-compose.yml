@@ -19,7 +19,7 @@ x-api-env: &api-env
   ENV: ${ENV:-dev}
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   TZ: ${TZ:-Asia/Kolkata}
-  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3020}
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3020,http://127.0.0.1:3020}
   INGEST_INTERVAL_MINUTES: ${INGEST_INTERVAL_MINUTES:-30}
   INGEST_MAX_CONCURRENCY: ${INGEST_MAX_CONCURRENCY:-4}
   TRENDS_RISING_QUERIES: ${TRENDS_RISING_QUERIES:-false}
@@ -263,7 +263,7 @@ services:
     working_dir: /srv/repo
     command: ["sh", "-c", "corepack enable pnpm && pnpm install --frozen-lockfile=false && pnpm --filter @trendforge/web dev --port 3000"]
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8020
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:8020
       WATCHPACK_POLLING: "true"
     ports:
       - "${WEB_PORT:-3020}:3000"

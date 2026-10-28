@@ -25,6 +25,7 @@ import io
 from PIL import Image, ImageDraw
 from PIL.Image import Resampling
 
+from app import storage
 from app.core.logging import get_logger
 from app.images.base import ImageBrief, ImageProvider, RenderedImage
 from app.images.fonts import load_font, shaping_available
@@ -55,9 +56,28 @@ SUPERSAMPLE = 2
 
 ELLIPSIS = "…"
 
+#: Logo box, as fractions of the canvas. The height clears `_footer_top`
+#: so a tall mark cannot grow up through the footer rule, and the width
+#: cap stops a wide wordmark from reaching the hashtags.
+LOGO_HEIGHT = 0.055
+LOGO_MAX_WIDTH = 0.30
+#: How far under the footer rule the logo box starts.
+LOGO_CLEARANCE = 0.008
+
+
+#: Where ink stops being more readable than white.
+#:
+#: Not a round number and not a guess: it is the luminance at which the WCAG
+#: contrast ratio against INK equals the ratio against WHITE, which is
+#: sqrt(1.05 * (L_ink + 0.05)) - 0.05. The threshold used to be 0.45, which
+#: put turmeric (#E3A51D, L=0.433) on the white side — 2.17:1 against white
+#: where ink gives 7.33:1. A brand picking any mid-tone got the less
+#: readable of the two options, and CLAUDE.md asks for 4.5:1.
+INK_THRESHOLD = 0.2131
+
 
 def contrasting_ink(hex_color: str) -> str:
-    """Black or white text, whichever is readable on `hex_color`.
+    """Ink or white text, whichever is readable on `hex_color`.
 
     Relative luminance, not a brightness average: a saturated brand red and a
     mid grey can share an average and need opposite text colours.
@@ -74,7 +94,7 @@ def contrasting_ink(hex_color: str) -> str:
         return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
 
     luminance = 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-    return INK if luminance > 0.45 else WHITE
+    return INK if luminance > INK_THRESHOLD else WHITE
 
 
 def text_width(draw: ImageDraw.ImageDraw, text: str, font) -> int:
@@ -213,11 +233,11 @@ class PillowTemplateProvider(ImageProvider):
         w, h = width * scale, height * scale
 
         if template == "poster":
-            self._poster(draw, brief, w, h)
+            self._poster(canvas, draw, brief, w, h)
         elif template == "split":
-            self._split(draw, brief, w, h)
+            self._split(canvas, draw, brief, w, h)
         else:
-            self._wire(draw, brief, w, h)
+            self._wire(canvas, draw, brief, w, h)
 
         canvas = canvas.resize((width, height), Resampling.LANCZOS)
         buffer = io.BytesIO()
@@ -238,7 +258,7 @@ class PillowTemplateProvider(ImageProvider):
 
     # ── templates ─────────────────────────────────────────────────────────
 
-    def _poster(self, draw, brief: ImageBrief, w: int, h: int) -> None:
+    def _poster(self, canvas, draw, brief: ImageBrief, w: int, h: int) -> None:
         """Full-bleed brand colour; the headline is the whole design."""
         draw.rectangle([0, 0, w, h], fill=brief.primary_color)
         ink = contrasting_ink(brief.primary_color)
@@ -281,9 +301,9 @@ class PillowTemplateProvider(ImageProvider):
             draw.text((margin, y), line, font=sub_font, fill=ink)
             y += sub_height
 
-        self._footer(draw, brief, w, h, margin, ink=ink, rule=False)
+        self._footer(canvas, draw, brief, w, h, margin, ink=ink, rule=False)
 
-    def _split(self, draw, brief: ImageBrief, w: int, h: int) -> None:
+    def _split(self, canvas, draw, brief: ImageBrief, w: int, h: int) -> None:
         """A secondary-colour block carrying one token, over a white half."""
         block_h = int(h * 0.60)
         draw.rectangle([0, 0, w, block_h], fill=brief.secondary_color)
@@ -346,9 +366,9 @@ class PillowTemplateProvider(ImageProvider):
                 draw.text((margin, y), line, font=sub_font, fill=SLATE)
                 y += sub_height
 
-        self._footer(draw, brief, w, h, margin, ink=INK, rule=True)
+        self._footer(canvas, draw, brief, w, h, margin, ink=INK, rule=True)
 
-    def _wire(self, draw, brief: ImageBrief, w: int, h: int) -> None:
+    def _wire(self, canvas, draw, brief: ImageBrief, w: int, h: int) -> None:
         """The board as a post: paper, a dotted rule, the sparkline enlarged."""
         draw.rectangle([0, 0, w, h], fill=PAPER)
         margin = int(w * 0.08)
@@ -392,7 +412,7 @@ class PillowTemplateProvider(ImageProvider):
             height=int(h * 0.20),
         )
 
-        self._footer(draw, brief, w, h, margin, ink=INK, rule=True, dotted=True)
+        self._footer(canvas, draw, brief, w, h, margin, ink=INK, rule=True, dotted=True)
 
     # ── shared furniture ──────────────────────────────────────────────────
 
@@ -439,6 +459,7 @@ class PillowTemplateProvider(ImageProvider):
 
     def _footer(
         self,
+        canvas,
         draw,
         brief: ImageBrief,
         w: int,
@@ -453,14 +474,22 @@ class PillowTemplateProvider(ImageProvider):
 
         The brand is measured and drawn first so the hashtag line knows exactly
         how much room it has; drawing tags first let a long one run underneath
-        the brand name. The brand block is the logo slot — an image is fetched
-        here once logo_url is wired up.
+        the brand name.
+
+        The brand block is the logo slot. A logo replaces the wordmark rather
+        than sitting beside it — that is what a logo is for, and two marks for
+        one brand in a 30px band is clutter. No logo, or a logo that will not
+        load, and the name is drawn instead.
         """
         baseline = self._baseline(h)
 
-        brand_font = load_font(brief.brand_name, int(w * 0.028), "Bold", "ui")
-        brand_width = text_width(draw, brief.brand_name, brand_font)
-        draw.text((w - margin - brand_width, baseline), brief.brand_name, font=brand_font, fill=ink)
+        brand_width = self._logo(canvas, brief, w, h, margin, baseline)
+        if brand_width == 0:
+            brand_font = load_font(brief.brand_name, int(w * 0.028), "Bold", "ui")
+            brand_width = text_width(draw, brief.brand_name, brand_font)
+            draw.text(
+                (w - margin - brand_width, baseline), brief.brand_name, font=brand_font, fill=ink
+            )
 
         available = w - margin * 2 - brand_width - int(w * 0.05)
         tag_font = load_font(" ".join(brief.hashtags) or "#", int(w * 0.029), "SemiBold", "ui")
@@ -474,3 +503,61 @@ class PillowTemplateProvider(ImageProvider):
                 self._dotted_rule(draw, margin, rule_y, w - margin, w)
             else:
                 draw.rectangle([margin, rule_y, w - margin, rule_y + 1], fill=ink)
+
+    def _logo(self, canvas, brief: ImageBrief, w: int, h: int, margin: int, baseline: int) -> int:
+        """Paste the brand logo at the right of the footer. Width, or 0.
+
+        Returns 0 for every reason a logo might not appear — no key, storage
+        refused, bytes Pillow cannot open — so the caller falls back to the
+        wordmark. A post that renders without a logo is a smaller problem
+        than a post that does not render.
+
+        Sized to the footer band rather than to the logo: `LOGO_HEIGHT` sits
+        just below `_footer_top`, so a tall mark cannot grow up through the
+        rule, and a wide one is capped at `LOGO_MAX_WIDTH` of the canvas.
+        """
+        if not brief.logo_key:
+            return 0
+
+        try:
+            opened = Image.open(io.BytesIO(storage.get_bytes(brief.logo_key)))
+            # Eagerly, inside the guard: Image.open is lazy, and a truncated
+            # or mislabelled file raises on first access rather than here.
+            opened.load()
+            logo = opened.convert("RGBA")
+        except Exception as exc:
+            log.warning(
+                "logo unavailable, using the brand name",
+                key=brief.logo_key,
+                error=f"{type(exc).__name__}: {exc}"[:200],
+            )
+            return 0
+
+        # Trimmed to its ink before sizing. Exported logos carry wildly
+        # different amounts of transparent padding, and without this the box
+        # is filled by the file rather than by the mark — two brands get
+        # visibly different logo sizes for the same reason neither chose.
+        ink = logo.getchannel("A").getbbox()
+        if ink:
+            logo = logo.crop(ink)
+
+        # Bottom-aligned with the hashtag line beside it, so the two read as
+        # one row rather than two things that happen to be near each other.
+        bottom = baseline + int(w * 0.034)
+        # And boxed off the footer rule rather than merely sized to clear it.
+        # The fraction below is right for a square and too tall for a
+        # portrait, and a logo growing up through the rule is exactly the
+        # kind of overrun the footer tests exist to catch.
+        ceiling = self._footer_top(h) + int(h * LOGO_CLEARANCE)
+
+        height = min(int(h * LOGO_HEIGHT), bottom - ceiling)
+        if height < 1:
+            return 0
+        width = max(1, round(logo.width * height / logo.height))
+        if width > int(w * LOGO_MAX_WIDTH):
+            width = int(w * LOGO_MAX_WIDTH)
+            height = max(1, round(logo.height * width / logo.width))
+        logo = logo.resize((width, height), Resampling.LANCZOS)
+
+        canvas.paste(logo, (w - margin - width, bottom - height), logo)
+        return width

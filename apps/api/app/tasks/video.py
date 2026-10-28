@@ -34,7 +34,7 @@ from app.models import (
     JobStatus,
     Trend,
 )
-from app.storage import put_bytes
+from app.storage import internal_url, put_bytes
 from app.tasks.content import ContentError, build_brief
 from app.tts.edge import EdgeTTSProvider, TTSError
 from app.video import SIZES, VideoError
@@ -128,7 +128,11 @@ async def run_reel(job_id: int, sessions: Any = None) -> dict[str, Any]:
                 region_name=brief["region_name"],
                 velocity=brief["velocity"],
                 script_name=script_of(f"{script.headline} {script.segments[0].say}"),
-                logo_url=job.brand.logo_url,
+                # The internal endpoint, not brand.logo_url. The renderer is
+                # a container fetching an <Img src>, and logo_url is built
+                # from S3_PUBLIC_URL — localhost on a published port, which
+                # inside the renderer is nothing at all.
+                logo_url=(internal_url(job.brand.logo_key) if job.brand.logo_key else None),
             )
             rendered = await renderer.render(video_brief)
 
