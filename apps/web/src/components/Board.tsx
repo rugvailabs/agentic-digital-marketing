@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { Desk } from '@/components/Desk'
 import { Ladder } from '@/components/Ladder'
+import { BatchGenerate } from '@/components/BatchGenerate'
 import { PlatformStrip } from '@/components/PlatformStrip'
 import { RegionStrip } from '@/components/RegionStrip'
 import { Code, Empty, SectionLabel, cx } from '@/components/primitives'
@@ -73,6 +74,12 @@ export function Board({
           available={board.region.platforms}
           region={board.region.code}
           selected={activePlatform}
+        />
+
+        <BatchGenerate
+          brands={brands}
+          region={board.region.code}
+          disabled={board.trends.length === 0}
         />
 
         <div className="flex items-baseline justify-between px-4 py-3">

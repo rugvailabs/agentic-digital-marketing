@@ -10,7 +10,17 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import brands, content, health, ingest, library, platforms, regions, trends
+from app.api import (
+    batch,
+    brands,
+    content,
+    health,
+    ingest,
+    library,
+    platforms,
+    regions,
+    trends,
+)
 from app.core.config import settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import engine
@@ -49,5 +59,6 @@ app.include_router(trends.router, prefix="/trends")
 app.include_router(ingest.router, prefix="/ingest")
 app.include_router(brands.router, prefix="/brands")
 app.include_router(library.router, prefix="/library")
+app.include_router(batch.router, prefix="/content/batch")
 # content routes carry their own full paths (/content/...).
 app.include_router(content.router)

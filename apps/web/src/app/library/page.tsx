@@ -3,6 +3,15 @@ import Link from 'next/link'
 import { Library } from '@/components/Library'
 import { fetchFacetsSafely, fetchLibrarySafely } from '@/lib/library'
 
+/**
+ * Rendered per request, not at build time.
+ *
+ * Next prerenders a page with no dynamic inputs, and these all read the
+ * API — so a build would either bake in whatever the board said that
+ * afternoon or, with no API reachable, fail outright. Which is what it did.
+ */
+export const dynamic = 'force-dynamic'
+
 export const metadata = { title: 'Library — TrendForge' }
 
 /**

@@ -51,6 +51,8 @@ type Shot = {
    * page with no ladder would otherwise fail on after 15s.
    */
   path?: string
+  /** Open the "Generate for the top topics" panel above the ladder. */
+  batch?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -173,6 +175,20 @@ function shots(regionOverride?: string): Shot[] {
       theme: 'dark',
       viewport: DESKTOP,
       path: '/settings',
+    },
+    {
+      name: 'batch-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      batch: true,
+    },
+    {
+      name: 'batch-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      batch: true,
     },
     {
       name: 'calendar-month-1440-light',
@@ -332,6 +348,22 @@ async function capture(page: Page, shot: Shot): Promise<string> {
   const rows = await page.locator('[role="option"]').count()
   if (rows === 0) {
     throw new Error(`no topics for ${shot.region}: run \`.\\tf.ps1 ingest\` first`)
+  }
+
+  if (shot.batch) {
+    // Clicked in a loop: before hydration the button is there, visible and
+    // enabled, and does nothing at all. Same reason as the calendar smoke.
+    const open = page.getByRole('button', { name: 'Generate for the top topics' })
+    for (let attempt = 0; attempt < 20; attempt++) {
+      if (!(await open.isVisible().catch(() => false))) break
+      await open.click()
+      await page.waitForTimeout(500)
+    }
+    // The button's label is the number the API says it will queue, so this
+    // waits for the plan rather than for a fixed delay.
+    await page.waitForFunction(() => !document.body.textContent?.includes('Checking…'), undefined, {
+      timeout: 20_000,
+    })
   }
 
   if (shot.selectTopic) {

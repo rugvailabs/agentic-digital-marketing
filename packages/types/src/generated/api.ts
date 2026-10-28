@@ -207,6 +207,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/content/batch/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Plan Batch
+         * @description What would happen, without spending anything.
+         *
+         *     The board's button says "Generate 8 posts" rather than "Generate for top
+         *     10" because of this: telling someone the number after the fact, when it
+         *     is lower than the one they chose, is a worse moment than telling them
+         *     before.
+         */
+        post: operations["plan_batch_content_batch_plan_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Batch
+         * @description Queue up to N posts for the top of a board.
+         *
+         *     Capped at what the day can pay for. The cap is applied before anything
+         *     is written, so the rows that exist are the rows that will run — queueing
+         *     twelve and failing at nine leaves three rows that look like bugs and
+         *     three assets nobody asked for.
+         */
+        post: operations["run_batch_content_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content/batch/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent Batch Jobs
+         * @description The newest jobs for a brand, so a client can watch a batch finish.
+         */
+        get: operations["recent_batch_jobs_content_batch_jobs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content/jobs": {
         parameters: {
             query?: never;
@@ -314,6 +384,53 @@ export interface components {
             hashtags?: string[] | null;
             /** Alt Text */
             alt_text?: string | null;
+        };
+        /**
+         * BatchPlan
+         * @description What a batch would do, without doing it.
+         */
+        BatchPlan: {
+            /** Available */
+            available: number;
+            /** Remaining Today */
+            remaining_today: number | null;
+            /** Would Queue */
+            would_queue: number;
+            /** Skipped */
+            skipped: components["schemas"]["Skipped"][];
+            /** Message */
+            message: string;
+        };
+        /** BatchRequest */
+        BatchRequest: {
+            /** Brand Id */
+            brand_id: number;
+            /** Region */
+            region: string;
+            /**
+             * N
+             * @default 5
+             */
+            n: number;
+            /** @default english */
+            language: components["schemas"]["Language"];
+            /** @default post */
+            kind: components["schemas"]["JobKind"];
+            /** Formats */
+            formats?: string[];
+        };
+        /** BatchResult */
+        BatchResult: {
+            /** Queued */
+            queued: number[];
+            /** Skipped */
+            skipped: components["schemas"]["Skipped"][];
+            /** Remaining Before */
+            remaining_before: number | null;
+            /** Requested */
+            requested: number;
+            /** Message */
+            message: string;
         };
         /** Body_run_ingest_ingest_run_post */
         Body_run_ingest_ingest_run_post: {
@@ -694,6 +811,19 @@ export interface components {
             total_volume: number;
             /** Platforms */
             platforms: components["schemas"]["SourceName"][];
+        };
+        /**
+         * Skipped
+         * @description A topic that was not queued, and the reason in words a user can act
+         *     on.
+         */
+        Skipped: {
+            /** Trend Id */
+            trend_id: number;
+            /** Topic */
+            topic: string;
+            /** Reason */
+            reason: string;
         };
         /**
          * SourceName
@@ -1197,6 +1327,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryFacets"];
+                };
+            };
+        };
+    };
+    plan_batch_content_batch_plan_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchPlan"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    run_batch_content_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BatchResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    recent_batch_jobs_content_batch_jobs_get: {
+        parameters: {
+            query: {
+                brand_id: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": number[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

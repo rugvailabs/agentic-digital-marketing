@@ -194,3 +194,27 @@ on the beat would be ~80 calls a cycle. Everything else curates when opened.
 
 Step 3 adds video: Remotion templates, the `render_video` stage, TTS and the
 publish step.
+
+### Smoke checks
+
+Two scripts exercise the things a type check and a unit test both pass and a
+browser still gets wrong. Both need the stack up.
+
+```powershell
+pnpm --filter @trendforge/web smoke:calendar   # drag and arrow-key rescheduling
+pnpm --filter @trendforge/web smoke:pwa        # manifest, icons, worker, 390px
+```
+
+`smoke:calendar` runs against the dev server; it schedules an item of its own
+and puts it back. `smoke:pwa` needs a production server, because the service
+worker is registered in production only:
+
+```powershell
+pnpm --filter @trendforge/web build
+pnpm --filter @trendforge/web start            # in another shell
+$env:TRENDFORGE_WEB_URL = "http://127.0.0.1:3020"
+pnpm --filter @trendforge/web smoke:pwa
+```
+
+Stop `pnpm dev` before building: `next dev` and `next build` share `.next`,
+and a mixed one fails at runtime with `TypeError: a[d] is not a function`.

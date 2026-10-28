@@ -12,6 +12,7 @@
     "test": "vitest run",
     "shot": "tsx scripts/shot.ts",
     "smoke:calendar": "tsx scripts/smoke-calendar.ts",
+    "smoke:pwa": "tsx scripts/smoke-pwa.ts",
     "test:watch": "vitest"
   },
   "dependencies": {
