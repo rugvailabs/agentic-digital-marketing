@@ -30,7 +30,7 @@ const rows = [trend(1), trend(2), trend(3)]
 
 describe('Ladder', () => {
   it('renders one option per topic with its rank numeral', () => {
-    render(<Ladder trends={rows} selectedRank={1} onSelect={() => {}} />)
+    render(<Ladder trends={rows} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />)
 
     const options = screen.getAllByRole('option')
     expect(options).toHaveLength(3)
@@ -39,7 +39,7 @@ describe('Ladder', () => {
   })
 
   it('exposes the rank to screen readers, since the numeral itself is decorative', () => {
-    render(<Ladder trends={rows} selectedRank={1} onSelect={() => {}} />)
+    render(<Ladder trends={rows} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />)
 
     expect(screen.getByText('Rank 2:')).toBeDefined()
   })
@@ -49,7 +49,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1, { sources: ['google_trends', 'google_news', 'youtube'] })]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -87,7 +87,7 @@ describe('Ladder', () => {
           }),
         ]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -108,7 +108,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1, { sources: ['google_trends'] })]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -125,7 +125,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1), trend(3), trend(4), trend(6)]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -144,7 +144,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(17), trend(18), trend(20), trend(22)]}
         selectedRank={17}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -158,7 +158,7 @@ describe('Ladder', () => {
 
   it('says nothing about board rank when the list is unfiltered', () => {
     const { container } = render(
-      <Ladder trends={[trend(1), trend(2), trend(3)]} selectedRank={1} onSelect={() => {}} />,
+      <Ladder trends={[trend(1), trend(2), trend(3)]} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />,
     )
 
     expect(container.textContent).not.toContain('rank 1')
@@ -167,7 +167,7 @@ describe('Ladder', () => {
 
   it('never tints a rank numeral with the accent, including the selected row', () => {
     const { container } = render(
-      <Ladder trends={[trend(1), trend(2)]} selectedRank={1} onSelect={() => {}} />,
+      <Ladder trends={[trend(1), trend(2)]} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />,
     )
 
     // Chilli belongs to rising velocity alone.
@@ -179,7 +179,7 @@ describe('Ladder', () => {
 
   it('selects a row on click', () => {
     const onSelect = vi.fn()
-    render(<Ladder trends={rows} selectedRank={1} onSelect={onSelect} />)
+    render(<Ladder trends={rows} selectedRank={1} onSelect={onSelect} onGenerate={() => {}} />)
 
     fireEvent.click(screen.getAllByRole('option')[2]!)
     expect(onSelect).toHaveBeenCalledWith(3)
@@ -187,7 +187,7 @@ describe('Ladder', () => {
 
   it('moves the selection with the arrow keys', () => {
     const onSelect = vi.fn()
-    render(<Ladder trends={rows} selectedRank={2} onSelect={onSelect} />)
+    render(<Ladder trends={rows} selectedRank={2} onSelect={onSelect} onGenerate={() => {}} />)
     const list = screen.getByRole('listbox')
 
     fireEvent.keyDown(list, { key: 'ArrowDown' })
@@ -199,7 +199,7 @@ describe('Ladder', () => {
 
   it('jumps to the ends with Home and End', () => {
     const onSelect = vi.fn()
-    render(<Ladder trends={rows} selectedRank={2} onSelect={onSelect} />)
+    render(<Ladder trends={rows} selectedRank={2} onSelect={onSelect} onGenerate={() => {}} />)
     const list = screen.getByRole('listbox')
 
     fireEvent.keyDown(list, { key: 'End' })
@@ -211,21 +211,21 @@ describe('Ladder', () => {
 
   it('does not run off either end of the ladder', () => {
     const onSelect = vi.fn()
-    render(<Ladder trends={rows} selectedRank={1} onSelect={onSelect} />)
+    render(<Ladder trends={rows} selectedRank={1} onSelect={onSelect} onGenerate={() => {}} />)
 
     fireEvent.keyDown(screen.getByRole('listbox'), { key: 'ArrowUp' })
     expect(onSelect).toHaveBeenLastCalledWith(1)
   })
 
   it('keeps exactly one tab stop for the whole ladder', () => {
-    render(<Ladder trends={rows} selectedRank={2} onSelect={() => {}} />)
+    render(<Ladder trends={rows} selectedRank={2} onSelect={() => {}} onGenerate={() => {}} />)
 
     const tabbable = screen.getAllByRole('option').filter((o) => o.tabIndex === 0)
     expect(tabbable).toHaveLength(1)
   })
 
   it('compacts volume when a series exists', () => {
-    render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} />)
+    render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />)
 
     expect(screen.getByText('2L')).toBeDefined()
   })
@@ -237,7 +237,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1, { volume: 0, sources: ['google_news'] })]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -250,7 +250,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1, { volume: 0, sources: ['google_news'] })]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -262,7 +262,7 @@ describe('Ladder', () => {
       <Ladder
         trends={[trend(1, { topic: 'Rafale Marine fighter begins flight trials in Goa' })]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 
@@ -272,7 +272,7 @@ describe('Ladder', () => {
   })
 
   it('gives every sparkline an accessible label naming the trend direction', () => {
-    render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} />)
+    render(<Ladder trends={[trend(1)]} selectedRank={1} onSelect={() => {}} onGenerate={() => {}} />)
 
     expect(screen.getByRole('img', { name: /Rising/ })).toBeDefined()
   })
@@ -286,7 +286,7 @@ describe('Ladder', () => {
           trend(3, { velocity: [90, 80, 70, 60, 50, 5] }), // falling
         ]}
         selectedRank={1}
-        onSelect={() => {}}
+        onSelect={() => {}} onGenerate={() => {}}
       />,
     )
 

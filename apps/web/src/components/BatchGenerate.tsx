@@ -2,7 +2,11 @@
 
 import type { Brand } from '@trendforge/types'
 import Link from 'next/link'
+import { Sparkles } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 
 import { cx } from '@/components/house'
 
@@ -118,15 +122,33 @@ export function BatchGenerate({
 
   if (!open) {
     return (
-      <div className="border-b border-border px-4 py-2.5">
-        <button
+      <div className="border-b border-border px-3 py-2.5">
+        {/*
+         * A primary button, not the underlined link this was. It is the one
+         * action on the board that does work in bulk, and it was set in the
+         * same quiet type as a footnote — so the single most useful control
+         * in the column read as a caption. The badge carries how many
+         * topics it will take, which was previously only discoverable by
+         * opening the form.
+         */}
+        <Button
           type="button"
           onClick={() => setOpen(true)}
           disabled={disabled}
-          className="text-xs text-slate underline underline-offset-2 hover:text-ink disabled:no-underline disabled:opacity-50"
+          size="sm"
+          className="w-full justify-between"
         >
-          Generate for the top topics
-        </button>
+          <span className="flex items-center gap-1.5">
+            <Sparkles aria-hidden="true" className="size-3.5" strokeWidth={2} />
+            Generate for the top topics
+          </span>
+          <Badge
+            variant="secondary"
+            className="bg-primary-foreground/15 text-primary-foreground border-transparent px-1.5 tabular-nums"
+          >
+            {n}
+          </Badge>
+        </Button>
       </div>
     )
   }

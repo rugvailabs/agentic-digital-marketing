@@ -30,8 +30,31 @@ Every page is here in both themes at 1440 and 390.
 - `settings-*` — which platforms are connected, and the variables to set.
 - `empty-*` — an empty state, with its illustration and its next action.
 
-## Captured 3 shots this run
+## Captured 26 shots this run
 
+- `board-1440-light.png` — IN, 1440px, 20 rows
 - `board-1440-dark.png` — IN, 1440px, 20 rows
+- `board-state-1440-light.png` — IN-MH, 1440px, 20 rows
+- `board-state-1440-dark.png` — IN-MH, 1440px, 20 rows
+- `studio-english.png` — IN-GA, 1440px, 20 rows
+- `studio-hindi.png` — IN-GA, 1440px, 20 rows
+- `asset-actions-1440-dark.png` — IN-GA, 1440px, 20 rows
+- `studio-tamil.png` — IN-GA, 1440px, 20 rows
+- `reel-1440-light.png` — IN-GA, 1440px, 20 rows
+- `reel-1440-dark.png` — IN-GA, 1440px, 20 rows
+- `desk-platforms-1440-light.png` — IN-TN, 1440px, 20 rows
+- `desk-platforms-1440-dark.png` — IN-TN, 1440px, 20 rows
+- `platforms-1440-light.png` — IN-MH, 1440px, 20 rows
+- `platforms-1440-dark.png` — IN-MH, 1440px, 20 rows
 - `platform-filtered-1440-light.png` — IN-MH, 1440px, 20 rows
 - `dashboard-1440-dark.png` — 1440px
+- `dashboard-1440-light.png` — 1440px
+- `dashboard-390-dark.png` — 390px
+- `shell-rail-1440-dark.png` — IN, 1440px, 20 rows
+- `batch-1440-light.png` — IN, 1440px, 20 rows
+- `batch-1440-dark.png` — IN, 1440px, 20 rows
+- `dashboard-390-light.png` — 390px
+- `board-390-light.png` — IN, 390px, 20 rows
+- `board-390-dark.png` — IN, 390px, 20 rows
+- `panel-390-light.png` — IN, 390px, 20 rows
+- `panel-390-dark.png` — IN, 390px, 20 rows

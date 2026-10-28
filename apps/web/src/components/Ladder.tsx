@@ -21,10 +21,13 @@ export function Ladder({
   trends,
   selectedRank,
   onSelect,
+  onGenerate,
 }: {
   trends: Trend[]
   selectedRank: number
   onSelect: (rank: number) => void
+  /** Select the topic and open the Desk on its Post tab. */
+  onGenerate: (rank: number) => void
 }) {
   const listRef = useRef<HTMLDivElement>(null)
   // Animate on first mount only; re-animating on every selection would make the
@@ -81,6 +84,7 @@ export function Ladder({
           selected={trend.rank === selectedRank}
           tabIndex={i === index ? 0 : -1}
           onSelect={() => onSelect(trend.rank)}
+          onGenerate={() => onGenerate(trend.rank)}
           animate={!settled}
           delayMs={i * stagger}
         />
@@ -95,6 +99,7 @@ function Row({
   selected,
   tabIndex,
   onSelect,
+  onGenerate,
   animate,
   delayMs,
 }: {
@@ -113,6 +118,7 @@ function Row({
   selected: boolean
   tabIndex: number
   onSelect: () => void
+  onGenerate: () => void
   animate: boolean
   delayMs: number
 }) {
@@ -151,9 +157,16 @@ function Row({
       tabIndex={tabIndex}
       onClick={onSelect}
       className={cx(
-        'rule-dotted group grid cursor-pointer grid-cols-[4.5rem_1fr_auto] items-start gap-x-3 py-2 pr-4 pl-1 transition-colors',
+        'rule-dotted group relative grid cursor-pointer grid-cols-[4.5rem_1fr_auto] items-start gap-x-3 py-2 pr-3 pl-1 transition-colors duration-150 ease-[var(--ease-out-quick)]',
         animate ? 'row-settle' : '',
         selected ? 'bg-row-active' : 'hover:bg-row-hover',
+        // The selected row's left edge, in ink rather than in chilli: the
+        // accent means rising velocity here and a selection is not a
+        // signal about the topic. 2px, drawn inside the row's own box so
+        // it does not shift the numeral.
+        selected
+          ? 'before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-ink before:content-[""]'
+          : '',
       )}
       style={animate ? { animationDelay: `${delayMs}ms` } : undefined}
     >
@@ -237,16 +250,68 @@ function Row({
 
       <div className={cx('flex items-center gap-3', headline ? 'pt-3' : 'pt-1')}>
         {hasSeries ? <Sparkline series={trend.velocity} /> : null}
-        <span
-          className={cx(
-            'w-14 text-right text-sm',
-            hasSeries ? 'num text-slate' : 'truncate text-slate',
-          )}
-        >
-          {hasSeries ? formatCompactVolume(trend.volume) : origin}
+        {/*
+         * One box, two faces. The velocity figure is what the row says at
+         * rest; under a pointer it becomes the two things you can do with
+         * the row. Stacked rather than appended, because a row that grows
+         * a pair of buttons on hover reflows the whole ladder under the
+         * cursor — the measured width here is the wider of the two.
+         */}
+        <span className="relative block w-[5.5rem] shrink-0">
+          <span
+            className={cx(
+              'block text-right text-sm transition-opacity duration-150 ease-[var(--ease-out-quick)] group-hover:opacity-0',
+              hasSeries ? 'num text-slate' : 'truncate text-slate',
+            )}
+          >
+            {hasSeries ? formatCompactVolume(trend.volume) : origin}
+          </span>
+          <span className="pointer-events-none absolute inset-0 flex items-center justify-end gap-1 opacity-0 transition-opacity duration-150 ease-[var(--ease-out-quick)] group-hover:pointer-events-auto group-hover:opacity-100">
+            <RowAction label="Open" onClick={onSelect} />
+            <RowAction label="Generate" onClick={onGenerate} primary />
+          </span>
         </span>
       </div>
     </div>
+  )
+}
+
+/**
+ * One of the two actions a row reveals.
+ *
+ * `stopPropagation`, because the whole row is already a click target that
+ * selects the topic — without it "Generate" selected the row and then the
+ * row's own handler ran too, which on the Generate path meant the Desk
+ * changed tab underneath the thing that was being started.
+ */
+function RowAction({
+  label,
+  onClick,
+  primary = false,
+}: {
+  label: string
+  onClick: () => void
+  primary?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation()
+        onClick()
+      }}
+      // Not in the tab order: the row itself is focusable and these are a
+      // pointer affordance for what the row and the Desk already do.
+      tabIndex={-1}
+      className={cx(
+        'rounded-sm border px-1.5 py-0.5 text-[11px] leading-4 transition-colors duration-150 ease-[var(--ease-out-quick)]',
+        primary
+          ? 'border-transparent bg-primary text-primary-foreground'
+          : 'border-border bg-card text-slate hover:border-border-hover hover:text-ink',
+      )}
+    >
+      {label}
+    </button>
   )
 }
 

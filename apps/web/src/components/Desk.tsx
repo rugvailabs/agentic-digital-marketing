@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react'
 import { Hashtags } from '@/components/Hashtags'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
+import { DeskRail } from '@/components/desk/DeskRail'
 import { EmptyState } from '@/components/Empty'
 import { MetaCell, SectionLabel, Tabs } from '@/components/house'
 import { formatCompactVolume, formatIstDateTime, formatNumber, velocity } from '@/lib/format'
@@ -34,14 +35,26 @@ export function Desk({
   trend,
   brands,
   platforms,
+  openOn,
 }: {
   region: TrendsResponse['region']
   trend: Trend | null
   brands: Brand[]
   /** Every platform, so a configured one with no row can explain itself. */
   platforms: Platform[]
+  /** A tab the ladder has asked for, with a nonce so repeats register. */
+  openOn?: { tab: 'post'; nonce: number } | null
 }) {
   const [tab, setTab] = useState<Tab>('overview')
+
+  /*
+   * A row's "Generate" asks for the Post tab. Keyed on the nonce, not on
+   * the tab name, because asking twice for the same tab is a real request
+   * — the second press after wandering off to Evidence has to work.
+   */
+  useEffect(() => {
+    if (openOn) setTab(openOn.tab)
+  }, [openOn])
 
   // Back to Overview when the topic changes. Staying on Reel while the
   // subject underneath changes is how you render a video for the wrong
@@ -52,7 +65,7 @@ export function Desk({
 
   if (!trend) {
     return (
-      <section className="max-w-desk p-6">
+      <section className="p-6">
         <EmptyState
           art="ladder"
           title={`Nothing selected for ${region.name}.`}
@@ -63,41 +76,74 @@ export function Desk({
   }
 
   return (
-    <section key={`${region.code}-${trend.id}`} className="desk-in flex max-w-desk flex-col">
-      <header className="px-6 pt-6">
-        <p className="text-xs text-slate">
-          {region.name}, rank {trend.rank}
-        </p>
-        <h1 className="mt-1.5 font-display text-2xl leading-[1.05] font-bold text-ink">
-          {trend.topic}
-        </h1>
-        {trend.why_trending ? (
-          // Under the title, before anything else: it is the one line that
-          // says why this is on the board at all, and a marketer reads it
-          // before deciding whether to write anything.
-          <p className="mt-2 max-w-prose text-sm text-slate">{trend.why_trending}</p>
-        ) : null}
-      </header>
+    /*
+     * Two columns: the reading column takes what is left and the assets
+     * rail sits beside it. No max measure on the Desk as a whole any more —
+     * at 1440 a 760px cap left four hundred pixels of empty page beside
+     * the only thing on screen. The prose inside still has one; a 900px
+     * line of body text is unreadable, but that is a rule about a
+     * paragraph, not about a panel.
+     *
+     * The rail is 420px where there is room and shrinks to 280 where
+     * there is not, rather than being a fixed width that drops out. 1440
+     * minus a 240px sidebar minus the 440px wire leaves the Desk 760, and
+     * 480 + 420 is 900 — so a fixed rail disappeared below the fold at
+     * exactly the width this product is designed for, and reappeared only
+     * when the sidebar was railed. At 280 the rail shows one card per row
+     * instead of two, which is a rail of posters rather than a grid of
+     * them — still the assets, still beside the writing.
+     *
+     * A container query, not a viewport one: what decides this is how wide
+     * the Desk is, and that changes when the sidebar collapses without the
+     * window changing at all.
+     */
+    <section
+      key={`${region.code}-${trend.id}`}
+      className="desk-in @min-[46rem]:grid-cols-[minmax(var(--spacing-desk-content),1fr)_minmax(var(--spacing-desk-rail-min),var(--spacing-desk-rail))] grid min-h-full grid-cols-1 items-start"
+    >
+      <div className="flex min-w-0 flex-col">
+        <header className="px-6 pt-6">
+          <p className="text-xs text-slate">
+            {region.name}, rank {trend.rank}
+          </p>
+          <h1 className="mt-1.5 font-display text-2xl leading-[1.05] font-bold text-ink">
+            {trend.topic}
+          </h1>
+          {trend.why_trending ? (
+            // Under the title, before anything else: it is the one line that
+            // says why this is on the board at all, and a marketer reads it
+            // before deciding whether to write anything.
+            <p className="mt-2 max-w-prose text-sm text-slate">{trend.why_trending}</p>
+          ) : null}
+        </header>
 
-      <Tabs
-        label="Topic"
-        value={tab}
-        onChange={setTab}
-        className="mt-5 px-6"
-        tabs={[
-          { value: 'overview', label: 'Overview' },
-          { value: 'post', label: 'Post' },
-          { value: 'reel', label: 'Reel' },
-          { value: 'evidence', label: 'Evidence', count: trend.evidence.length },
-        ]}
-      />
+        <Tabs
+          label="Topic"
+          value={tab}
+          onChange={setTab}
+          className="mt-5 px-6"
+          tabs={[
+            { value: 'overview', label: 'Overview' },
+            { value: 'post', label: 'Post' },
+            { value: 'reel', label: 'Reel' },
+            { value: 'evidence', label: 'Evidence', count: trend.evidence.length },
+          ]}
+        />
 
-      <div role="tabpanel" className="p-6">
-        {tab === 'overview' ? <Overview trend={trend} platforms={platforms} /> : null}
-        {tab === 'post' ? <Studio trend={trend} brands={brands} kind="post" /> : null}
-        {tab === 'reel' ? <Studio trend={trend} brands={brands} kind="reel" /> : null}
-        {tab === 'evidence' ? <Evidence trend={trend} /> : null}
+        {/*
+         * Keyed by tab so the fade runs again on every change. Without the
+         * key React reuses the element, the animation never restarts, and
+         * only the first tab you open fades.
+         */}
+        <div key={tab} role="tabpanel" className="tab-in p-6">
+          {tab === 'overview' ? <Overview trend={trend} platforms={platforms} /> : null}
+          {tab === 'post' ? <Studio trend={trend} brands={brands} kind="post" /> : null}
+          {tab === 'reel' ? <Studio trend={trend} brands={brands} kind="reel" /> : null}
+          {tab === 'evidence' ? <Evidence trend={trend} /> : null}
+        </div>
       </div>
+
+      <DeskRail trendId={trend.id} />
     </section>
   )
 }

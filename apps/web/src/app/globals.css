@@ -140,8 +140,17 @@
   --spacing-topbar: 3.5rem; /* 56px fixed top bar */
   --spacing-sidebar: 15rem; /* 240px expanded */
   --spacing-sidebar-rail: 3.5rem; /* 56px collapsed to icons */
-  --spacing-wire: 25rem; /* 400px ladder column */
-  --spacing-desk: 47.5rem; /* 760px max Desk measure */
+  --spacing-wire: 27.5rem; /* 440px ladder column, fixed */
+  /*
+   * The Desk's two columns. It has no max measure any more: at 1440 a
+   * 760px cap left four hundred pixels of empty page to the right of the
+   * only thing on screen, which is the opposite of a dense desk. The
+   * content column takes what is left over and the rail is fixed, so the
+   * assets sit at a constant size and the prose reflows.
+   */
+  --spacing-desk-content: 30rem; /* 480px minimum measure for the reading column */
+  --spacing-desk-rail: 26.25rem; /* 420px of generated assets, where there is room */
+  --spacing-desk-rail-min: 17.5rem; /* 280px: one card per row, still beside the writing */
 
   /* The Desk stops being a column and becomes a slide-in panel below this. */
   --breakpoint-desk: 900px;
@@ -525,5 +534,33 @@
     /* shadcn's single radius knob, from which it derives xl/2xl/3xl. Pinned
        to the control step, because that is what it is used on. */
     --radius: var(--radius-sm);
+  }
+}
+
+@layer utilities {
+  /*
+   * A tab panel arriving. 120ms, per the brief — long enough to read as a
+   * change of content rather than a repaint, short enough that clicking
+   * through four tabs does not feel like waiting for four animations.
+   */
+  .tab-in {
+    animation: tab-in 120ms var(--ease-out-quick) both;
+  }
+
+  @keyframes tab-in {
+    from {
+      opacity: 0;
+      transform: translateY(2px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .tab-in {
+      animation: none;
+    }
   }
 }

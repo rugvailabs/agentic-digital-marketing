@@ -1,11 +1,10 @@
 'use client'
 
-import type { Brand, ContentAsset, Trend } from '@trendforge/types'
+import type { Brand, Trend } from '@trendforge/types'
 import { useEffect, useState } from 'react'
 
 import Link from 'next/link'
 
-import { AssetCard } from '@/components/desk/AssetCard'
 import { Reel } from '@/components/Reel'
 import { EmptyState } from '@/components/Empty'
 import { Button, Chip, Code, Field, SectionLabel, Select, Textarea, cx } from '@/components/house'
@@ -21,30 +20,6 @@ const LANGUAGE_LABELS: Record<string, string> = {
   telugu: 'తెలుగు',
   bengali: 'বাংলা',
   marathi: 'मराठी',
-}
-
-/** Full template names. The renderer sends one in `meta.label`; this is the
- *  fallback for assets rendered before it did. "square:…" told nobody
- *  anything. */
-const TEMPLATE_LABELS: Record<string, string> = {
-  poster: 'Poster',
-  split: 'Split panel',
-  wire: 'Wire',
-  'bold-type': 'Bold type',
-  'split-panel': 'Split panel',
-  'flat-colour': 'Flat colour',
-}
-
-function templateLabel(asset: { variant: string; meta_json: Record<string, unknown> }): string {
-  const label = asset.meta_json?.label
-  if (typeof label === 'string' && label) return label
-  const template = asset.variant.split(':')[1] ?? asset.variant
-  return TEMPLATE_LABELS[template] ?? template.replace(/-/g, ' ')
-}
-
-function dimensions(asset: { meta_json: Record<string, unknown> }): string {
-  const { width, height } = asset.meta_json as { width?: number; height?: number }
-  return width && height ? `${width}×${height}` : ''
 }
 
 type Caption = {
@@ -89,7 +64,6 @@ export function Studio({
 
   const brand = brands.find((b) => b.id === brandId)
   const caption = job.job?.assets.find((a) => a.kind === 'caption')
-  const images = job.job?.assets.filter((a) => a.kind === 'image') ?? []
   const blocked = trend.safety_flag === 'skip'
   const formats = kind === 'reel' ? ['reel'] : ['square', 'portrait']
 
@@ -180,9 +154,15 @@ export function Studio({
           {caption ? (
             <CaptionEditor assetId={caption.id} initial={caption.meta_json as Caption} />
           ) : null}
-          {images.length > 0 ? (
-            <Images images={images} brandName={brand?.name} jobId={job.job?.id} />
-          ) : null}
+          {/*
+           * No image grid here any more.
+           *
+           * The Desk now has an assets rail beside it that shows exactly
+           * these files, so the Post tab was drawing all six of them a
+           * second time, a thousand pixels below the first set. The tab is
+           * where a post is written; the rail is where what was made is
+           * kept.
+           */}
           {!job.job && !job.error ? (
             <EmptyState
               art="grid"
@@ -197,54 +177,6 @@ export function Studio({
     </div>
   )
 }
-
-function Images({
-  images,
-  brandName,
-  jobId,
-}: {
-  images: ContentAsset[]
-  brandName?: string
-  jobId?: number
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <SectionLabel>
-        {images.length} images{brandName ? ` for ${brandName}` : ''}
-      </SectionLabel>
-      {/* items-start so a portrait card keeps its height instead of
-          stretching its square neighbours to match. */}
-      <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
-        {images.map((asset) => (
-          <AssetCard
-            key={asset.id}
-            url={asset.url}
-            jobId={jobId}
-            title={templateLabel(asset)}
-            subtitle={dimensions(asset)}
-          >
-            {asset.url ? (
-              // Intrinsic size on the element, so a 1080x1350 post holds
-              // its 4:5 shape instead of being squared off by the grid.
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={asset.url}
-                alt={String((asset.meta_json as Caption).alt_text ?? '')}
-                width={Number((asset.meta_json as { width?: number }).width) || 1080}
-                height={Number((asset.meta_json as { height?: number }).height) || 1080}
-                className="block h-auto w-full"
-                loading="lazy"
-              />
-            ) : (
-              <span className="block aspect-square w-full bg-page" />
-            )}
-          </AssetCard>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption }) {
   const [text, setText] = useState(initial.caption ?? '')
   const [state, setState] = useState<'clean' | 'saving' | 'saved' | 'error'>('clean')

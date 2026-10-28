@@ -449,20 +449,27 @@ async function openTab(page: Page, name: string): Promise<void> {
 }
 
 /**
- * Hide the phone's bottom nav for a full-page capture.
+ * Take the phone's bottom bar out of a full-page capture.
  *
- * Chromium paints a `position: fixed` element once, where it would sit at
- * scroll zero — so in a 3000px full-page shot of the dashboard the bottom
- * bar lands a third of the way down, stamped across the middle of the
- * content like a bug. The top bar is at the top of such a shot, which is
- * where it belongs, so only this one is in the way.
+ * Chromium paints a `position: fixed` element once, where it sits at
+ * scroll zero, so in a 3000px shot the bar lands a third of the way down,
+ * stamped across the content like a bug.
+ *
+ * Only that one. The first version of this matched `nav[aria-label="Main"]`,
+ * which is also the sidebar — they are the same navigation at two widths
+ * and share an accessible name — so every full-page shot came back with a
+ * 240px blank gutter where the sidebar should be, and it read as a
+ * rendering bug in the product rather than as a bug in this file. The
+ * bottom bar is the one anchored to `bottom-0`.
  *
  * Nothing is lost by hiding it: the 390px board and panel shots are
- * viewport-height, and the bar is sitting at the foot of those.
+ * viewport-height, and the bar is sitting at the foot of those. The top
+ * bar needs no rule at all — it is sticky, not fixed, and sticky paints
+ * where it belongs.
  */
-async function hideFixedNav(page: Page): Promise<void> {
+async function hideFixedChrome(page: Page): Promise<void> {
   await page.addStyleTag({
-    content: 'nav[aria-label="Main"].fixed { display: none !important }',
+    content: 'nav[aria-label="Main"].fixed.bottom-0 { display: none !important }',
   })
 }
 
@@ -573,7 +580,7 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     }
 
     await page.waitForTimeout(SETTLE_MS)
-    await hideFixedNav(page)
+    await hideFixedChrome(page)
     const file = join(OUT_DIR, `${shot.name}.png`)
     await page.screenshot({ path: file, fullPage: true })
     return { file, note: `${shot.viewport.width}px` }
@@ -688,7 +695,15 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
 
   await page.waitForTimeout(SETTLE_MS)
   const fullPage = shot.studio === true || shot.reel === true
-  if (fullPage) await hideFixedNav(page)
+  if (fullPage) {
+    await hideFixedChrome(page)
+    // Back to the top first. A fixed element is painted once in a
+    // full-page shot, at wherever it sits right now — and the studio path
+    // scrolls a textarea into view before this, so the 56px top bar landed
+    // across the middle of the shot, over the region picker.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await page.waitForTimeout(200)
+  }
   const file = join(OUT_DIR, `${shot.name}.png`)
   await page.screenshot({ path: file, fullPage })
   return { file, note: `${shot.region}, ${shot.viewport.width}px, ${rows} rows` }
