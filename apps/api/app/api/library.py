@@ -112,6 +112,8 @@ def _filtered(
     fmt: str | None,
     created_from: datetime | None,
     created_to: datetime | None,
+    scheduled_from: datetime | None,
+    scheduled_to: datetime | None,
     q: str | None,
 ) -> Select:
     """The shared WHERE, so the page and its count cannot disagree."""
@@ -143,6 +145,13 @@ def _filtered(
         stmt = stmt.where(ContentJob.created_at >= created_from)
     if created_to is not None:
         stmt = stmt.where(ContentJob.created_at <= created_to)
+    # The calendar asks for one week or one month at a time. Half-open on
+    # the right, so a week and the week after it cannot both claim an item
+    # scheduled for exactly midnight on the boundary.
+    if scheduled_from is not None:
+        stmt = stmt.where(ContentJob.scheduled_at >= scheduled_from)
+    if scheduled_to is not None:
+        stmt = stmt.where(ContentJob.scheduled_at < scheduled_to)
     if q:
         stmt = stmt.where(Trend.topic.ilike(f"%{q}%"))
 
@@ -162,7 +171,13 @@ async def list_library(
     format: str | None = None,
     created_from: datetime | None = None,
     created_to: datetime | None = None,
+    #: The calendar's window. Half-open: [from, to).
+    scheduled_from: datetime | None = None,
+    scheduled_to: datetime | None = None,
     q: str | None = None,
+    #: "created" for the library, "scheduled" for the calendar, where an
+    #: item's place is its time rather than its age.
+    order: str = Query("created", pattern="^(created|scheduled)$"),
     limit: int = Query(DEFAULT_LIMIT, ge=1, le=MAX_LIMIT),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
@@ -178,6 +193,8 @@ async def list_library(
         fmt=format,
         created_from=created_from,
         created_to=created_to,
+        scheduled_from=scheduled_from,
+        scheduled_to=scheduled_to,
         q=q,
     )
 
@@ -189,11 +206,12 @@ async def list_library(
                 selectinload(ContentJob.brand),
                 selectinload(ContentJob.assets),
             )
-            # Newest first, and by id as a tiebreak: created_at has
-            # microsecond resolution but a batch writes several rows inside
-            # one, and a page boundary that falls in the middle of a tie
-            # would repeat or drop an item.
-            .order_by(ContentJob.created_at.desc(), ContentJob.id.desc())
+            # Newest first for the library; earliest first for the
+            # calendar, where a day's column reads top to bottom in time.
+            # Id is the tiebreak either way: created_at has microsecond
+            # resolution but a batch writes several rows inside one, and a
+            # page boundary falling mid-tie repeats or drops an item.
+            .order_by(*_ordering(order))
             .limit(limit)
             .offset(offset)
         )
@@ -236,6 +254,12 @@ def _preview(job: ContentJob) -> str | None:
             if isinstance(poster, str) and poster:
                 return poster
     return None
+
+
+def _ordering(order: str) -> tuple:
+    if order == "scheduled":
+        return (ContentJob.scheduled_at.asc(), ContentJob.id.asc())
+    return (ContentJob.created_at.desc(), ContentJob.id.desc())
 
 
 def _item(job: ContentJob, trend: Trend | None) -> LibraryItem:

@@ -13,6 +13,5 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `settings-*` — which platforms are connected, and the variables to set.
 - `desk-platforms-*` — why a topic is trending, and its hashtags by platform.
 
-- D:\agentic-digital-marketing\apps\web\screenshots\library-1440-light.png
-- D:\agentic-digital-marketing\apps\web\screenshots\library-1440-dark.png
-- D:\agentic-digital-marketing\apps\web\screenshots\library-390-light.png
+- D:\agentic-digital-marketing\apps\web\screenshots\calendar-month-1440-dark.png
+- D:\agentic-digital-marketing\apps\web\screenshots\calendar-390-light.png

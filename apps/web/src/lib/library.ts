@@ -20,7 +20,12 @@ export type LibraryFilters = {
   format?: string
   created_from?: string
   created_to?: string
+  /** The calendar's window, half-open: [scheduled_from, scheduled_to). */
+  scheduled_from?: string
+  scheduled_to?: string
   q?: string
+  /** "created" for the library, "scheduled" for the calendar. */
+  order?: 'created' | 'scheduled'
   limit?: number
   offset?: number
 }

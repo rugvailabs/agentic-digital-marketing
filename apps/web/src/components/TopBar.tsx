@@ -30,6 +30,9 @@ export function TopBar({ health, regionName }: { health: Health | null; regionNa
           <Link href="/library" className="hover:text-ink">
             Library
           </Link>
+          <Link href="/calendar" className="hover:text-ink">
+            Calendar
+          </Link>
           <Link href="/brands" className="hover:text-ink">
             Brands
           </Link>

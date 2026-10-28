@@ -9,7 +9,7 @@ that has to be stable across a page boundary.
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from urllib.parse import quote
 
 import httpx
@@ -536,3 +536,83 @@ class TestEditorialStatus:
 
         assert row is not None
         assert row.editorial_status is EditorialStatus.posted
+
+
+class TestCalendarWindow:
+    """The same endpoint, asked a different question: what is scheduled, and
+    when. The calendar needs a window and an order, not a page of newest
+    work."""
+
+    async def schedule(self, client: httpx.AsyncClient, job_id: int, when: str) -> None:
+        response = await client.patch(
+            f"/content/jobs/{job_id}",
+            json={"editorial_status": "scheduled", "scheduled_at": when},
+        )
+        assert response.status_code == 200, response.text
+
+    async def test_a_window_holds_only_what_falls_in_it(
+        self, client: httpx.AsyncClient, seeded
+    ) -> None:
+        monday = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
+        await self.schedule(client, seeded["jobs"][0], monday.isoformat())
+        await self.schedule(client, seeded["jobs"][1], (monday + timedelta(days=9)).isoformat())
+
+        window = (
+            f"?scheduled_from={quote(monday.isoformat())}"
+            f"&scheduled_to={quote((monday + timedelta(days=7)).isoformat())}"
+        )
+
+        assert await total(client, window) == 1
+
+    async def test_the_window_is_half_open(self, client: httpx.AsyncClient, seeded) -> None:
+        """Or a week and the week after it would both claim an item
+        scheduled for exactly midnight on the boundary, and it would appear
+        twice as you paged across."""
+        boundary = datetime(2026, 11, 9, 0, 0, tzinfo=UTC)
+        await self.schedule(client, seeded["jobs"][0], boundary.isoformat())
+
+        first = (
+            f"?scheduled_from={quote((boundary - timedelta(days=7)).isoformat())}"
+            f"&scheduled_to={quote(boundary.isoformat())}"
+        )
+        second = (
+            f"?scheduled_from={quote(boundary.isoformat())}"
+            f"&scheduled_to={quote((boundary + timedelta(days=7)).isoformat())}"
+        )
+
+        assert await total(client, first) == 0
+        assert await total(client, second) == 1
+
+    async def test_unscheduled_items_are_never_in_a_window(self, client: httpx.AsyncClient) -> None:
+        """scheduled_at is null on a draft, and null compares false against
+        every bound — which is the behaviour wanted, pinned because it is
+        load-bearing rather than obvious."""
+        window = (
+            f"?scheduled_from={quote(datetime(2000, 1, 1, tzinfo=UTC).isoformat())}"
+            f"&scheduled_to={quote(datetime(2099, 1, 1, tzinfo=UTC).isoformat())}"
+        )
+
+        assert await total(client, window) == 0
+
+    async def test_scheduled_order_is_earliest_first(
+        self, client: httpx.AsyncClient, seeded
+    ) -> None:
+        """A day column reads top to bottom in time. The library's newest
+        first would run it backwards."""
+        base = datetime(2026, 11, 2, 9, 0, tzinfo=UTC)
+        await self.schedule(client, seeded["jobs"][0], (base + timedelta(days=2)).isoformat())
+        await self.schedule(client, seeded["jobs"][1], base.isoformat())
+        await self.schedule(client, seeded["jobs"][2], (base + timedelta(days=1)).isoformat())
+
+        rows = (await client.get("/library?status=scheduled&order=scheduled")).json()["items"]
+
+        assert [row["id"] for row in rows] == [
+            seeded["jobs"][1],
+            seeded["jobs"][2],
+            seeded["jobs"][0],
+        ]
+
+    async def test_an_unknown_order_is_refused(self, client: httpx.AsyncClient) -> None:
+        """Rather than silently falling back, which would sort a calendar
+        by age and look like the drag did nothing."""
+        assert (await client.get("/library?order=sideways")).status_code == 422

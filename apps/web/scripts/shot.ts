@@ -174,6 +174,27 @@ function shots(regionOverride?: string): Shot[] {
       viewport: DESKTOP,
       path: '/settings',
     },
+    {
+      name: 'calendar-month-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/calendar',
+    },
+    {
+      name: 'calendar-month-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/calendar',
+    },
+    {
+      name: 'calendar-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/calendar',
+    },
     // Step 5: the library, and brands. The editor rather than the brand
     // list, because the preview beside the form is what is worth seeing.
     {

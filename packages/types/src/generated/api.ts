@@ -1148,7 +1148,10 @@ export interface operations {
                 format?: string | null;
                 created_from?: string | null;
                 created_to?: string | null;
+                scheduled_from?: string | null;
+                scheduled_to?: string | null;
                 q?: string | null;
+                order?: string;
                 limit?: number;
                 offset?: number;
             };
