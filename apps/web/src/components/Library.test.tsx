@@ -81,7 +81,7 @@ describe('Library', () => {
     render(<Library initial={page([item()])} facets={facets} />)
 
     const link = screen.getByRole('link', { name: 'India seal it in Chennai' })
-    expect(link.getAttribute('href')).toBe('/?region=IN-TN&topic=77')
+    expect(link.getAttribute('href')).toBe('/board?region=IN-TN&topic=77')
   })
 
   it('shows the hook, with the topic under it', () => {

@@ -430,7 +430,7 @@ function Item({
         <span className="line-clamp-2 block text-xs text-ink">{title}</span>
       </button>
       <Link
-        href={`/?region=${item.region_code}&topic=${item.trend_id}`}
+        href={`/board?region=${item.region_code}&topic=${item.trend_id}`}
         className="block truncate px-1.5 pb-1 text-[11px] text-slate hover:text-ink"
         // Or dragging the item would start a link drag instead.
         draggable={false}

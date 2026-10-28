@@ -57,6 +57,8 @@ type Shot = {
   rail?: boolean
   /** Put the pointer on the first generated asset, to show its actions. */
   hoverAsset?: boolean
+  /** The library's list view, which is a stored preference rather than a route. */
+  listView?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -259,6 +261,14 @@ function shots(regionOverride?: string): Shot[] {
       path: '/library',
     },
     {
+      name: 'library-list-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/library',
+      listView: true,
+    },
+    {
       name: 'library-390-light',
       region: national,
       theme: 'light',
@@ -399,19 +409,30 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
    * to dark.
    */
   await page.evaluate(
-    ([theme, sidebar]) => {
+    ([theme, sidebar, view]) => {
       const root = document.documentElement
       root.dataset.theme = theme as string
       root.dataset.sidebar = sidebar as string
       try {
         localStorage.setItem('trendforge.theme', theme as string)
         localStorage.setItem('trendforge.sidebar', sidebar as string)
+        localStorage.setItem('trendforge.library.view', view as string)
       } catch {
         // Nothing to do; the attributes above are what the CSS reads.
       }
     },
-    [shot.theme, shot.rail ? 'rail' : 'full'] as const,
+    [shot.theme, shot.rail ? 'rail' : 'full', shot.listView ? 'list' : 'grid'] as const,
   )
+
+  if (shot.listView) {
+    // The theme and the sidebar are attributes the CSS reads immediately,
+    // but the library's view is read once in an effect that has already
+    // run by the time this seeding lands. One reload is cheaper than
+    // moving that preference into the head script for the sake of a
+    // screenshot.
+    await page.reload({ waitUntil: 'domcontentloaded' })
+    await page.waitForTimeout(SETTLE_MS)
+  }
 
   // The pipeline dot polls on mount and reads "Checking" until it answers.
   // Soft, like the clock wait below: a shot of a checking dot is honest

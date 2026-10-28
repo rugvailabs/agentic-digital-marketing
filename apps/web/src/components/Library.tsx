@@ -5,7 +5,21 @@ import { EDITORIAL_LABELS, EDITORIAL_STATUSES } from '@trendforge/types'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
-import { Chip, Empty, SectionLabel, cx } from '@/components/ui'
+import { Film, Image as ImageIcon, LayoutGrid, List } from 'lucide-react'
+
+import {
+  Button,
+  Card,
+  Chip,
+  Empty,
+  Field,
+  Input,
+  Panel,
+  SectionLabel,
+  Segmented,
+  Select,
+  cx,
+} from '@/components/ui'
 import { formatAge, formatIstDateTime } from '@/lib/format'
 import { type LibraryFilters, fetchLibrary, moveJob } from '@/lib/library'
 
@@ -25,14 +39,39 @@ import { type LibraryFilters, fetchLibrary, moveJob } from '@/lib/library'
 
 const PAGE = 50
 
+/** Which way the work is shown. Remembered, because it is a working
+ *  preference rather than a decision about this visit. */
+const VIEW_KEY = 'trendforge.library.view'
+type View = 'grid' | 'list'
+
 export function Library({ initial, facets }: { initial: LibraryPage; facets: LibraryFacets }) {
   const [page, setPage] = useState(initial)
+  const [view, setView] = useState<View>('grid')
   const [filters, setFilters] = useState<LibraryFilters>({})
   const [error, setError] = useState<string | null>(null)
   const [loading, startLoading] = useTransition()
   // Guards against an older request landing after a newer one and showing
   // the previous filter's results.
   const request = useRef(0)
+
+  // Read after mount rather than during render: the server has not seen
+  // localStorage, and guessing would mean a grid flashing into a list.
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(VIEW_KEY) === 'list') setView('list')
+    } catch {
+      // Private mode. The grid is the default and the choice is forgotten.
+    }
+  }, [])
+
+  function changeView(next: View) {
+    setView(next)
+    try {
+      localStorage.setItem(VIEW_KEY, next)
+    } catch {
+      // As above.
+    }
+  }
 
   const load = useCallback(
     async (next: LibraryFilters, offset = 0) => {
@@ -77,12 +116,42 @@ export function Library({ initial, facets }: { initial: LibraryPage; facets: Lib
                 ? `${page.items.length} of ${page.total} items`
                 : `${page.total} ${page.total === 1 ? 'item' : 'items'}`}
           </SectionLabel>
-          {loading ? <span className="text-xs text-slate">Loading…</span> : null}
-          {error ? (
-            <span role="alert" className="text-xs text-chilli">
-              {error}
-            </span>
-          ) : null}
+          <span className="flex items-center gap-3">
+            {loading ? <span className="text-xs text-slate">Loading…</span> : null}
+            {error ? (
+              <span role="alert" className="text-xs text-chilli">
+                {error}
+              </span>
+            ) : null}
+            <Segmented
+              label="View"
+              size="sm"
+              value={view}
+              onChange={changeView}
+              options={[
+                {
+                  value: 'grid',
+                  title: 'Grid',
+                  label: (
+                    <>
+                      <LayoutGrid aria-hidden="true" className="size-3.5" strokeWidth={2} />
+                      <span className="sr-only">Grid</span>
+                    </>
+                  ),
+                },
+                {
+                  value: 'list',
+                  title: 'List',
+                  label: (
+                    <>
+                      <List aria-hidden="true" className="size-3.5" strokeWidth={2} />
+                      <span className="sr-only">List</span>
+                    </>
+                  ),
+                },
+              ]}
+            />
+          </span>
         </div>
 
         {page.items.length === 0 ? (
@@ -114,6 +183,15 @@ export function Library({ initial, facets }: { initial: LibraryPage; facets: Lib
               }
             />
           </div>
+        ) : view === 'grid' ? (
+          // Not the custom `desk` breakpoint: Tailwind orders variants by
+          // width, so `lg` at 1024 beat `desk` at 900 everywhere above it
+          // and the grid stayed three columns on a 1440px screen.
+          <ul className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
+            {page.items.map((item) => (
+              <GridCard key={item.id} item={item} onMoved={reload} />
+            ))}
+          </ul>
         ) : (
           <ul className="mt-4">
             {page.items.map((item) => (
@@ -123,13 +201,12 @@ export function Library({ initial, facets }: { initial: LibraryPage; facets: Lib
         )}
 
         {page.items.length < page.total ? (
-          <button
-            type="button"
+          <Button
+            className="mt-6"
             onClick={() => startLoading(() => void load(filters, page.items.length))}
-            className="mt-6 border border-border px-3 py-1.5 text-sm text-slate hover:text-ink"
           >
             Show {Math.min(PAGE, page.total - page.items.length)} more
-          </button>
+          </Button>
         ) : null}
       </section>
     </>
@@ -141,7 +218,13 @@ function cleared(filters: LibraryFilters): Partial<LibraryFilters> {
   return Object.fromEntries(Object.keys(filters).map((key) => [key, undefined]))
 }
 
-function Row({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
+/**
+ * Moving one item along, shared by the list row and the grid card.
+ *
+ * Both views do exactly the same thing to the same endpoint, and the two
+ * copies of this drifted within an hour of the grid existing.
+ */
+function useMove(item: LibraryItem, onMoved: () => void) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -165,6 +248,128 @@ function Row({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
     }
   }
 
+  return { move, busy, error }
+}
+
+/**
+ * One item as a card.
+ *
+ * The poster is the card. A library is looked at to find a thing you
+ * remember seeing, and what you remember is the picture — so the image
+ * gets the whole width and the words go underneath it, rather than the
+ * other way round.
+ *
+ * The status picker is hidden until the card is hovered or something
+ * inside it has focus, with the current status shown as a chip in its
+ * place. Four buttons under each of forty cards is a hundred and sixty
+ * controls on a page whose job is looking.
+ */
+function GridCard({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
+  const { move, busy, error } = useMove(item, onMoved)
+  const title = item.hook ?? item.topic
+  const href = `/board?region=${item.region_code}&topic=${item.trend_id}`
+
+  return (
+    <li>
+      <Card className="group relative flex h-full flex-col overflow-hidden focus-within:border-border-hover hover:border-border-hover">
+        <Link href={href} aria-label={`Open ${title} in the Desk`} className="block">
+          <Poster item={item} />
+        </Link>
+
+        {/* The brand, over the poster. A badge rather than a line under it:
+            on a grid you are scanning for whose work this is, and a label
+            in the corner is read without moving the eye. */}
+        <span className="pointer-events-none absolute top-1.5 left-1.5 max-w-[calc(100%-0.75rem)] truncate rounded-sm border border-border bg-overlay/90 px-1.5 py-0.5 text-xs text-ink">
+          {item.brand_name}
+        </span>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-1 p-2.5">
+          <Link
+            href={href}
+            className="line-clamp-2 text-sm text-ink hover:underline hover:underline-offset-2"
+          >
+            {title}
+          </Link>
+          {/* Same rule as the list: only when it adds something. A failed
+              job has no caption, so the hook falls back to the topic and
+              printing both is the same line twice. */}
+          {item.hook && item.hook !== item.topic ? (
+            <p className="truncate text-xs text-slate">{item.topic}</p>
+          ) : null}
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+            <span className="truncate">{item.region_name}</span>
+            <span className="capitalize">{item.language}</span>
+            <span>{item.kind === 'reel' ? 'Reel' : 'Post'}</span>
+            <span>{formatAge(item.created_at)}</span>
+          </p>
+          {item.scheduled_at ? (
+            <p className="num text-xs text-slate">For {formatIstDateTime(item.scheduled_at)}</p>
+          ) : null}
+          {item.status === 'failed' ? (
+            <p title={item.error ?? undefined} className="line-clamp-2 text-xs text-chilli">
+              {item.error ?? 'This job failed.'}
+            </p>
+          ) : null}
+          {error ? (
+            <p role="alert" className="text-xs text-chilli">
+              {error}
+            </p>
+          ) : null}
+
+          <div className="mt-auto pt-2">
+            <Chip
+              tone={item.editorial_status === 'posted' ? 'solid' : 'neutral'}
+              className="group-focus-within:hidden group-hover:hidden"
+            >
+              {EDITORIAL_LABELS[item.editorial_status]}
+            </Chip>
+            <span className="hidden group-focus-within:block group-hover:block">
+              <StatusPicker value={item.editorial_status} busy={busy} onPick={move} />
+            </span>
+          </div>
+        </div>
+      </Card>
+    </li>
+  )
+}
+
+/**
+ * The poster, or an honest blank.
+ *
+ * Always a still. A reel's own URL is an mp4 and a <video> draws nothing
+ * until it has fetched a frame, so a grid of reels renders as a grid of
+ * empty boxes — the API hands over the poster frame for this reason.
+ */
+function Poster({ item }: { item: LibraryItem }) {
+  if (!item.preview_url) {
+    return (
+      <span className="flex aspect-square w-full items-center justify-center border-b border-border bg-page text-muted">
+        {item.status === 'failed' ? (
+          <span className="text-xs">Failed</span>
+        ) : item.kind === 'reel' ? (
+          <Film aria-hidden="true" className="size-5" strokeWidth={2} />
+        ) : (
+          <ImageIcon aria-hidden="true" className="size-5" strokeWidth={2} />
+        )}
+      </span>
+    )
+  }
+  return (
+    /* A MinIO URL on a published port, which next/image cannot be
+       configured for without pinning the dev host into next.config. */
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={item.preview_url}
+      alt=""
+      loading="lazy"
+      className="aspect-square w-full border-b border-border object-cover"
+    />
+  )
+}
+
+function Row({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
+  const { move, busy, error } = useMove(item, onMoved)
+
   return (
     <li className="flex flex-wrap items-start gap-x-5 gap-y-3 border-b border-dotted border-rule py-4">
       <Thumbnail item={item} />
@@ -173,7 +378,7 @@ function Row({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
         <Link
           // Back to the Desk, on the board this topic sits on, with the
           // topic selected — which is where every action on an item lives.
-          href={`/?region=${item.region_code}&topic=${item.trend_id}`}
+          href={`/board?region=${item.region_code}&topic=${item.trend_id}`}
           className="block text-base text-ink hover:underline hover:underline-offset-2"
         >
           {item.hook ?? item.topic}
@@ -300,19 +505,13 @@ function Filters({
   const active = Object.keys(filters).filter((key) => key !== 'limit' && key !== 'offset').length
 
   return (
-    <div className="mt-6 border-t border-border pt-5">
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate">Search topics</span>
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="cricket"
-            className={INPUT}
-          />
-        </label>
+    <Panel className="mt-6 p-4">
+      <div className="flex flex-wrap items-end gap-x-5 gap-y-4">
+        <Field label="Search topics" className="w-48">
+          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="cricket" />
+        </Field>
 
-        <Select
+        <Facet
           label="Brand"
           value={filters.brand_id ? String(filters.brand_id) : ''}
           onChange={(value) => onChange({ brand_id: value ? Number(value) : undefined })}
@@ -323,7 +522,7 @@ function Filters({
           all="All brands"
         />
 
-        <Select
+        <Facet
           label="Region"
           value={filters.region ?? ''}
           onChange={(value) => onChange({ region: value || undefined })}
@@ -334,7 +533,7 @@ function Filters({
           all="Everywhere"
         />
 
-        <Select
+        <Facet
           label="Language"
           value={filters.language ?? ''}
           onChange={(value) => onChange({ language: value || undefined })}
@@ -342,7 +541,7 @@ function Filters({
           all="Any language"
         />
 
-        <Select
+        <Facet
           label="Format"
           value={filters.format ?? ''}
           onChange={(value) => onChange({ format: value || undefined })}
@@ -350,9 +549,8 @@ function Filters({
           all="Any format"
         />
 
-        <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-slate">Made since</span>
-          <input
+        <Field label="Made since" className="w-40">
+          <Input
             type="date"
             value={filters.created_from?.slice(0, 10) ?? ''}
             onChange={(e) =>
@@ -363,9 +561,8 @@ function Filters({
                 created_from: e.target.value ? `${e.target.value}T00:00:00+05:30` : undefined,
               })
             }
-            className={INPUT}
           />
-        </label>
+        </Field>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -421,11 +618,13 @@ function Filters({
           </button>
         ) : null}
       </div>
-    </div>
+    </Panel>
   )
 }
 
-function Select({
+/** A facet dropdown, disabled rather than empty when the workspace has
+ *  produced nothing to filter by. */
+function Facet({
   label,
   value,
   onChange,
@@ -439,13 +638,11 @@ function Select({
   all: string
 }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-slate">{label}</span>
-      <select
+    <Field label={label} className="w-44">
+      <Select
         value={value}
         onChange={(e) => onChange(e.target.value)}
         disabled={options.length === 0}
-        className={INPUT}
       >
         <option value="">{all}</option>
         {options.map((option) => (
@@ -453,8 +650,8 @@ function Select({
             {option.label}
           </option>
         ))}
-      </select>
-    </label>
+      </Select>
+    </Field>
   )
 }
 
@@ -473,4 +670,3 @@ function tomorrowMorning(): string {
   return `${day}T09:00:00+05:30`
 }
 
-const INPUT = 'border border-border bg-card px-2 py-1.5 text-sm text-ink'

@@ -40,7 +40,7 @@ export function RegionStrip({ regions, selected }: { regions: Region[]; selected
 
   const select = useCallback(
     (code: string) => {
-      router.push(`/?region=${encodeURIComponent(code)}`, { scroll: false })
+      router.push(`/board?region=${encodeURIComponent(code)}`, { scroll: false })
     },
     [router],
   )
