@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, status
@@ -18,6 +19,7 @@ from app.models import (
     Brand,
     ContentAsset,
     ContentJob,
+    EditorialStatus,
     JobKind,
     JobStatus,
     Language,
@@ -51,6 +53,8 @@ class JobOut(BaseModel):
     language: Language
     formats: list[str]
     status: JobStatus
+    editorial_status: EditorialStatus
+    scheduled_at: datetime | None
     error: str | None
     assets: list[AssetOut]
 
@@ -165,6 +169,70 @@ async def get_job(job_id: int, session: AsyncSession = Depends(get_session)) -> 
     job = await session.get(ContentJob, job_id)
     if job is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="unknown job")
+    return job
+
+
+class JobPatch(BaseModel):
+    """Where a person has got to with an item, and when it should go out.
+
+    Separate from JobStatus, which is where the pipeline got to. A job can
+    be `ready` and still a draft; a `posted` item is still `ready`; a failed
+    render says nothing about whether its author had approved the caption.
+    One column could not carry both.
+    """
+
+    editorial_status: EditorialStatus | None = None
+    #: Null clears the schedule. A time only — nothing publishes yet.
+    scheduled_at: datetime | None = None
+
+
+@router.patch("/content/jobs/{job_id}", response_model=JobOut)
+async def patch_job(
+    job_id: int,
+    payload: JobPatch = Body(...),
+    session: AsyncSession = Depends(get_session),
+) -> ContentJob:
+    """Move an item through draft -> approved -> scheduled -> posted.
+
+    The library and the calendar both write here. Scheduling is the only
+    transition with a rule attached, and it is enforced rather than assumed:
+    a `scheduled` row with no time is invisible on the calendar and looks
+    like work that was lost.
+    """
+    job = await session.get(ContentJob, job_id)
+    if job is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="unknown job")
+
+    fields = payload.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="nothing to update")
+
+    wanted = fields.get("editorial_status", job.editorial_status)
+    # exclude_unset above is what makes this readable: an absent
+    # scheduled_at means "leave it", an explicit null means "clear it".
+    when = fields.get("scheduled_at", job.scheduled_at)
+
+    if wanted is EditorialStatus.scheduled and when is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="a scheduled item needs a time",
+        )
+    if when is not None and wanted in (EditorialStatus.draft, EditorialStatus.approved):
+        # Dragging a scheduled item back to draft is a real action, and it
+        # means the time no longer applies. Keeping it would leave the item
+        # on the calendar after the user took it off.
+        when = None
+
+    job.editorial_status = wanted
+    job.scheduled_at = when
+    await session.commit()
+    await session.refresh(job)
+    log.info(
+        "job moved",
+        job_id=job.id,
+        editorial_status=job.editorial_status.value,
+        scheduled_at=job.scheduled_at.isoformat() if job.scheduled_at else None,
+    )
     return job
 
 
