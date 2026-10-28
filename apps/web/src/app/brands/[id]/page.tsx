@@ -1,4 +1,3 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 import { BrandEditor } from '@/components/BrandEditor'
@@ -29,13 +28,7 @@ export default async function BrandPage({ params }: Props) {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/brands" className="text-sm text-slate hover:text-ink">
-        Back to brands
-      </Link>
-
-      <h1 className="mt-6 font-display text-[28px] leading-tight font-bold text-ink">
-        {brand.name}
-      </h1>
+      <h1 className="font-display text-[28px] leading-tight font-bold text-ink">{brand.name}</h1>
       <p className="mt-2 font-mono text-xs text-slate">{brand.slug}</p>
 
       <div className="mt-8">

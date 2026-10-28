@@ -19,6 +19,7 @@ from app.api import (
     library,
     platforms,
     regions,
+    search,
     trends,
 )
 from app.core.config import settings
@@ -60,5 +61,6 @@ app.include_router(ingest.router, prefix="/ingest")
 app.include_router(brands.router, prefix="/brands")
 app.include_router(library.router, prefix="/library")
 app.include_router(batch.router, prefix="/content/batch")
+app.include_router(search.router, prefix="/search")
 # content routes carry their own full paths (/content/...).
 app.include_router(content.router)

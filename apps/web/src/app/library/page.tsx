@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 import { Library } from '@/components/Library'
 import { fetchFacetsSafely, fetchLibrarySafely } from '@/lib/library'
 
@@ -27,11 +25,7 @@ export default async function LibraryPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <Link href="/" className="text-sm text-slate hover:text-ink">
-        Back to the board
-      </Link>
-
-      <h1 className="mt-6 font-display text-[28px] leading-tight font-bold text-ink">Library</h1>
+      <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Library</h1>
       <p className="mt-2 max-w-prose text-sm text-slate">
         Every post and reel this workspace has generated. Open one to edit it in the Desk, or move
         it along from here.

@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 import { Calendar } from '@/components/Calendar'
 import { gridFor, today, windowFor } from '@/lib/calendar'
 import { fetchLibrarySafely } from '@/lib/library'
@@ -33,11 +31,7 @@ export default async function CalendarPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-10">
-      <Link href="/" className="text-sm text-slate hover:text-ink">
-        Back to the board
-      </Link>
-
-      <h1 className="mt-6 font-display text-[28px] leading-tight font-bold text-ink">Calendar</h1>
+      <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Calendar</h1>
       <p className="mt-2 max-w-prose text-sm text-slate">
         Everything with a time on it, in IST. Nothing publishes yet — scheduling stores when, and
         posting is still yours to do.

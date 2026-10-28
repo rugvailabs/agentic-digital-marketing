@@ -121,6 +121,30 @@
     /* Dark first, so a browser paints form controls and scrollbars dark
        before any of our CSS lands. */
     color-scheme: dark;
+
+    /*
+     * The sidebar's width, as a variable rather than as React state.
+     *
+     * An inline script sets data-sidebar before the first paint, so the
+     * rail is 56px from the very first frame. Rendering the width from
+     * state instead gave one frame of 240px on every page load, which is
+     * a visible snap on anything but a fast machine.
+     */
+    --sidebar-w: var(--spacing-sidebar);
+  }
+
+  :root[data-sidebar='rail'] {
+    --sidebar-w: var(--spacing-sidebar-rail);
+  }
+
+  /*
+   * Labels are always in the DOM and hidden by CSS when railed, rather
+   * than conditionally rendered. A screen reader keeps the accessible
+   * name, the markup does not change on toggle, and React does not have
+   * to know the sidebar's state to draw it.
+   */
+  :root[data-sidebar='rail'] .sidebar-label {
+    display: none;
   }
 
   /*

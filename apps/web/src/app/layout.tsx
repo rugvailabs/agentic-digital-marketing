@@ -3,8 +3,14 @@ import { Bricolage_Grotesque, Schibsted_Grotesk } from 'next/font/google'
 import type { ReactNode } from 'react'
 
 import { ServiceWorker } from '@/components/ServiceWorker'
+import { AppShell } from '@/components/shell/AppShell'
+import { CHROME_SCRIPT } from '@/lib/chrome'
 
 import './globals.css'
+
+/** One workspace exists and there is no way to make another, so its name is
+ *  a constant rather than a fetch that would make every page dynamic. */
+const WORKSPACE = 'Default workspace'
 
 /*
  * next/font, self-hosted at build time: no external stylesheet request, no
@@ -52,18 +58,29 @@ export const viewport: Viewport = {
   // feature, not a layout bug.
   width: 'device-width',
   initialScale: 1,
-  // Both schemes are real designs, so let the OS pick.
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#eef1f6' },
-    { media: '(prefers-color-scheme: dark)', color: '#121722' },
-  ],
+  // Dark, to match the default. The browser paints this behind the page
+  // before any CSS lands, and a light bar above a dark app is the flash
+  // the inline script below exists to prevent.
+  themeColor: '#0d1219',
 }
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-IN" className={`${display.variable} ${ui.variable}`}>
+    // suppressHydrationWarning because the script below writes data-theme
+    // and data-sidebar onto this element before React sees it, which is
+    // exactly the mismatch the warning is for and exactly what is wanted.
+    <html lang="en-IN" className={`${display.variable} ${ui.variable}`} suppressHydrationWarning>
+      <head>
+        {/*
+         * Before the first paint, not after hydration. Reading the stored
+         * theme in an effect means every load is dark for a frame and then
+         * light, which is the single most noticeable bug a themed app can
+         * have.
+         */}
+        <script dangerouslySetInnerHTML={{ __html: CHROME_SCRIPT }} />
+      </head>
       <body>
-        {children}
+        <AppShell workspaceName={WORKSPACE}>{children}</AppShell>
         <ServiceWorker />
       </body>
     </html>

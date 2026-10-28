@@ -1,5 +1,3 @@
-import Link from 'next/link'
-
 import { Code, SectionLabel } from '@/components/ui'
 import { fetchPlatforms } from '@/lib/api'
 
@@ -34,13 +32,7 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
-      <Link href="/" className="text-sm text-slate hover:text-ink">
-        Back to the board
-      </Link>
-
-      <h1 className="mt-6 font-display text-[28px] leading-tight font-bold text-ink">
-        Trend platforms
-      </h1>
+      <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Trend platforms</h1>
       <p className="mt-2 max-w-prose text-sm text-slate">
         Each platform is read by its own adapter. One without credentials is skipped, never fatal —
         the board keeps working on whatever else answered.

@@ -28,10 +28,6 @@ export default async function BrandsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-6 py-10">
-      <Link href="/" className="text-sm text-slate hover:text-ink">
-        Back to the board
-      </Link>
-
       <div className="mt-6 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Brands</h1>
         <Link

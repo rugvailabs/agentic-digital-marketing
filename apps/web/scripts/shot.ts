@@ -53,6 +53,8 @@ type Shot = {
   path?: string
   /** Open the "Generate for the top topics" panel above the ladder. */
   batch?: boolean
+  /** Collapse the sidebar to its icon rail. */
+  rail?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -175,6 +177,14 @@ function shots(regionOverride?: string): Shot[] {
       theme: 'dark',
       viewport: DESKTOP,
       path: '/settings',
+    },
+    // The shell: the rail, which is a state no page-level shot shows.
+    {
+      name: 'shell-rail-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      rail: true,
     },
     {
       name: 'batch-1440-light',
@@ -302,8 +312,9 @@ type ShotResult = { file: string; note: string }
 
 async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   await page.setViewportSize(shot.viewport)
-  // data-theme wins over prefers-color-scheme in globals.css; emulating the
-  // media feature too keeps next/font and ::selection consistent.
+  // Kept for form controls and scrollbars, which the browser paints from
+  // this rather than from our CSS. The theme itself is no longer a media
+  // query — it is the data-theme attribute set below.
   await page.emulateMedia({ colorScheme: shot.theme })
 
   // The dev server compiles a route on first request, which can take long
@@ -312,7 +323,7 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   // unexplained "selector never appeared".
   const query = new URLSearchParams({ region: shot.region })
   if (shot.platform) query.set('platform', shot.platform)
-  const url = shot.path ? `${BASE_URL}${shot.path}` : `${BASE_URL}/?${query}`
+  const url = shot.path ? `${BASE_URL}${shot.path}` : `${BASE_URL}/board?${query}`
   // `domcontentloaded`, not `networkidle`. The dev server holds an HMR
   // websocket open and recompiles on demand, so networkidle is reached by
   // luck: the same route would capture fine once and time out at 30s the
@@ -332,6 +343,30 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   // custom element works regardless of Next version; `devIndicators: false` in
   // next.config does not remove this portal in 15.5.
   await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' })
+
+  /*
+   * The theme and the sidebar state, set the way a user sets them.
+   *
+   * After navigation, not before: an inline script in <head> reads
+   * localStorage and writes these attributes before the first paint, so
+   * anything set earlier is overwritten by it. Writing localStorage too
+   * means a reload inside a shot keeps the theme rather than snapping back
+   * to dark.
+   */
+  await page.evaluate(
+    ([theme, sidebar]) => {
+      const root = document.documentElement
+      root.dataset.theme = theme as string
+      root.dataset.sidebar = sidebar as string
+      try {
+        localStorage.setItem('trendforge.theme', theme as string)
+        localStorage.setItem('trendforge.sidebar', sidebar as string)
+      } catch {
+        // Nothing to do; the attributes above are what the CSS reads.
+      }
+    },
+    [shot.theme, shot.rail ? 'rail' : 'full'] as const,
+  )
 
   if (shot.path) {
     // Not a board: no ladder to wait for and no clock in its header. Wait on
