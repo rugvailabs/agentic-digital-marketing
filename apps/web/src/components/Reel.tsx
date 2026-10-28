@@ -2,7 +2,7 @@
 
 import type { ContentAsset, ContentJob } from '@trendforge/types'
 
-import { SectionLabel, cx } from '@/components/primitives'
+import { SectionLabel, cx } from '@/components/ui'
 import { statusLabel } from '@/lib/jobs'
 
 /**
@@ -61,7 +61,7 @@ export function Reel({
   const segments = meta.segments ?? []
 
   return (
-    <div className="mt-8 flex flex-col gap-3 border-t border-rule pt-5">
+    <div className="mt-8 flex flex-col gap-3 border-t border-border pt-5">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <SectionLabel>Reel</SectionLabel>
         {job ? (
@@ -74,7 +74,7 @@ export function Reel({
           type="button"
           onClick={onRender}
           disabled={busy || blocked || disabled}
-          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-rule disabled:text-slate"
+          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-border disabled:text-slate"
         >
           {busy ? 'Rendering' : video ? 'Render again' : 'Render reel'}
         </button>
@@ -94,7 +94,7 @@ export function Reel({
       ) : null}
 
       {error || job?.error ? (
-        <div className="mt-1 border-t border-rule pt-3">
+        <div className="mt-1 border-t border-border pt-3">
           <p className="text-sm text-ink">{job?.error ?? error}</p>
           <button
             type="button"
@@ -134,7 +134,7 @@ function VideoCard({ asset }: { asset: ContentAsset }) {
   const seconds = Number(meta.duration_seconds) || 0
 
   return (
-    <figure className="mt-2 flex flex-col gap-2 self-start border border-rule bg-surface p-3">
+    <figure className="mt-2 flex flex-col gap-2 self-start border border-border bg-card p-3">
       <video
         src={asset.url ?? undefined}
         // Without this the player shows a blank sheet of paper until someone
@@ -221,7 +221,7 @@ function Script({
                   'text-sm text-slate',
                   // The spoken line is the one that is heard, so it keeps its
                   // own measure rather than being squeezed next to the card.
-                  segment.text && 'border-l border-rule pl-2.5',
+                  segment.text && 'border-l border-border pl-2.5',
                 )}
               >
                 {segment.say}

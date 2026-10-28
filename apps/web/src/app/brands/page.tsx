@@ -1,7 +1,7 @@
 import type { Brand } from '@trendforge/types'
 import Link from 'next/link'
 
-import { Empty, SectionLabel } from '@/components/primitives'
+import { Empty, SectionLabel } from '@/components/ui'
 import { fetchBrands } from '@/lib/api'
 
 /**
@@ -36,7 +36,7 @@ export default async function BrandsPage() {
         <h1 className="font-display text-[28px] leading-tight font-bold text-ink">Brands</h1>
         <Link
           href="/brands/new"
-          className="border border-ink bg-ink px-3.5 py-1.5 text-sm text-paper"
+          className="border border-ink bg-ink px-3.5 py-1.5 text-sm text-page"
         >
           New brand
         </Link>
@@ -72,11 +72,11 @@ export default async function BrandsPage() {
                 >
                   <span className="flex shrink-0 gap-1" aria-hidden="true">
                     <span
-                      className="block h-7 w-7 border border-rule"
+                      className="block h-7 w-7 border border-border"
                       style={{ backgroundColor: brand.primary_color }}
                     />
                     <span
-                      className="block h-7 w-7 border border-rule"
+                      className="block h-7 w-7 border border-border"
                       style={{ backgroundColor: brand.secondary_color }}
                     />
                   </span>

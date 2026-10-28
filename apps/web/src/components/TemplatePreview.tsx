@@ -63,7 +63,7 @@ export function TemplatePreview({ template, brand }: { template: Template; brand
       aria-label={`${TEMPLATE_LABELS[template]} template in ${brand.name || 'your brand'} colours`}
       role="img"
     >
-      <div className="relative aspect-square w-full overflow-hidden border border-rule">
+      <div className="relative aspect-square w-full overflow-hidden border border-border">
         {template === 'poster' ? <Poster brand={brand} /> : null}
         {template === 'split' ? <Split brand={brand} /> : null}
         {template === 'wire' ? <Wire brand={brand} /> : null}

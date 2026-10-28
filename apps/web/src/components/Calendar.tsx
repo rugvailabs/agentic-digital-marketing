@@ -4,7 +4,7 @@ import type { LibraryItem } from '@trendforge/types'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Empty, SectionLabel, cx } from '@/components/primitives'
+import { Empty, SectionLabel, cx } from '@/components/ui'
 import {
   type CalendarView,
   WEEKDAYS,
@@ -126,7 +126,7 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
 
   return (
     <>
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-rule pt-5">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-border pt-5">
         <div className="flex items-baseline gap-4">
           <h2 className="font-display text-xl font-bold text-ink">
             {view === 'week' ? weekLabel(days) : monthLabel(anchor)}
@@ -156,8 +156,8 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
                 className={cx(
                   'border px-2.5 py-1 text-xs capitalize',
                   view === option
-                    ? 'border-ink bg-ink text-paper'
-                    : 'border-rule text-slate hover:text-ink',
+                    ? 'border-ink bg-ink text-page'
+                    : 'border-border text-slate hover:text-ink',
                 )}
               >
                 {option}
@@ -170,7 +170,7 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
               type="button"
               onClick={() => step(-1)}
               aria-label={view === 'week' ? 'Previous week' : 'Previous month'}
-              className="border border-rule px-2.5 py-1 text-xs text-slate hover:text-ink"
+              className="border border-border px-2.5 py-1 text-xs text-slate hover:text-ink"
             >
               Back
             </button>
@@ -178,7 +178,7 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
               type="button"
               onClick={() => step(1)}
               aria-label={view === 'week' ? 'Next week' : 'Next month'}
-              className="border border-rule px-2.5 py-1 text-xs text-slate hover:text-ink"
+              className="border border-border px-2.5 py-1 text-xs text-slate hover:text-ink"
             >
               Next
             </button>
@@ -276,7 +276,7 @@ function Grid({
 
   return (
     <div className="mt-5">
-      <div className="grid grid-cols-7 border-b border-rule pb-1.5">
+      <div className="grid grid-cols-7 border-b border-border pb-1.5">
         {WEEKDAYS.map((name) => (
           <SectionLabel key={name}>{name}</SectionLabel>
         ))}
@@ -304,7 +304,7 @@ function Grid({
                 if (item && day !== dayOf(item)) onMove(item, day)
               }}
               className={cx(
-                'min-h-28 border-r border-b border-rule p-1.5 last:border-r-0',
+                'min-h-28 border-r border-b border-border p-1.5 last:border-r-0',
                 view === 'week' && 'min-h-56',
                 outside && 'opacity-45',
                 over === day && 'bg-row-active',
@@ -408,7 +408,7 @@ function Item({
   }
 
   return (
-    <li className="border-l-2 border-ink bg-surface">
+    <li className="border-l-2 border-ink bg-card">
       {/*
        * A real button, not a div with role="button". It was the latter
        * first, with the brand-name link inside it — which is invalid (a

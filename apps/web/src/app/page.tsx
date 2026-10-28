@@ -1,6 +1,6 @@
 import { Board } from '@/components/Board'
 import { TopBar } from '@/components/TopBar'
-import { Code, Empty } from '@/components/primitives'
+import { Code, Empty } from '@/components/ui'
 import {
   ApiUnavailable,
   fetchBrands,

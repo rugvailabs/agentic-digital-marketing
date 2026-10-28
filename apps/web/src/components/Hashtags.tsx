@@ -4,7 +4,7 @@ import type { Platform, SourceName, Trend } from '@trendforge/types'
 import { SOURCE_LABELS } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
-import { SectionLabel, cx } from '@/components/primitives'
+import { SectionLabel, cx } from '@/components/ui'
 
 /** How long "Copied" stays before the button says what it does again. */
 const COPIED_MS = 1600

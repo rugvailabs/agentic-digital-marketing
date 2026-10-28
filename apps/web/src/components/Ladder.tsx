@@ -5,7 +5,7 @@ import { SOURCE_LABELS, SOURCE_MARKS, type SourceName } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
 import { Sparkline } from '@/components/Sparkline'
-import { Chip, cx } from '@/components/primitives'
+import { Chip, cx } from '@/components/ui'
 import { formatCompactVolume, shortCategory } from '@/lib/format'
 
 /** Whole-list load-in budget is 240ms, so the stagger shrinks as rows grow. */

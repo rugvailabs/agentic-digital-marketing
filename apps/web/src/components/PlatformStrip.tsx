@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useRef } from 'react'
 
-import { cx } from '@/components/primitives'
+import { cx } from '@/components/ui'
 
 /**
  * Platform filter above the ladder: All, then one per platform.
@@ -99,7 +99,7 @@ export function PlatformStrip({
     // outside it, the same shape as the region strip's "Jump to…". With the
     // link inside the scroller it was the thing that scrolled off, so the
     // row ended on a clipped "Conne…".
-    <div className="flex items-center border-b border-rule pr-3">
+    <div className="flex items-center border-b border-border pr-3">
       <div
         ref={listRef}
         role="tablist"
@@ -166,7 +166,7 @@ export function PlatformStrip({
         // Rendering a bare "All" would read as a deployment with no
         // platforms at all, which is a very different thing from one whose
         // API answered badly.
-        <span className="shrink-0 border-l border-rule py-1 pl-3 text-xs whitespace-nowrap text-slate">
+        <span className="shrink-0 border-l border-border py-1 pl-3 text-xs whitespace-nowrap text-slate">
           Platform list unavailable
         </span>
       ) : null}
@@ -177,7 +177,7 @@ export function PlatformStrip({
           // Not a tab: it filters nothing. It is the one place the word
           // "connect" is said, and it explains the dotted chips beside it.
           title={`${unconfigured} platforms need credentials`}
-          className="shrink-0 border-l border-rule py-1 pl-3 text-xs whitespace-nowrap text-slate hover:text-ink"
+          className="shrink-0 border-l border-border py-1 pl-3 text-xs whitespace-nowrap text-slate hover:text-ink"
         >
           Connect {unconfigured}
         </Link>
@@ -215,7 +215,7 @@ function Tab({
       className={cx(
         'shrink-0 border-b-2 py-1 text-sm whitespace-nowrap transition-colors',
         isSelected ? 'border-ink font-medium text-ink' : 'border-transparent',
-        !isSelected && !isDisabled ? 'text-ink hover:border-rule' : '',
+        !isSelected && !isDisabled ? 'text-ink hover:border-border' : '',
         isDisabled ? 'cursor-not-allowed text-rule' : '',
       )}
     >

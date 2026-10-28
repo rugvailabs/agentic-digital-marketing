@@ -4,7 +4,7 @@ import type { Brand } from '@trendforge/types'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { cx } from '@/components/primitives'
+import { cx } from '@/components/ui'
 
 /**
  * "Generate for the top N", above the ladder.
@@ -107,7 +107,7 @@ export function BatchGenerate({
 
   if (brands.length === 0) {
     return (
-      <p className="border-b border-rule px-4 py-3 text-xs text-slate">
+      <p className="border-b border-border px-4 py-3 text-xs text-slate">
         <Link href="/brands/new" className="text-ink underline underline-offset-2">
           Make a brand
         </Link>{' '}
@@ -118,7 +118,7 @@ export function BatchGenerate({
 
   if (!open) {
     return (
-      <div className="border-b border-rule px-4 py-2.5">
+      <div className="border-b border-border px-4 py-2.5">
         <button
           type="button"
           onClick={() => setOpen(true)}
@@ -132,7 +132,7 @@ export function BatchGenerate({
   }
 
   return (
-    <div className="border-b border-rule px-4 py-3">
+    <div className="border-b border-border px-4 py-3">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-slate">Brand</span>
@@ -177,8 +177,8 @@ export function BatchGenerate({
                 className={cx(
                   'num border px-2.5 py-1.5 text-sm',
                   n === size
-                    ? 'border-ink bg-ink text-paper'
-                    : 'border-rule text-slate hover:text-ink',
+                    ? 'border-ink bg-ink text-page'
+                    : 'border-border text-slate hover:text-ink',
                 )}
               >
                 {size}
@@ -193,7 +193,7 @@ export function BatchGenerate({
           type="button"
           onClick={run}
           disabled={busy || !plan || plan.would_queue === 0}
-          className="border border-ink bg-ink px-3.5 py-1.5 text-sm text-paper disabled:opacity-40"
+          className="border border-ink bg-ink px-3.5 py-1.5 text-sm text-page disabled:opacity-40"
         >
           {busy
             ? 'Queueing…'
@@ -242,4 +242,4 @@ export function BatchGenerate({
   )
 }
 
-const INPUT = 'border border-rule bg-surface px-2 py-1.5 text-sm text-ink'
+const INPUT = 'border border-border bg-card px-2 py-1.5 text-sm text-ink'

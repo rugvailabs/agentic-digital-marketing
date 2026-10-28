@@ -5,7 +5,7 @@ import { EDITORIAL_LABELS, EDITORIAL_STATUSES } from '@trendforge/types'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react'
 
-import { Chip, Empty, SectionLabel, cx } from '@/components/primitives'
+import { Chip, Empty, SectionLabel, cx } from '@/components/ui'
 import { formatAge, formatIstDateTime } from '@/lib/format'
 import { type LibraryFilters, fetchLibrary, moveJob } from '@/lib/library'
 
@@ -126,7 +126,7 @@ export function Library({ initial, facets }: { initial: LibraryPage; facets: Lib
           <button
             type="button"
             onClick={() => startLoading(() => void load(filters, page.items.length))}
-            className="mt-6 border border-rule px-3 py-1.5 text-sm text-slate hover:text-ink"
+            className="mt-6 border border-border px-3 py-1.5 text-sm text-slate hover:text-ink"
           >
             Show {Math.min(PAGE, page.total - page.items.length)} more
           </button>
@@ -217,7 +217,7 @@ function Row({ item, onMoved }: { item: LibraryItem; onMoved: () => void }) {
 function Thumbnail({ item }: { item: LibraryItem }) {
   if (!item.preview_url) {
     return (
-      <span className="flex h-16 w-16 shrink-0 items-center justify-center border border-rule text-xs text-slate">
+      <span className="flex h-16 w-16 shrink-0 items-center justify-center border border-border text-xs text-slate">
         {item.status === 'failed' ? 'Failed' : item.status === 'ready' ? 'No image' : 'Running'}
       </span>
     )
@@ -230,7 +230,7 @@ function Thumbnail({ item }: { item: LibraryItem }) {
     <img
       src={item.preview_url}
       alt=""
-      className="h-16 w-16 shrink-0 border border-rule object-cover"
+      className="h-16 w-16 shrink-0 border border-border object-cover"
       loading="lazy"
     />
   )
@@ -266,8 +266,8 @@ function StatusPicker({
             className={cx(
               'border px-2 py-1 text-xs',
               current
-                ? 'border-ink bg-ink text-paper'
-                : 'border-rule text-slate hover:text-ink disabled:opacity-40',
+                ? 'border-ink bg-ink text-page'
+                : 'border-border text-slate hover:text-ink disabled:opacity-40',
             )}
           >
             {EDITORIAL_LABELS[status]}
@@ -300,7 +300,7 @@ function Filters({
   const active = Object.keys(filters).filter((key) => key !== 'limit' && key !== 'offset').length
 
   return (
-    <div className="mt-6 border-t border-rule pt-5">
+    <div className="mt-6 border-t border-border pt-5">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
         <label className="flex flex-col gap-1">
           <span className="text-xs font-medium text-slate">Search topics</span>
@@ -473,4 +473,4 @@ function tomorrowMorning(): string {
   return `${day}T09:00:00+05:30`
 }
 
-const INPUT = 'border border-rule bg-surface px-2 py-1.5 text-sm text-ink'
+const INPUT = 'border border-border bg-card px-2 py-1.5 text-sm text-ink'

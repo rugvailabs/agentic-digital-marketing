@@ -4,7 +4,7 @@ import type { Brand, Language, Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { SectionLabel, cx } from '@/components/primitives'
+import { SectionLabel, cx } from '@/components/ui'
 import {
   TEMPLATES,
   TEMPLATE_LABELS,
@@ -182,7 +182,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
           />
         </Field>
 
-        <fieldset className="border-t border-rule pt-5">
+        <fieldset className="border-t border-border pt-5">
           <SectionLabel>Colour</SectionLabel>
           <div className="mt-3 flex flex-wrap gap-8">
             <Colour
@@ -211,7 +211,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
           onClear={discardLogo}
         />
 
-        <fieldset className="mt-8 border-t border-rule pt-5">
+        <fieldset className="mt-8 border-t border-border pt-5">
           <SectionLabel>Headline face</SectionLabel>
           <div className="mt-3 flex flex-col gap-2">
             {FACES.map((option) => (
@@ -230,7 +230,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
           </div>
         </fieldset>
 
-        <fieldset className="mt-8 border-t border-rule pt-5">
+        <fieldset className="mt-8 border-t border-border pt-5">
           <SectionLabel>Languages</SectionLabel>
           <p className="mt-1 text-xs text-slate">
             Which languages this brand publishes in. Captions are written in one at a time.
@@ -260,7 +260,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
         <Field
           label="Default region"
           hint="The board this brand opens on."
-          className="mt-8 border-t border-rule pt-5"
+          className="mt-8 border-t border-border pt-5"
         >
           <select
             value={form.default_region_code ?? ''}
@@ -301,7 +301,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
           />
         </Field>
 
-        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-rule pt-5">
+        <div className="mt-8 flex flex-wrap items-center gap-4 border-t border-border pt-5">
           <button type="submit" disabled={busy || !form.name.trim()} className={PRIMARY}>
             {busy ? 'Saving…' : saved ? 'Save brand' : 'Create brand'}
           </button>
@@ -393,14 +393,14 @@ function Logo({
   const input = useRef<HTMLInputElement>(null)
 
   return (
-    <fieldset className="mt-8 border-t border-rule pt-5">
+    <fieldset className="mt-8 border-t border-border pt-5">
       <SectionLabel>Logo</SectionLabel>
       <p className="mt-1 text-xs text-slate">
         PNG, JPEG or WebP, under 2 MB. Not SVG — the image renderer cannot draw one. Transparent
         padding is trimmed, and the logo replaces the brand name in the footer.
       </p>
       <div className="mt-3 flex flex-wrap items-center gap-4">
-        <div className="flex h-16 w-32 items-center justify-center border border-rule bg-surface px-2">
+        <div className="flex h-16 w-32 items-center justify-center border border-border bg-card px-2">
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element -- blob: URL
             <img src={url} alt="" className="max-h-12 max-w-full object-contain" />
@@ -453,7 +453,7 @@ function Colour({
           type="color"
           value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#000000'}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="h-8 w-10 cursor-pointer border border-rule bg-surface p-0.5"
+          className="h-8 w-10 cursor-pointer border border-border bg-card p-0.5"
           aria-label={`${label} colour`}
         />
         <input
@@ -481,7 +481,7 @@ function Field({
   children: React.ReactNode
 }) {
   return (
-    <label className={cx('mt-8 flex flex-col gap-1.5 border-t border-rule pt-5', className)}>
+    <label className={cx('mt-8 flex flex-col gap-1.5 border-t border-border pt-5', className)}>
       <span className="text-xs font-medium text-slate">{label}</span>
       {children}
       {hint ? <span className="text-xs text-slate">{hint}</span> : null}
@@ -501,9 +501,9 @@ function suggestSlug(name: string): string {
 /* Flat inputs: a 1px rule, no radius, no shadow. The focus ring is the one
    in globals.css, which is the only chilli on this page. */
 const INPUT =
-  'w-full border border-rule bg-surface px-2.5 py-1.5 text-base text-ink placeholder:text-slate/70'
+  'w-full border border-border bg-card px-2.5 py-1.5 text-base text-ink placeholder:text-slate/70'
 const PRIMARY =
-  'border border-ink bg-ink px-3.5 py-1.5 text-sm text-paper disabled:opacity-40 hover:bg-ink/90'
-const QUIET = 'border border-rule px-3 py-1.5 text-sm text-slate hover:text-ink disabled:opacity-40'
+  'border border-ink bg-ink px-3.5 py-1.5 text-sm text-page disabled:opacity-40 hover:bg-ink/90'
+const QUIET = 'border border-border px-3 py-1.5 text-sm text-slate hover:text-ink disabled:opacity-40'
 const DANGER =
   'border border-chilli px-3 py-1.5 text-sm text-chilli hover:bg-chilli hover:text-white'

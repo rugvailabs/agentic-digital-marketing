@@ -1,6 +1,6 @@
 import Link from 'next/link'
 
-import { Code, SectionLabel } from '@/components/primitives'
+import { Code, SectionLabel } from '@/components/ui'
 import { fetchPlatforms } from '@/lib/api'
 
 /**

@@ -8,7 +8,7 @@ import { Ladder } from '@/components/Ladder'
 import { BatchGenerate } from '@/components/BatchGenerate'
 import { PlatformStrip } from '@/components/PlatformStrip'
 import { RegionStrip } from '@/components/RegionStrip'
-import { Code, Empty, SectionLabel, cx } from '@/components/primitives'
+import { Code, Empty, SectionLabel, cx } from '@/components/ui'
 import { formatIstTime } from '@/lib/format'
 
 /**
@@ -67,7 +67,7 @@ export function Board({
 
   return (
     <div className="desk:flex-row flex min-h-[calc(100vh-var(--spacing-topbar))] flex-col">
-      <div className="desk:w-wire desk:border-r flex w-full shrink-0 flex-col border-rule">
+      <div className="desk:w-wire desk:border-r flex w-full shrink-0 flex-col border-border">
         <RegionStrip regions={regions} selected={board.region.code} />
         <PlatformStrip
           platforms={platforms}
@@ -118,14 +118,14 @@ export function Board({
             ? // Starts below the 56px top bar, not at inset-y-0: the bar is
               // sticky at a higher z-index and would sit on top of the panel's
               // own Close row, leaving no way back to the ladder.
-              'panel-in fixed top-topbar right-0 bottom-0 z-20 w-full max-w-[32rem] overflow-y-auto border-l border-rule bg-paper'
+              'panel-in fixed top-topbar right-0 bottom-0 z-20 w-full max-w-[32rem] overflow-y-auto border-l border-border bg-page'
             : 'hidden',
         )}
         role={panelOpen ? 'dialog' : undefined}
         aria-label={panelOpen ? `${selected?.topic ?? 'Topic'} details` : undefined}
         aria-modal={panelOpen ? true : undefined}
       >
-        <div className="desk:hidden sticky top-0 z-10 flex items-center border-b border-rule bg-paper px-4 py-2">
+        <div className="desk:hidden sticky top-0 z-10 flex items-center border-b border-border bg-page px-4 py-2">
           <button
             ref={closeRef}
             type="button"

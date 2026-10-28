@@ -1,4 +1,4 @@
-import { Empty } from '@/components/primitives'
+import { Empty } from '@/components/ui'
 
 export const metadata = { title: 'Offline — TrendForge' }
 

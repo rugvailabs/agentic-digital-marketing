@@ -4,7 +4,7 @@ import type { Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
-import { cx } from '@/components/primitives'
+import { cx } from '@/components/ui'
 
 /**
  * Order: India, then states by today's total topic volume, then union
@@ -78,7 +78,7 @@ export function RegionStrip({ regions, selected }: { regions: Region[]; selected
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-rule bg-surface pr-3">
+    <div className="flex items-center gap-2 border-b border-border bg-card pr-3">
       <div
         ref={listRef}
         role="tablist"
@@ -150,7 +150,7 @@ function JumpTo({ regions, onSelect }: { regions: Region[]; onSelect: (code: str
       onChange={(event) => {
         if (event.target.value) onSelect(event.target.value)
       }}
-      className="w-24 shrink-0 border border-rule bg-surface px-1.5 py-1 text-xs text-slate"
+      className="w-24 shrink-0 border border-border bg-card px-1.5 py-1 text-xs text-slate"
     >
       <option value="">Jump to…</option>
       {groups.map(([label, members]) =>

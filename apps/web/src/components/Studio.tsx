@@ -4,7 +4,7 @@ import type { Brand, ContentAsset, Trend } from '@trendforge/types'
 import { useEffect, useState } from 'react'
 
 import { Reel } from '@/components/Reel'
-import { Chip, Code, SectionLabel, cx } from '@/components/primitives'
+import { Chip, Code, SectionLabel, cx } from '@/components/ui'
 import { statusLabel, useJob } from '@/lib/jobs'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
@@ -82,14 +82,14 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
   const noBrands = brands.length === 0
 
   return (
-    <div className="border-t border-rule pt-4">
+    <div className="border-t border-border pt-4">
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1 text-xs text-slate">
           Brand
           <select
             value={brandId}
             onChange={(e) => setBrandId(Number(e.target.value))}
-            className="border border-rule bg-surface px-2 py-1 text-sm text-ink"
+            className="border border-border bg-card px-2 py-1 text-sm text-ink"
           >
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
@@ -104,7 +104,7 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
           <select
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="border border-rule bg-surface px-2 py-1 text-sm text-ink"
+            className="border border-border bg-card px-2 py-1 text-sm text-ink"
           >
             {(brand?.languages ?? ['english']).map((code) => (
               <option key={code} value={code}>
@@ -118,7 +118,7 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
           type="button"
           onClick={() => post.start({ brandId, language, formats: ['square', 'portrait'] })}
           disabled={post.busy || blocked || noBrands}
-          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-rule disabled:text-slate"
+          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-border disabled:text-slate"
         >
           {post.busy ? 'Generating' : 'Generate post'}
         </button>
@@ -135,7 +135,7 @@ export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
       ) : null}
 
       {post.error || post.job?.error ? (
-        <div className="mt-4 border-t border-rule pt-3">
+        <div className="mt-4 border-t border-border pt-3">
           <p className="text-sm text-ink">{post.job?.error ?? post.error}</p>
           <button
             type="button"
@@ -182,7 +182,7 @@ function Images({ images, brandName }: { images: ContentAsset[]; brandName?: str
           stretching its square neighbours to match. */}
       <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
         {images.map((asset) => (
-          <figure key={asset.id} className="border border-rule bg-surface p-3">
+          <figure key={asset.id} className="border border-border bg-card p-3">
             {asset.url ? (
               // Intrinsic size on the element, so a 1080x1350 post holds its
               // 4:5 shape instead of being squared off by the grid.
@@ -265,7 +265,7 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
           setState('clean')
         }}
         rows={5}
-        className="w-full border border-rule bg-surface p-3 text-sm leading-relaxed text-ink"
+        className="w-full border border-border bg-card p-3 text-sm leading-relaxed text-ink"
       />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -273,7 +273,7 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
           type="button"
           onClick={() => void save()}
           disabled={state === 'saving'}
-          className="border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover disabled:border-rule disabled:text-slate"
+          className="border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover disabled:border-border disabled:text-slate"
         >
           {state === 'saving' ? 'Saving' : 'Save caption'}
         </button>

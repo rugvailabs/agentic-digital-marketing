@@ -12,7 +12,7 @@ export function TopBar({ health, regionName }: { health: Health | null; regionNa
   const pipeline = pipelineState(health)
 
   return (
-    <header className="sticky top-0 z-30 flex h-topbar items-center gap-6 border-b border-rule bg-surface px-5">
+    <header className="sticky top-0 z-30 flex h-topbar items-center gap-6 border-b border-border bg-card px-5">
       <span className="font-display text-lg font-extrabold tracking-tight text-ink">
         TrendForge
       </span>

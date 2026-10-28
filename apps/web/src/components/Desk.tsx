@@ -4,7 +4,7 @@ import { SOURCE_LABELS, type SourceName } from '@trendforge/types'
 import { Hashtags } from '@/components/Hashtags'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
-import { Empty, MetaCell, SectionLabel } from '@/components/primitives'
+import { Empty, MetaCell, SectionLabel } from '@/components/ui'
 import { formatCompactVolume, formatIstDateTime, formatNumber, velocity } from '@/lib/format'
 
 /**
@@ -69,7 +69,7 @@ export function Desk({
         four grid cells read as four separate things, where this is a single
         reading of one topic. It wraps only when the measure runs out.
       */}
-      <div className="desk:flex desk:flex-wrap desk:items-start desk:gap-x-0 desk:gap-y-4 grid grid-cols-2 gap-x-6 gap-y-3 border-y border-rule py-3">
+      <div className="desk:flex desk:flex-wrap desk:items-start desk:gap-x-0 desk:gap-y-4 grid grid-cols-2 gap-x-6 gap-y-3 border-y border-border py-3">
         <MetaCell label="Volume" numeric>
           {trend.volume ? formatNumber(trend.volume) : '—'}
         </MetaCell>
