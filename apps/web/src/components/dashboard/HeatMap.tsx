@@ -4,7 +4,7 @@ import type { StateHeat } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 import { INDIA_STATES, INDIA_VIEWBOX } from '@/lib/india-map'
 
 /**
@@ -176,7 +176,7 @@ function fillFor(bucket: number): string {
 function Legend({ peak }: { peak: number }) {
   return (
     <div className="mt-2 flex items-center justify-end gap-2">
-      <span className="text-xs text-muted">Quiet</span>
+      <span className="text-xs text-faint">Quiet</span>
       <span className="flex">
         {Array.from({ length: BUCKETS }, (_, i) => (
           <span
@@ -187,7 +187,7 @@ function Legend({ peak }: { peak: number }) {
           />
         ))}
       </span>
-      <span className="num text-xs text-muted">{Math.round(peak * 100)}% rising</span>
+      <span className="num text-xs text-faint">{Math.round(peak * 100)}% rising</span>
     </div>
   )
 }

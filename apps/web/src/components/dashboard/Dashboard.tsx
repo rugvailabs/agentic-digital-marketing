@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { HeatMap } from '@/components/dashboard/HeatMap'
 import { Sparkline } from '@/components/Sparkline'
 import { EmptyState } from '@/components/Empty'
-import { Card, Panel, SectionLabel, cx } from '@/components/ui'
+import { Card, Panel, SectionLabel, cx } from '@/components/house'
 import { formatAge, formatCompactVolume, formatIstDateTime, formatIstTime } from '@/lib/format'
 
 /**
@@ -35,7 +35,7 @@ export function Dashboard({ data }: { data: DashboardData }) {
         <Panel className="p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
             <SectionLabel>Where topics are climbing</SectionLabel>
-            <p className="text-xs text-muted">Share of each board that is rising. Click a state.</p>
+            <p className="text-xs text-faint">Share of each board that is rising. Click a state.</p>
           </div>
           <div className="mt-3">
             <HeatMap heat={data.heat} />
@@ -86,7 +86,7 @@ function Movers({ movers }: { movers: Mover[] }) {
                   <span className="block truncate text-sm text-ink group-hover:underline group-hover:underline-offset-2">
                     {mover.topic}
                   </span>
-                  <span className="block truncate text-xs text-muted">
+                  <span className="block truncate text-xs text-faint">
                     {mover.region_name}, rank {mover.rank}
                   </span>
                 </span>
@@ -141,7 +141,7 @@ function Scheduled({ items }: { items: DashboardData['scheduled'] }) {
                 <Poster url={item.preview_url} kind={item.kind} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-ink">{item.title}</span>
-                  <span className="block truncate text-xs text-muted">{item.brand_name}</span>
+                  <span className="block truncate text-xs text-faint">{item.brand_name}</span>
                 </span>
                 <span className="num shrink-0 text-right text-xs text-slate">
                   {formatIstDateTime(item.scheduled_at)}
@@ -200,7 +200,7 @@ function Week({ week }: { week: DashboardData['week'] }) {
                   <Poster url={item.preview_url} kind={item.kind} size="lg" />
                   <span className="block p-2">
                     <span className="line-clamp-2 block text-xs text-ink">{item.title}</span>
-                    <span className="mt-1 block truncate text-xs text-muted">
+                    <span className="mt-1 block truncate text-xs text-faint">
                       {formatAge(item.created_at)}
                     </span>
                   </span>
@@ -227,7 +227,7 @@ function Poster({ url, kind, size }: { url: string | null; kind: string; size: '
     return (
       <span
         className={cx(
-          'flex shrink-0 items-center justify-center border-border bg-page text-muted',
+          'flex shrink-0 items-center justify-center border-border bg-page text-faint',
           size === 'sm' ? 'size-9 shrink-0 rounded-sm border' : 'aspect-square w-full border-b',
         )}
       >

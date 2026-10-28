@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { MobileNav } from '@/components/shell/MobileNav'
+import { Providers } from '@/components/shell/Providers'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { TopBar } from '@/components/shell/TopBar'
 
@@ -24,7 +25,7 @@ export function AppShell({
   children: ReactNode
 }) {
   return (
-    <>
+    <Providers>
       <Sidebar workspaceName={workspaceName} />
       {/*
        * Offset by the sidebar's width rather than laid out beside it. The
@@ -40,6 +41,6 @@ export function AppShell({
         <main className="desk:pb-0 pb-14">{children}</main>
       </div>
       <MobileNav />
-    </>
+    </Providers>
   )
 }

@@ -9,7 +9,7 @@ import { BatchGenerate } from '@/components/BatchGenerate'
 import { PlatformStrip } from '@/components/PlatformStrip'
 import { RegionStrip } from '@/components/RegionStrip'
 import { EmptyState } from '@/components/Empty'
-import { Code, SectionLabel, cx } from '@/components/ui'
+import { Code, SectionLabel, cx } from '@/components/house'
 import { formatIstTime } from '@/lib/format'
 
 /**

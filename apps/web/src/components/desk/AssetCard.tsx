@@ -3,7 +3,7 @@
 import { CalendarPlus, Check, Download, ExternalLink } from 'lucide-react'
 import { useState } from 'react'
 
-import { Card, cx } from '@/components/ui'
+import { Card, cx } from '@/components/house'
 import { moveJob } from '@/lib/library'
 
 /**
@@ -115,7 +115,7 @@ export function AssetCard({
 
       <figcaption className="mt-1.5 flex items-baseline justify-between gap-2">
         <span className="truncate text-xs text-ink">{title}</span>
-        {subtitle ? <span className="num shrink-0 text-xs text-muted">{subtitle}</span> : null}
+        {subtitle ? <span className="num shrink-0 text-xs text-faint">{subtitle}</span> : null}
       </figcaption>
       {error ? (
         <p role="alert" className="mt-1 text-xs text-chilli">

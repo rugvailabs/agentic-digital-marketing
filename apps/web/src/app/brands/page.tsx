@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 import { TemplatePreview } from '@/components/TemplatePreview'
 import { EmptyState } from '@/components/Empty'
-import { ButtonLink, Card, Chip, SectionLabel } from '@/components/ui'
+import { ButtonLink, Card, Chip, SectionLabel } from '@/components/house'
 import { fetchBrands } from '@/lib/api'
 
 /**
@@ -114,7 +114,7 @@ function BrandCard({ brand }: { brand: Brand }) {
 
             <span className="min-w-0 flex-1">
               <span className="block truncate text-base text-ink">{brand.name}</span>
-              <span className="block truncate font-mono text-xs text-muted">{brand.slug}</span>
+              <span className="block truncate font-mono text-xs text-faint">{brand.slug}</span>
             </span>
           </div>
 

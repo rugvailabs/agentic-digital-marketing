@@ -1,6 +1,6 @@
 import { Skeleton } from '@/components/Skeleton'
 import { WEEKDAYS } from '@/lib/calendar'
-import { SectionLabel } from '@/components/ui'
+import { SectionLabel } from '@/components/house'
 
 export default function Loading() {
   return (

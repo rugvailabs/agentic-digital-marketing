@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 import { GlobalSearch } from '@/components/shell/GlobalSearch'
 import { IstClock } from '@/components/IstClock'
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * 56px of system state, and the search.

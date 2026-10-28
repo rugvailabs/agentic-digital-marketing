@@ -8,7 +8,7 @@ import { Hashtags } from '@/components/Hashtags'
 import { Sparkline } from '@/components/Sparkline'
 import { Studio } from '@/components/Studio'
 import { EmptyState } from '@/components/Empty'
-import { MetaCell, SectionLabel, Tabs } from '@/components/ui'
+import { MetaCell, SectionLabel, Tabs } from '@/components/house'
 import { formatCompactVolume, formatIstDateTime, formatNumber, velocity } from '@/lib/format'
 
 /**

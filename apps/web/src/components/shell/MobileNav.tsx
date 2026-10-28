@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 import { NAV, isActive } from '@/components/shell/nav'
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * The phone's navigation: a bottom bar, below the Desk breakpoint.
@@ -44,7 +44,7 @@ export function MobileNav() {
                 className={cx(
                   'flex h-14 flex-col items-center justify-center gap-1',
                   'transition-colors duration-150',
-                  active ? 'text-ink' : 'text-muted',
+                  active ? 'text-ink' : 'text-faint',
                 )}
               >
                 <Icon aria-hidden="true" className="size-5" strokeWidth={2} />

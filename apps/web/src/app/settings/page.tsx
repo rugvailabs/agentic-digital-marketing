@@ -1,4 +1,4 @@
-import { Code, SectionLabel } from '@/components/ui'
+import { Code, SectionLabel } from '@/components/house'
 import { fetchPlatforms } from '@/lib/api'
 
 /**

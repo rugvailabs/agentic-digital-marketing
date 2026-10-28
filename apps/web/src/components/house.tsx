@@ -243,7 +243,7 @@ export function ButtonLink({
  */
 const FIELD = cx(
   'w-full rounded-sm border border-border bg-page text-ink',
-  'placeholder:text-muted',
+  'placeholder:text-faint',
   'transition-[border-color] duration-150',
   'hover:border-border-hover',
   'disabled:pointer-events-none disabled:opacity-50',
@@ -313,7 +313,7 @@ export function Field({
         {label}
       </label>
       {children}
-      {hint ? <span className="text-xs text-muted">{hint}</span> : null}
+      {hint ? <span className="text-xs text-faint">{hint}</span> : null}
     </Wrapper>
   )
 }
@@ -443,7 +443,7 @@ export function Tabs<T extends string>({
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 ? (
-              <span className="num text-xs text-muted">{tab.count}</span>
+              <span className="num text-xs text-faint">{tab.count}</span>
             ) : null}
           </button>
         )

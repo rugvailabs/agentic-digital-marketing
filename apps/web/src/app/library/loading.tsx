@@ -1,4 +1,4 @@
-import { SectionLabel } from '@/components/ui'
+import { SectionLabel } from '@/components/house'
 import { SkeletonCards } from '@/components/Skeleton'
 
 export default function Loading() {

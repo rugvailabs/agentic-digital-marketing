@@ -4,7 +4,7 @@ import type { Brand } from '@trendforge/types'
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * "Generate for the top N", above the ladder.

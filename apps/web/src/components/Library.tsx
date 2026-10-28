@@ -20,7 +20,7 @@ import {
   Segmented,
   Select,
   cx,
-} from '@/components/ui'
+} from '@/components/house'
 import { formatAge, formatIstDateTime } from '@/lib/format'
 import { type LibraryFilters, fetchLibrary, moveJob } from '@/lib/library'
 
@@ -298,7 +298,7 @@ function GridCard({ item, onMoved }: { item: LibraryItem; onMoved: () => void })
           {item.hook && item.hook !== item.topic ? (
             <p className="truncate text-xs text-slate">{item.topic}</p>
           ) : null}
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-faint">
             <span className="truncate">{item.region_name}</span>
             <span className="capitalize">{item.language}</span>
             <span>{item.kind === 'reel' ? 'Reel' : 'Post'}</span>
@@ -345,7 +345,7 @@ function GridCard({ item, onMoved }: { item: LibraryItem; onMoved: () => void })
 function Poster({ item }: { item: LibraryItem }) {
   if (!item.preview_url) {
     return (
-      <span className="flex aspect-square w-full items-center justify-center border-b border-border bg-page text-muted">
+      <span className="flex aspect-square w-full items-center justify-center border-b border-border bg-page text-faint">
         {item.status === 'failed' ? (
           <span className="text-xs">Failed</span>
         ) : item.kind === 'reel' ? (

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 import { NAV, isActive } from '@/components/shell/nav'
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 import { SIDEBAR_KEY, type Theme, applyTheme } from '@/lib/chrome'
 
 /**
@@ -168,7 +168,7 @@ export function Sidebar({ workspaceName }: { workspaceName: string }) {
           </span>
           <span className="sidebar-label min-w-0">
             <span className="block truncate text-xs text-ink">{workspaceName}</span>
-            <span className="block truncate text-xs text-muted">Workspace</span>
+            <span className="block truncate text-xs text-faint">Workspace</span>
           </span>
         </div>
       </div>

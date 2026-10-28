@@ -1,4 +1,19 @@
 @import 'tailwindcss';
+@import 'tw-animate-css';
+
+/*
+ * The dark variant, pointed at our attribute rather than at a `.dark` class.
+ *
+ * shadcn ships `&:is(.dark *)`, which assumes the class-on-html convention.
+ * This product writes `data-theme` and treats dark as the default with no
+ * attribute at all, so a plain `.dark` test is false on the dark page —
+ * every `dark:` utility inside a stock component would be dead. Three
+ * states, two of which are dark: no attribute, and an explicit dark one.
+ *
+ * Our own components still must not use `dark:`; a component names a
+ * surface. This exists so a vendored component behaves if it does.
+ */
+@custom-variant dark (&:where(:root:not([data-theme='light']) *, :root[data-theme='dark'] *));
 
 /*
  * One @theme block, per CLAUDE.md.
@@ -52,7 +67,7 @@
   --color-slate: #97a3b8;
   /* A third step, for text that is present but not being read: timestamps
      on a card, a disabled label, the unit after a number. */
-  --color-muted: #697689;
+  --color-faint: #697689;
 
   /* ── Accents ─────────────────────────────────────────────────────────
    * Still one. Chilli means rising velocity and marks the focused control,
@@ -188,7 +203,7 @@
 
     --color-ink: #1b2230;
     --color-slate: #5b6578;
-    --color-muted: #8793a5;
+    --color-faint: #8793a5;
 
     --color-chilli: #d8322b;
     --color-chilli-ink: #ffffff;
@@ -386,5 +401,129 @@
       transition: none;
       transform: none;
     }
+  }
+}
+
+/*
+ * shadcn's vocabulary, spelled in our tokens.
+ *
+ * Every vendored component is written against `bg-card`, `text-foreground`,
+ * `border-input`, `ring-ring` and so on. The CLI's answer is a second
+ * palette — twenty-six greys in oklch plus a `.dark` block — which is the
+ * stock shadcn look arriving through the back door and a second source of
+ * truth for colours we already decided. So the generated palette was
+ * deleted and this is in its place: an alias layer, no new colours in it.
+ *
+ * `@theme inline` rather than `@theme`, which matters. `inline` emits the
+ * utility as `var(--color-page)` instead of resolving it at build time, so
+ * when `:root[data-theme='light']` redefines `--color-page` the alias
+ * follows. Resolved at build time it would bake the dark value into
+ * `bg-background` and the light theme would be dark.
+ *
+ * Where a shadcn name has no counterpart here it gets the nearest surface
+ * rather than a new colour. There is one accent in this product.
+ */
+@theme inline {
+  /* Surfaces. */
+  --color-background: var(--color-page);
+  --color-foreground: var(--color-ink);
+  --color-card-foreground: var(--color-ink);
+  --color-popover: var(--color-overlay);
+  --color-popover-foreground: var(--color-ink);
+
+  /* `secondary` is a quiet control, which is the panel step. */
+  --color-secondary: var(--color-panel);
+  --color-secondary-foreground: var(--color-ink);
+
+  /*
+   * `muted` is a surface in shadcn and was an ink step here — the third
+   * one, for text that is present but not being read. Two meanings for one
+   * name is not a thing a token system can survive, so ours was renamed to
+   * `faint` and shadcn keeps `muted`. Its foreground is our `slate`, which
+   * is what shadcn means by muted-foreground anyway.
+   */
+  --color-muted: var(--color-panel);
+  --color-muted-foreground: var(--color-slate);
+
+  /* `accent` is a hover ground, not an accent colour. Naming, not ours. */
+  --color-accent: var(--color-row-hover);
+  --color-accent-foreground: var(--color-ink);
+
+  /* The one accent, and the one focus ring. */
+  --color-primary: var(--color-chilli);
+  --color-primary-foreground: var(--color-chilli-ink);
+  --color-ring: var(--color-chilli);
+
+  /* A destructive action is the same red; nothing else may claim chilli,
+     and a second red would be a second accent. */
+  --color-destructive: var(--color-chilli);
+  --color-destructive-foreground: var(--color-chilli-ink);
+
+  /* A field's resting line is the same hairline as everything else. */
+  --color-input: var(--color-border);
+
+  /*
+   * shadcn's sidebar component set, which we do not use — our shell is our
+   * own. Aliased anyway so that pulling one in later cannot silently
+   * introduce a grey.
+   */
+  --color-sidebar: var(--color-panel);
+  --color-sidebar-foreground: var(--color-ink);
+  --color-sidebar-primary: var(--color-chilli);
+  --color-sidebar-primary-foreground: var(--color-chilli-ink);
+  --color-sidebar-accent: var(--color-row-hover);
+  --color-sidebar-accent-foreground: var(--color-ink);
+  --color-sidebar-border: var(--color-border);
+  --color-sidebar-ring: var(--color-chilli);
+
+  /*
+   * Recharts series colours. Five steps of the one accent, which is the
+   * heat ramp — the same decision, for the same reason, and it flips with
+   * the theme because the ramp does.
+   */
+  --color-chart-1: var(--color-heat-4);
+  --color-chart-2: var(--color-heat-3);
+  --color-chart-3: var(--color-heat-2);
+  --color-chart-4: var(--color-heat-1);
+  --color-chart-5: var(--color-heat-0);
+
+  /*
+   * The radius scale shadcn derives from a single `--radius`. Ours is three
+   * considered steps and is already in @theme above, so only the names
+   * shadcn adds on top are defined here, both pinned to the panel step
+   * rather than growing past it.
+   */
+  --radius-xl: var(--radius-lg);
+  --radius-2xl: var(--radius-lg);
+}
+
+/*
+ * The same aliases again, unprefixed.
+ *
+ * A vendored component reaches for colours two ways: through a utility
+ * (`bg-secondary`, which the block above answers) and through an arbitrary
+ * value — `hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)]`
+ * in shadcn's own button. The second form reads the bare custom property,
+ * which `@theme` does not emit, so the mix resolved to nothing and the
+ * button had no hover at all. Seven names, all of them aliases of tokens
+ * defined above, no new colours.
+ */
+@layer theme {
+  :root {
+    --background: var(--color-page);
+    --foreground: var(--color-ink);
+    --card: var(--color-card);
+    --popover: var(--color-overlay);
+    --popover-foreground: var(--color-ink);
+    --secondary: var(--color-panel);
+    --muted: var(--color-panel);
+    --border: var(--color-border);
+    --input: var(--color-border);
+    --primary: var(--color-chilli);
+    --destructive: var(--color-chilli);
+    --ring: var(--color-chilli);
+    /* shadcn's single radius knob, from which it derives xl/2xl/3xl. Pinned
+       to the control step, because that is what it is used on. */
+    --radius: var(--radius-sm);
   }
 }

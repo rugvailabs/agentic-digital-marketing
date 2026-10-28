@@ -4,7 +4,7 @@ import type { Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * Order: India, then states by today's total topic volume, then union

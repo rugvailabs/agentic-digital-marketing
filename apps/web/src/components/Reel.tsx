@@ -4,7 +4,7 @@ import type { ContentAsset, ContentJob } from '@trendforge/types'
 
 import { AssetCard } from '@/components/desk/AssetCard'
 import { EmptyState } from '@/components/Empty'
-import { SectionLabel, cx } from '@/components/ui'
+import { SectionLabel, cx } from '@/components/house'
 
 /**
  * The reel: what it will say, and the file once it exists.
@@ -114,7 +114,7 @@ function VideoCard({ asset, jobId }: { asset: ContentAsset; jobId?: number }) {
           className="block h-auto w-full"
         />
       </AssetCard>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-faint">
         {meta.voice ? `Voice ${meta.voice}` : 'No voice recorded'}
         {meta.has_music ? ', music' : ''}
       </p>

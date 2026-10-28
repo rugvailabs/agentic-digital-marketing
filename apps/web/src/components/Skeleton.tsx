@@ -1,4 +1,4 @@
-import { Card, Panel, cx } from '@/components/ui'
+import { Card, Panel, cx } from '@/components/house'
 
 /**
  * Skeletons, shaped like the thing that is coming.

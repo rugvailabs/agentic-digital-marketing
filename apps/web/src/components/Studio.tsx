@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { AssetCard } from '@/components/desk/AssetCard'
 import { Reel } from '@/components/Reel'
 import { EmptyState } from '@/components/Empty'
-import { Button, Chip, Code, Field, SectionLabel, Select, Textarea, cx } from '@/components/ui'
+import { Button, Chip, Code, Field, SectionLabel, Select, Textarea, cx } from '@/components/house'
 import { statusLabel, useJob } from '@/lib/jobs'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'

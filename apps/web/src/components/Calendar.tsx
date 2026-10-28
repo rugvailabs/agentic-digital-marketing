@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { EmptyState } from '@/components/Empty'
-import { Button, Card, SectionLabel, Segmented, cx } from '@/components/ui'
+import { Button, Card, SectionLabel, Segmented, cx } from '@/components/house'
 import {
   type CalendarView,
   WEEKDAYS,
@@ -431,7 +431,7 @@ function Item({
         </button>
         <Link
           href={`/board?region=${item.region_code}&topic=${item.trend_id}`}
-          className="block truncate px-1.5 pb-1 text-[11px] text-muted hover:text-ink"
+          className="block truncate px-1.5 pb-1 text-[11px] text-faint hover:text-ink"
           // Or dragging the item would start a link drag instead.
           draggable={false}
         >
@@ -463,7 +463,7 @@ function Item({
         {item.hook && item.hook !== item.topic ? (
           <p className="mt-1 text-xs text-slate">{item.topic}</p>
         ) : null}
-        <p className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-muted">
+        <p className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-faint">
           <span>{item.brand_name}</span>
           <span>{item.region_name}</span>
           <span className="capitalize">{item.language}</span>
@@ -479,7 +479,7 @@ function Item({
 function Thumb({ item }: { item: LibraryItem }) {
   if (!item.preview_url) {
     return (
-      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-border bg-page text-muted">
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-border bg-page text-faint">
         {item.kind === 'reel' ? (
           <Film aria-hidden="true" className="size-3.5" strokeWidth={2} />
         ) : (

@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCallback, useMemo, useRef } from 'react'
 
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * Platform filter above the ladder: All, then one per platform.

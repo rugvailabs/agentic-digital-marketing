@@ -4,7 +4,7 @@ import { Search } from 'lucide-react'
 import Link from 'next/link'
 import { useEffect, useId, useRef, useState } from 'react'
 
-import { Chip, cx } from '@/components/ui'
+import { Chip, cx } from '@/components/house'
 
 /**
  * One box across topics, brands and generated work.
@@ -176,7 +176,7 @@ export function GlobalSearch() {
     <div ref={box} className="relative w-full max-w-md">
       <Search
         aria-hidden="true"
-        className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted"
+        className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-faint"
         strokeWidth={2}
       />
       <input
@@ -197,7 +197,7 @@ export function GlobalSearch() {
         onKeyDown={onKeyDown}
         className={cx(
           'h-9 w-full rounded-sm border border-border bg-page pr-14 pl-8 text-sm text-ink',
-          'placeholder:text-muted',
+          'placeholder:text-faint',
           'transition-[border-color] duration-150 hover:border-border-hover',
           // Safari draws its own clear button on type=search and it lands
           // on top of the shortcut hint.
@@ -206,7 +206,7 @@ export function GlobalSearch() {
       />
       <kbd
         aria-hidden="true"
-        className="num pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-muted"
+        className="num pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded-sm border border-border px-1.5 py-0.5 text-[11px] text-faint"
       >
         ⌘K
       </kbd>
@@ -234,10 +234,10 @@ export function GlobalSearch() {
                     active={cursor === i}
                     onPick={() => setOpen(false)}
                   >
-                    <span className="num w-7 shrink-0 text-xs text-muted">#{hit.rank}</span>
+                    <span className="num w-7 shrink-0 text-xs text-faint">#{hit.rank}</span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{hit.topic}</span>
-                      <span className="block truncate text-xs text-muted">
+                      <span className="block truncate text-xs text-faint">
                         {hit.region_name}
                         {hit.also_on > 0 ? ` and ${hit.also_on} other boards` : ''}
                       </span>
@@ -291,7 +291,7 @@ export function GlobalSearch() {
                     )}
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm text-ink">{hit.title}</span>
-                      <span className="block truncate text-xs text-muted">{hit.brand_name}</span>
+                      <span className="block truncate text-xs text-faint">{hit.brand_name}</span>
                     </span>
                     <Chip tone="neutral" className="shrink-0 capitalize">
                       {hit.editorial_status}
@@ -319,7 +319,7 @@ function Group({
   if (count === 0) return null
   return (
     <section className="border-b border-border last:border-b-0">
-      <h3 className="px-3 pt-2.5 pb-1 text-xs font-medium text-muted">{label}</h3>
+      <h3 className="px-3 pt-2.5 pb-1 text-xs font-medium text-faint">{label}</h3>
       <ul className="pb-1.5">{children}</ul>
     </section>
   )

@@ -4,7 +4,7 @@ import type { Brand, Language, Region } from '@trendforge/types'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
-import { Button, Field, Input, SectionLabel, Select, Textarea } from '@/components/ui'
+import { Button, Field, Input, SectionLabel, Select, Textarea } from '@/components/house'
 import {
   TEMPLATES,
   TEMPLATE_LABELS,
@@ -324,7 +324,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
        */}
       <aside className="desk:sticky desk:top-[calc(var(--spacing-topbar)+1.25rem)] min-w-0 self-start">
         <SectionLabel>Preview</SectionLabel>
-        <p className="mt-1 text-xs text-muted">
+        <p className="mt-1 text-xs text-faint">
           Every post is rendered in all three. Sample copy, your brand.
         </p>
         <div className="desk:max-h-[calc(100dvh-var(--spacing-topbar)-5rem)] mt-4 flex flex-col gap-5 overflow-y-auto pr-1">
@@ -333,7 +333,7 @@ export function BrandEditor({ brand, regions }: { brand: Brand | null; regions: 
               <TemplatePreview template={template} brand={previewBrand} />
               <p className="mt-2 flex items-baseline justify-between text-xs">
                 <span className="text-ink">{TEMPLATE_LABELS[template]}</span>
-                <span className="text-muted">{TEMPLATE_NOTES[template]}</span>
+                <span className="text-faint">{TEMPLATE_NOTES[template]}</span>
               </p>
             </div>
           ))}

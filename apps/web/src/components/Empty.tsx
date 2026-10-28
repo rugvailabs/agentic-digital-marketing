@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 
-import { cx } from '@/components/ui'
+import { cx } from '@/components/house'
 
 /**
  * Empty states, with an illustration drawn here rather than imported.
@@ -67,7 +67,7 @@ function Art({ art }: { art: EmptyArt }) {
     viewBox: '0 0 96 60',
     fill: 'none',
     'aria-hidden': true as const,
-    className: 'text-muted',
+    className: 'text-faint',
   }
 
   if (art === 'ladder') {

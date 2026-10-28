@@ -1,6 +1,6 @@
 import { Board } from '@/components/Board'
 import { EmptyState } from '@/components/Empty'
-import { Code } from '@/components/ui'
+import { Code } from '@/components/house'
 import { ApiUnavailable, fetchBrands, fetchPlatforms, fetchRegions, fetchTrends } from '@/lib/api'
 import { SOURCE_NAMES, type SourceName } from '@trendforge/types'
 

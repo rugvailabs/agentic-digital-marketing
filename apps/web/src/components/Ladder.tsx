@@ -5,7 +5,7 @@ import { SOURCE_LABELS, SOURCE_MARKS, type SourceName } from '@trendforge/types'
 import { useEffect, useRef, useState } from 'react'
 
 import { Sparkline } from '@/components/Sparkline'
-import { Chip, cx } from '@/components/ui'
+import { Chip, cx } from '@/components/house'
 import { formatCompactVolume, shortCategory } from '@/lib/format'
 
 /** Whole-list load-in budget is 240ms, so the stagger shrinks as rows grow. */
@@ -210,7 +210,7 @@ function Row({
             number face: it is a reference, not the row's position.
           */}
           {boardRank !== null ? (
-            <span className="shrink-0 font-display text-xs whitespace-nowrap text-muted tabular-nums">
+            <span className="shrink-0 font-display text-xs whitespace-nowrap text-faint tabular-nums">
               rank {boardRank}
             </span>
           ) : null}
