@@ -26,14 +26,22 @@ export function Board({
   brands,
   platforms,
   activePlatform,
+  openTrendId,
 }: {
   regions: Region[]
   board: TrendsResponse
   brands: Brand[]
   platforms: Platform[]
   activePlatform?: SourceName
+  /** A topic to open on, from a library or calendar row. */
+  openTrendId?: number
 }) {
-  const [selectedRank, setSelectedRank] = useState(board.trends[0]?.rank ?? 0)
+  // Resolved once, at mount. The ladder is keyed by rank because that is
+  // what a row shows and what the keyboard walks; a link names a topic by
+  // id, because a rank is only true until the next merge.
+  const [selectedRank, setSelectedRank] = useState(
+    () => board.trends.find((t) => t.id === openTrendId)?.rank ?? board.trends[0]?.rank ?? 0,
+  )
   const [panelOpen, setPanelOpen] = useState(false)
   const selected = board.trends.find((t) => t.rank === selectedRank) ?? board.trends[0] ?? null
   const closeRef = useRef<HTMLButtonElement>(null)

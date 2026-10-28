@@ -28,9 +28,41 @@ export type Language = Schemas['Language']
 export type JobStatus = Schemas['JobStatus']
 export type JobKind = Schemas['JobKind']
 export type AssetKind = Schemas['AssetKind']
+export type EditorialStatus = Schemas['EditorialStatus']
+export type LibraryItem = Schemas['LibraryItem']
+export type LibraryPage = Schemas['LibraryPage']
+export type LibraryFacets = Schemas['LibraryFacets']
+
+/**
+ * In the order work moves through them, which is the order the filter chips
+ * and the status menu are both drawn in. Taken from the schema, so adding a
+ * state to the API fails the exhaustiveness check below rather than quietly
+ * going unlisted.
+ */
+export const EDITORIAL_STATUSES = [
+  'draft',
+  'approved',
+  'scheduled',
+  'posted',
+] as const satisfies readonly EditorialStatus[]
+
+type EveryStatusListed =
+  Exclude<EditorialStatus, (typeof EDITORIAL_STATUSES)[number]> extends never ? true : never
+export const EDITORIAL_STATUSES_COVERED: EveryStatusListed = true
+
+/** Sentence case, as CLAUDE.md asks. */
+export const EDITORIAL_LABELS: Record<EditorialStatus, string> = {
+  draft: 'Draft',
+  approved: 'Approved',
+  scheduled: 'Scheduled',
+  posted: 'Posted',
+}
 
 /** Query parameters accepted by `GET /trends`. */
 export type TrendsQuery = NonNullable<paths['/trends']['get']['parameters']['query']>
+
+/** Query parameters accepted by `GET /library`. */
+export type LibraryQuery = NonNullable<paths['/library']['get']['parameters']['query']>
 
 /**
  * Platforms a topic can be attributed to.

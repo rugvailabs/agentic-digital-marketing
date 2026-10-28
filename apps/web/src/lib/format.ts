@@ -136,3 +136,57 @@ export function velocity(series: readonly number[]): {
   const trend = velocityTrend(series)
   return { trend, color: TREND_COLOR[trend], label: TREND_LABEL[trend] }
 }
+
+const istDate = new Intl.DateTimeFormat(LOCALE, {
+  timeZone: TIME_ZONE,
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+})
+
+/** "23 Oct 2026" in IST. */
+export function formatIstDate(value: Date | string): string {
+  return istDate.format(typeof value === 'string' ? new Date(value) : value)
+}
+
+/**
+ * "2 hours ago", "yesterday", "23 Oct".
+ *
+ * Relative only inside a week. Past that, a date is more useful than "14
+ * days ago" — nobody counts back from today to find last month's work, and
+ * the library sorts newest first so the exact figure is what distinguishes
+ * one old item from another.
+ */
+export function formatAge(value: Date | string, now: Date = new Date()): string {
+  const then = typeof value === 'string' ? new Date(value) : value
+  const minutes = Math.round((now.getTime() - then.getTime()) / 60_000)
+
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes} min ago`
+
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`
+
+  const days = Math.round(hours / 24)
+  if (days === 1) return 'yesterday'
+  if (days < 7) return `${days} days ago`
+  return formatIstDate(then)
+}
+
+/**
+ * The IST calendar day a timestamp falls on, as "YYYY-MM-DD".
+ *
+ * Not `toISOString().slice(0, 10)`, which is the UTC day: at 01:00 IST that
+ * is yesterday, so a post scheduled for Monday morning would land on Sunday
+ * in the calendar grid. en-CA is used because it formats as ISO.
+ */
+const istDay = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+export function istDayKey(value: Date | string): string {
+  return istDay.format(typeof value === 'string' ? new Date(value) : value)
+}

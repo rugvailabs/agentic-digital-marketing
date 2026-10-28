@@ -248,11 +248,57 @@ class TestListing:
         assert all(row["preview_url"] is None and row["hook"] is None for row in bare)
 
     async def test_a_caption_is_not_offered_as_a_thumbnail(self, client: httpx.AsyncClient) -> None:
-        """A caption has no url, and `next(...)` over a list that has one
-        first would otherwise return it."""
+        """A caption has no url, and a scan over a list that has one first
+        would otherwise return it."""
         newest = (await client.get("/library?limit=1")).json()["items"][0]
 
         assert newest["preview_url"].endswith(".png")
+
+    async def test_a_reel_previews_with_its_poster_not_its_mp4(
+        self, client: httpx.AsyncClient, seeded
+    ) -> None:
+        """A <video> draws nothing until it has fetched a frame, so a list
+        of reels renders as a column of empty boxes. The renderer already
+        saves a poster beside the video."""
+        reel_id = seeded["jobs"][2]
+        async with seeded["factory"]() as session:
+            session.add(
+                ContentAsset(
+                    job_id=reel_id,
+                    kind=AssetKind.video,
+                    variant="reel:wire",
+                    url="http://minio/reel.mp4",
+                    meta_json={"poster_url": "http://minio/reel-poster.jpg"},
+                )
+            )
+            await session.commit()
+
+        rows = (await client.get("/library?kind=reel")).json()["items"]
+        row = next(item for item in rows if item["id"] == reel_id)
+
+        assert row["preview_url"] == "http://minio/reel-poster.jpg"
+
+    async def test_a_reel_with_no_poster_previews_with_nothing(
+        self, client: httpx.AsyncClient, seeded
+    ) -> None:
+        """Rather than with an mp4 the thumbnail cannot draw."""
+        reel_id = seeded["jobs"][5]
+        async with seeded["factory"]() as session:
+            session.add(
+                ContentAsset(
+                    job_id=reel_id,
+                    kind=AssetKind.video,
+                    variant="reel:wire",
+                    url="http://minio/reel.mp4",
+                    meta_json={},
+                )
+            )
+            await session.commit()
+
+        rows = (await client.get("/library?kind=reel")).json()["items"]
+        row = next(item for item in rows if item["id"] == reel_id)
+
+        assert row["preview_url"] is None
 
 
 class TestFilters:

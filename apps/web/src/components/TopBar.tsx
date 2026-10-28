@@ -27,6 +27,9 @@ export function TopBar({ health, regionName }: { health: Health | null; regionNa
         {/* Text links, not icons: CLAUDE.md rules out an icon beside every
             label, and two words fit. */}
         <nav className="hidden items-center gap-4 text-xs text-slate sm:flex">
+          <Link href="/library" className="hover:text-ink">
+            Library
+          </Link>
           <Link href="/brands" className="hover:text-ink">
             Brands
           </Link>

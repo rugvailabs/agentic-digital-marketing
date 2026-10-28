@@ -170,6 +170,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/library": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Library */
+        get: operations["list_library_library_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/library/facets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Library Facets
+         * @description What this workspace has actually produced, for the filter controls.
+         */
+        get: operations["library_facets_library_facets_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content/jobs": {
         parameters: {
             query?: never;
@@ -210,7 +247,16 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Patch Job
+         * @description Move an item through draft -> approved -> scheduled -> posted.
+         *
+         *     The library and the calendar both write here. Scheduling is the only
+         *     transition with a rule attached, and it is enforced rather than assumed:
+         *     a `scheduled` row with no time is invisible on the calendar and looks
+         *     like work that was lost.
+         */
+        patch: operations["patch_job_content_jobs__job_id__patch"];
         trace?: never;
     };
     "/content/assets/{asset_id}": {
@@ -384,6 +430,18 @@ export interface components {
             /** Do Not Mention */
             do_not_mention?: string[] | null;
         };
+        /**
+         * EditorialStatus
+         * @description Where a finished item is in a human's workflow.
+         *
+         *     Separate from JobStatus, which is where the *pipeline* got to. The two
+         *     answer different questions and move independently: a job can be `ready`
+         *     and still `draft`, and a `posted` item is still `ready`. One column
+         *     carrying both would have to describe a render failure and an editor's
+         *     approval in the same vocabulary.
+         * @enum {string}
+         */
+        EditorialStatus: "draft" | "approved" | "scheduled" | "posted";
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -469,10 +527,27 @@ export interface components {
             /** Formats */
             formats: string[];
             status: components["schemas"]["JobStatus"];
+            editorial_status: components["schemas"]["EditorialStatus"];
+            /** Scheduled At */
+            scheduled_at: string | null;
             /** Error */
             error: string | null;
             /** Assets */
             assets: components["schemas"]["AssetOut"][];
+        };
+        /**
+         * JobPatch
+         * @description Where a person has got to with an item, and when it should go out.
+         *
+         *     Separate from JobStatus, which is where the pipeline got to. A job can
+         *     be `ready` and still a draft; a `posted` item is still `ready`; a failed
+         *     render says nothing about whether its author had approved the caption.
+         *     One column could not carry both.
+         */
+        JobPatch: {
+            editorial_status?: components["schemas"]["EditorialStatus"] | null;
+            /** Scheduled At */
+            scheduled_at?: string | null;
         };
         /**
          * JobStatus
@@ -484,6 +559,80 @@ export interface components {
          * @enum {string}
          */
         Language: "english" | "hinglish" | "hindi" | "tamil" | "telugu" | "bengali" | "marathi";
+        /**
+         * LibraryFacets
+         * @description What the filters can usefully offer.
+         *
+         *     Built from the workspace's own rows rather than from the enums: offering
+         *     Bengali in a dropdown when nothing has ever been written in Bengali is a
+         *     dead end dressed as a choice.
+         */
+        LibraryFacets: {
+            /** Brands */
+            brands: {
+                [key: string]: unknown;
+            }[];
+            /** Regions */
+            regions: {
+                [key: string]: unknown;
+            }[];
+            /** Languages */
+            languages: string[];
+            /** Formats */
+            formats: string[];
+        };
+        /**
+         * LibraryItem
+         * @description One row. Flat on purpose — a row is read, not traversed.
+         */
+        LibraryItem: {
+            /** Id */
+            id: number;
+            kind: components["schemas"]["JobKind"];
+            language: components["schemas"]["Language"];
+            /** Formats */
+            formats: string[];
+            status: components["schemas"]["JobStatus"];
+            editorial_status: components["schemas"]["EditorialStatus"];
+            /** Scheduled At */
+            scheduled_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Error */
+            error: string | null;
+            /** Brand Id */
+            brand_id: number;
+            /** Brand Name */
+            brand_name: string;
+            /** Trend Id */
+            trend_id: number;
+            /** Topic */
+            topic: string;
+            /** Region Code */
+            region_code: string;
+            /** Region Name */
+            region_name: string;
+            /** Hook */
+            hook: string | null;
+            /** Preview Url */
+            preview_url: string | null;
+            /** Asset Count */
+            asset_count: number;
+        };
+        /** LibraryPage */
+        LibraryPage: {
+            /** Items */
+            items: components["schemas"]["LibraryItem"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+        };
         /**
          * PlatformOut
          * @description One platform and whether this deployment can use it.
@@ -988,6 +1137,67 @@ export interface operations {
             };
         };
     };
+    list_library_library_get: {
+        parameters: {
+            query?: {
+                brand_id?: number | null;
+                region?: string | null;
+                language?: components["schemas"]["Language"] | null;
+                kind?: components["schemas"]["JobKind"] | null;
+                status?: components["schemas"]["EditorialStatus"] | null;
+                format?: string | null;
+                created_from?: string | null;
+                created_to?: string | null;
+                q?: string | null;
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryPage"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_facets_library_facets_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryFacets"];
+                };
+            };
+        };
+    };
     latest_job_content_jobs_get: {
         parameters: {
             query: {
@@ -1063,6 +1273,41 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_job_content_jobs__job_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["JobPatch"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

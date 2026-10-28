@@ -174,8 +174,29 @@ function shots(regionOverride?: string): Shot[] {
       viewport: DESKTOP,
       path: '/settings',
     },
-    // Step 5: brands. The editor rather than the list, because the preview
-    // beside the form is the thing worth looking at.
+    // Step 5: the library, and brands. The editor rather than the brand
+    // list, because the preview beside the form is what is worth seeing.
+    {
+      name: 'library-1440-light',
+      region: national,
+      theme: 'light',
+      viewport: DESKTOP,
+      path: '/library',
+    },
+    {
+      name: 'library-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/library',
+    },
+    {
+      name: 'library-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/library',
+    },
     {
       name: 'brands-1440-light',
       region: national,

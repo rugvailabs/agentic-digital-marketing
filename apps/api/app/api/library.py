@@ -70,8 +70,9 @@ class LibraryItem(BaseModel):
     #: The caption's hook, which is what a person recognises an item by —
     #: the topic is what it is about, the hook is what this post says.
     hook: str | None
-    #: First image or video, for the row's thumbnail. Null while a job is
-    #: still running, and null forever if it failed.
+    #: A still for the row's thumbnail — an image asset, or a reel's poster
+    #: frame. Never the mp4 itself. Null while a job is still running, and
+    #: null forever if it failed.
     preview_url: str | None
     #: How many assets exist, so a row can say "3 images" without carrying
     #: three asset objects to do it.
@@ -218,12 +219,27 @@ async def list_library(
     return LibraryPage(items=items, total=total or 0, limit=limit, offset=offset)
 
 
+def _preview(job: ContentJob) -> str | None:
+    """A still for the row, or None.
+
+    Always an image. A reel's own URL is an mp4, and a <video> tag draws
+    nothing until it has fetched a frame — so a list of reels renders as a
+    column of empty boxes. The renderer already saves a poster frame beside
+    the video; this is what it is for.
+    """
+    for asset in job.assets:
+        if asset.kind is AssetKind.image and asset.url:
+            return asset.url
+    for asset in job.assets:
+        if asset.kind is AssetKind.video:
+            poster = (asset.meta_json or {}).get("poster_url")
+            if isinstance(poster, str) and poster:
+                return poster
+    return None
+
+
 def _item(job: ContentJob, trend: Trend | None) -> LibraryItem:
     caption = next((a for a in job.assets if a.kind is AssetKind.caption), None)
-    preview = next(
-        (a for a in job.assets if a.kind in (AssetKind.video, AssetKind.image) and a.url),
-        None,
-    )
     return LibraryItem(
         id=job.id,
         kind=job.kind,
@@ -243,7 +259,7 @@ def _item(job: ContentJob, trend: Trend | None) -> LibraryItem:
         region_code=trend.region.code if trend and trend.region else "",
         region_name=trend.region.name if trend and trend.region else "",
         hook=(caption.meta_json or {}).get("hook") if caption else None,
-        preview_url=preview.url if preview else None,
+        preview_url=_preview(job),
         asset_count=len(job.assets),
     )
 

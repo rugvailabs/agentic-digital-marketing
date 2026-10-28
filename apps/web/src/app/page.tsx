@@ -15,12 +15,19 @@ const DEFAULT_REGION = 'IN'
 const LADDER_LIMIT = 20
 
 type Props = {
-  searchParams: Promise<{ region?: string; limit?: string; platform?: string }>
+  searchParams: Promise<{
+    region?: string
+    limit?: string
+    platform?: string
+    /** A trend id to open the Desk on, from a library or calendar row. */
+    topic?: string
+  }>
 }
 
 export default async function BoardPage({ searchParams }: Props) {
-  const { region = DEFAULT_REGION, limit, platform } = await searchParams
+  const { region = DEFAULT_REGION, limit, platform, topic } = await searchParams
   const activePlatform = asPlatform(platform)
+  const openTopic = Number(topic)
   const health = await fetchHealth()
 
   let content
@@ -28,7 +35,11 @@ export default async function BoardPage({ searchParams }: Props) {
   try {
     const [regions, board, brands, platforms] = await Promise.all([
       fetchRegions(),
-      fetchTrends(region, clampLimit(limit), activePlatform),
+      // A link that names a topic asks for the deepest board the API will
+      // serve: a week-old item can be well below the default twenty rows,
+      // and arriving at rank 1 instead of the item you clicked reads as the
+      // link being broken.
+      fetchTrends(region, Number.isFinite(openTopic) ? 100 : clampLimit(limit), activePlatform),
       fetchBrands(),
       fetchPlatforms(),
     ])
@@ -40,6 +51,7 @@ export default async function BoardPage({ searchParams }: Props) {
         brands={brands}
         platforms={platforms}
         activePlatform={activePlatform}
+        openTrendId={Number.isFinite(openTopic) ? openTopic : undefined}
       />
     )
   } catch (error) {
