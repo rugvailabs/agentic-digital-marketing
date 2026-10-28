@@ -335,6 +335,64 @@ function shots(regionOverride?: string): Shot[] {
       viewport: PHONE,
       path: '/brands',
     },
+    /*
+     * The rest of the matrix.
+     *
+     * Every page, both themes, both widths. The set above grew a shot at a
+     * time as each section landed, which left holes that were invisible
+     * until they were listed out — brands had no dark shot at either width
+     * and settings had no phone shot at all, so neither had ever been
+     * looked at in those states.
+     */
+    {
+      name: 'dashboard-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/',
+    },
+    {
+      name: 'brands-1440-dark',
+      region: national,
+      theme: 'dark',
+      viewport: DESKTOP,
+      path: '/brands',
+    },
+    {
+      name: 'brands-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      path: '/brands',
+    },
+    {
+      name: 'brand-editor-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      path: '/brands/1',
+    },
+    {
+      name: 'calendar-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      path: '/calendar',
+    },
+    {
+      name: 'settings-390-light',
+      region: national,
+      theme: 'light',
+      viewport: PHONE,
+      path: '/settings',
+    },
+    {
+      name: 'settings-390-dark',
+      region: national,
+      theme: 'dark',
+      viewport: PHONE,
+      path: '/settings',
+    },
     {
       name: 'library-390-dark',
       region: national,
@@ -390,6 +448,24 @@ async function openTab(page: Page, name: string): Promise<void> {
   throw new Error(`the ${name} tab never opened — did the Desk hydrate?`)
 }
 
+/**
+ * Hide the phone's bottom nav for a full-page capture.
+ *
+ * Chromium paints a `position: fixed` element once, where it would sit at
+ * scroll zero — so in a 3000px full-page shot of the dashboard the bottom
+ * bar lands a third of the way down, stamped across the middle of the
+ * content like a bug. The top bar is at the top of such a shot, which is
+ * where it belongs, so only this one is in the way.
+ *
+ * Nothing is lost by hiding it: the 390px board and panel shots are
+ * viewport-height, and the bar is sitting at the foot of those.
+ */
+async function hideFixedNav(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: 'nav[aria-label="Main"].fixed { display: none !important }',
+  })
+}
+
 async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   await page.setViewportSize(shot.viewport)
   // Kept for form controls and scrollbars, which the browser paints from
@@ -419,19 +495,18 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     throw new Error(`${BASE_URL} returned ${response.status()} — is \`.\\tf.ps1 dev\` ready?`)
   }
 
-  // The dev overlay badge sits over the bottom-left of the ladder. Hiding its
-  // custom element works regardless of Next version; `devIndicators: false` in
-  // next.config does not remove this portal in 15.5.
-  await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' })
-
   /*
    * The theme and the sidebar state, set the way a user sets them.
    *
-   * After navigation, not before: an inline script in <head> reads
-   * localStorage and writes these attributes before the first paint, so
-   * anything set earlier is overwritten by it. Writing localStorage too
-   * means a reload inside a shot keeps the theme rather than snapping back
-   * to dark.
+   * Written to localStorage after navigation and then reloaded, which is
+   * one more round trip than setting the attributes directly and is the
+   * only version that is actually honest. Setting `data-theme` on a loaded
+   * page repaints it — the CSS reads the attribute — but the sidebar reads
+   * the attribute once on mount to decide which theme it is offering, and
+   * that read has already happened. So the dark screenshots came back with
+   * a dark page whose toggle said "Dark theme", because React was still
+   * holding the previous shot's value. A reload puts the head script, the
+   * CSS and React on the same value.
    */
   await page.evaluate(
     ([theme, sidebar, view]) => {
@@ -449,15 +524,14 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     [shot.theme, shot.rail ? 'rail' : 'full', shot.listView ? 'list' : 'grid'] as const,
   )
 
-  if (shot.listView) {
-    // The theme and the sidebar are attributes the CSS reads immediately,
-    // but the library's view is read once in an effect that has already
-    // run by the time this seeding lands. One reload is cheaper than
-    // moving that preference into the head script for the sake of a
-    // screenshot.
-    await page.reload({ waitUntil: 'domcontentloaded' })
-    await page.waitForTimeout(SETTLE_MS)
-  }
+  await page.reload({ waitUntil: 'domcontentloaded' })
+  await page.waitForTimeout(SETTLE_MS)
+
+  // The dev overlay badge sits over the bottom-left of the ladder. Hiding its
+  // custom element works regardless of Next version; `devIndicators: false` in
+  // next.config does not remove this portal in 15.5. After the reload, not
+  // before — an injected style tag does not survive a navigation.
+  await page.addStyleTag({ content: 'nextjs-portal { display: none !important }' })
 
   // The pipeline dot polls on mount and reads "Checking" until it answers.
   // Soft, like the clock wait below: a shot of a checking dot is honest
@@ -499,6 +573,7 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
     }
 
     await page.waitForTimeout(SETTLE_MS)
+    await hideFixedNav(page)
     const file = join(OUT_DIR, `${shot.name}.png`)
     await page.screenshot({ path: file, fullPage: true })
     return { file, note: `${shot.viewport.width}px` }
@@ -612,8 +687,10 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   }
 
   await page.waitForTimeout(SETTLE_MS)
+  const fullPage = shot.studio === true || shot.reel === true
+  if (fullPage) await hideFixedNav(page)
   const file = join(OUT_DIR, `${shot.name}.png`)
-  await page.screenshot({ path: file, fullPage: shot.studio === true || shot.reel === true })
+  await page.screenshot({ path: file, fullPage })
   return { file, note: `${shot.region}, ${shot.viewport.width}px, ${rows} rows` }
 }
 
@@ -658,25 +735,37 @@ async function main(): Promise<void> {
   await writeFile(
     join(OUT_DIR, 'README.md'),
     [
-      '# Board screenshots',
+      '# Screenshots',
       '',
       'Generated by `pnpm --filter @trendforge/web shot` against live ingested data.',
       'Captured at 2x, locale en-IN, timezone Asia/Kolkata.',
       '',
-      '- `board-1440-*` — the two-column board at 1440px.',
-      '- `board-390-*` — the ladder full width below the 800px Desk breakpoint.',
+      'Run it against `pnpm --filter @trendforge/web build && start`, not against',
+      '`next dev`. The dev server compiles on demand and slows over a run of this',
+      'length until the Desk stops hydrating inside the timeouts, which shows up',
+      'as a tab that never opens about forty shots in. Note that dev and build',
+      'share `.next`, so stop dev first.',
+      '',
+      'Every page is here in both themes at 1440 and 390.',
+      '',
+      '- `dashboard-*` — the India heat map, the movers, the week and the budget.',
+      '- `board-1440-*` — the two-column board: ladder left, Desk right.',
+      '- `board-390-*` — the ladder full width below the 900px Desk breakpoint.',
       '- `panel-390-*` — the Desk as a slide-in panel over the ladder.',
+      '- `shell-rail-*` — the sidebar collapsed to its icon rail.',
       '- `studio-*` — the content studio with posts generated live by Gemini.',
+      '- `asset-actions-*` — an asset card with its actions under the pointer.',
       '- `reel-*` — the reel panel with a narrated video rendered end to end.',
       '- `platforms-*` — the platform filter strip above the ladder.',
       '- `platform-filtered-*` — the ladder with one platform selected.',
-      '- `settings-*` — which platforms are connected, and the variables to set.',
       '- `desk-platforms-*` — why a topic is trending, and its hashtags by platform.',
       '- `batch-*` — "Generate for the top topics" above the ladder.',
-      '- `brands-*` — every brand in the workspace.',
+      '- `brands-*` — every brand in the workspace, as cards.',
       '- `brand-editor-*` — the brand form with the three templates redrawing beside it.',
-      '- `library-*` — every generated post and reel, filtered.',
+      '- `library-*` — every generated post and reel; `-list-` is the list view.',
       '- `calendar-*` — scheduled items; a grid at 1440px and an agenda at 390px.',
+      '- `settings-*` — which platforms are connected, and the variables to set.',
+      '- `empty-*` — an empty state, with its illustration and its next action.',
       '',
       `## Captured ${written.length} shot${written.length === 1 ? '' : 's'} this run`,
       '',
