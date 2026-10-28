@@ -99,13 +99,13 @@ async function open(page: Page, title: string): Promise<void> {
     page.locator('[aria-label="View"] [aria-pressed="true"]').innerText().catch(() => '')
 
   for (let attempt = 0; attempt < 30; attempt++) {
-    await page.getByRole('button', { name: 'week', exact: true }).click()
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
     await page.waitForTimeout(500)
     if ((await pressed()).toLowerCase() === 'week') break
     if (attempt === 29) throw new Error('the calendar never hydrated')
   }
 
-  await page.getByRole('button', { name: 'month', exact: true }).click()
+  await page.getByRole('button', { name: 'Month', exact: true }).click()
   await page.waitForSelector(`text=${title}`, { timeout: 30_000 })
 }
 
@@ -161,7 +161,7 @@ async function main(): Promise<void> {
     check(announced.length > 0, `the move is announced ("${announced.slice(0, 40)}…")`)
 
     // ── week view ───────────────────────────────────────────────────────
-    await page.getByRole('button', { name: 'week', exact: true }).click()
+    await page.getByRole('button', { name: 'Week', exact: true }).click()
     await page.waitForTimeout(1_500)
     check(
       await page.getByText(title, { exact: false }).first().isVisible(),

@@ -1,10 +1,11 @@
 'use client'
 
 import type { LibraryItem } from '@trendforge/types'
+import { Film, Image as ImageIcon } from 'lucide-react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Empty, SectionLabel, cx } from '@/components/ui'
+import { Button, Card, Empty, SectionLabel, Segmented, cx } from '@/components/ui'
 import {
   type CalendarView,
   WEEKDAYS,
@@ -141,47 +142,37 @@ export function Calendar({ initialItems }: { initialItems: LibraryItem[] }) {
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex gap-px" role="group" aria-label="View">
-            {(['week', 'month'] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={view === option}
-                onClick={() => {
-                  setView(option)
-                  setAnchor((current) =>
-                    option === 'week' ? startOfWeek(current) : startOfMonth(current),
-                  )
-                }}
-                className={cx(
-                  'border px-2.5 py-1 text-xs capitalize',
-                  view === option
-                    ? 'border-ink bg-ink text-page'
-                    : 'border-border text-slate hover:text-ink',
-                )}
-              >
-                {option}
-              </button>
-            ))}
-          </div>
+          <Segmented
+            label="View"
+            size="sm"
+            value={view}
+            onChange={(option) => {
+              setView(option)
+              setAnchor((current) =>
+                option === 'week' ? startOfWeek(current) : startOfMonth(current),
+              )
+            }}
+            options={[
+              { value: 'week' as const, label: 'Week' },
+              { value: 'month' as const, label: 'Month' },
+            ]}
+          />
 
-          <div className="flex gap-px">
-            <button
-              type="button"
+          <div className="flex gap-1.5">
+            <Button
+              size="sm"
               onClick={() => step(-1)}
               aria-label={view === 'week' ? 'Previous week' : 'Previous month'}
-              className="border border-border px-2.5 py-1 text-xs text-slate hover:text-ink"
             >
               Back
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              size="sm"
               onClick={() => step(1)}
               aria-label={view === 'week' ? 'Next week' : 'Next month'}
-              className="border border-border px-2.5 py-1 text-xs text-slate hover:text-ink"
             >
               Next
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -307,6 +298,9 @@ function Grid({
                 'min-h-28 border-r border-b border-border p-1.5 last:border-r-0',
                 view === 'week' && 'min-h-56',
                 outside && 'opacity-45',
+                // Today is a ground, not just a coloured numeral: on a
+                // 42-cell month grid one chilli glyph is easy to miss.
+                day === now && 'bg-chilli/5',
                 over === day && 'bg-row-active',
               )}
             >
@@ -408,35 +402,99 @@ function Item({
   }
 
   return (
-    <li className="border-l-2 border-ink bg-card">
+    <li className="group relative">
+      <Card className="overflow-hidden border-l-2 border-l-ink transition-[border-color] duration-150 focus-within:border-border-hover hover:border-border-hover">
+        {/*
+         * A real button, not a div with role="button". It was the latter
+         * first, with the brand-name link inside it — which is invalid (a
+         * link inside a button is not reachable as either) and which cost
+         * the element its native keyboard behaviour. The link is a sibling.
+         */}
+        <button
+          type="button"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('text/plain', String(item.id))
+            e.dataTransfer.effectAllowed = 'move'
+          }}
+          onKeyDown={onKeyDown}
+          aria-label={`${title}, ${time}. Use the arrow keys to move it.`}
+          className="flex w-full cursor-grab gap-1.5 p-1 text-left active:cursor-grabbing"
+        >
+          <Thumb item={item} />
+          <span className="min-w-0 flex-1">
+            <span className="num block text-xs text-slate">{time}</span>
+            <span className="line-clamp-2 block text-xs text-ink">{title}</span>
+          </span>
+        </button>
+        <Link
+          href={`/board?region=${item.region_code}&topic=${item.trend_id}`}
+          className="block truncate px-1.5 pb-1 text-[11px] text-muted hover:text-ink"
+          // Or dragging the item would start a link drag instead.
+          draggable={false}
+        >
+          {item.brand_name}
+        </Link>
+      </Card>
+
       {/*
-       * A real button, not a div with role="button". It was the latter
-       * first, with the brand-name link inside it — which is invalid (a
-       * link inside a button is not reachable as either) and which cost the
-       * element its native keyboard behaviour. The link is now a sibling.
+       * The caption, on hover.
+       *
+       * A day cell is 150px wide and a title is clamped to two lines, so
+       * the commonest question on this page — "which post is this" —
+       * cannot be answered from the grid alone. This is the answer, in a
+       * popover that is not clickable and does not move anything: it
+       * exists so you can decide whether to drag, not so you can act in it.
+       *
+       * Pointer-events are off so it never swallows the drag that starts
+       * underneath it.
        */}
-      <button
-        type="button"
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData('text/plain', String(item.id))
-          e.dataTransfer.effectAllowed = 'move'
-        }}
-        onKeyDown={onKeyDown}
-        aria-label={`${title}, ${time}. Use the arrow keys to move it.`}
-        className="w-full cursor-grab px-1.5 pt-1 text-left active:cursor-grabbing"
+      <div
+        role="tooltip"
+        className={cx(
+          'pointer-events-none absolute top-0 left-full z-20 ml-2 hidden w-60 rounded-md',
+          'border border-border bg-overlay p-2.5 shadow-overlay',
+          'desk:group-hover:block desk:group-focus-within:block',
+        )}
       >
-        <span className="num block text-xs text-slate">{time}</span>
-        <span className="line-clamp-2 block text-xs text-ink">{title}</span>
-      </button>
-      <Link
-        href={`/board?region=${item.region_code}&topic=${item.trend_id}`}
-        className="block truncate px-1.5 pb-1 text-[11px] text-slate hover:text-ink"
-        // Or dragging the item would start a link drag instead.
-        draggable={false}
-      >
-        {item.brand_name}
-      </Link>
+        <p className="text-xs text-ink">{title}</p>
+        {item.hook && item.hook !== item.topic ? (
+          <p className="mt-1 text-xs text-slate">{item.topic}</p>
+        ) : null}
+        <p className="mt-1.5 flex flex-wrap gap-x-2 text-xs text-muted">
+          <span>{item.brand_name}</span>
+          <span>{item.region_name}</span>
+          <span className="capitalize">{item.language}</span>
+          <span>{item.kind === 'reel' ? 'Reel' : 'Post'}</span>
+        </p>
+      </div>
     </li>
+  )
+}
+
+/** The poster, small. Always a still — a <video> draws nothing until it
+ *  has fetched a frame, so the API hands over a reel's poster instead. */
+function Thumb({ item }: { item: LibraryItem }) {
+  if (!item.preview_url) {
+    return (
+      <span className="flex size-9 shrink-0 items-center justify-center rounded-sm border border-border bg-page text-muted">
+        {item.kind === 'reel' ? (
+          <Film aria-hidden="true" className="size-3.5" strokeWidth={2} />
+        ) : (
+          <ImageIcon aria-hidden="true" className="size-3.5" strokeWidth={2} />
+        )}
+      </span>
+    )
+  }
+  return (
+    /* A MinIO URL on a published port, which next/image cannot be
+       configured for without pinning the dev host into next.config. */
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={item.preview_url}
+      alt=""
+      loading="lazy"
+      className="size-9 shrink-0 rounded-sm border border-border object-cover"
+    />
   )
 }
