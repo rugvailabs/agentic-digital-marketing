@@ -3,8 +3,21 @@
 import type { Brand, ContentAsset, Trend } from '@trendforge/types'
 import { useEffect, useState } from 'react'
 
+import Link from 'next/link'
+
+import { AssetCard } from '@/components/desk/AssetCard'
 import { Reel } from '@/components/Reel'
-import { Chip, Code, SectionLabel, cx } from '@/components/ui'
+import {
+  Button,
+  Chip,
+  Code,
+  Empty,
+  Field,
+  SectionLabel,
+  Select,
+  Textarea,
+  cx,
+} from '@/components/ui'
 import { statusLabel, useJob } from '@/lib/jobs'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://127.0.0.1:8020'
@@ -52,171 +65,186 @@ type Caption = {
 }
 
 /**
- * The content studio.
+ * The content studio, for one kind of thing at a time.
  *
- * One row of controls — brand, language — then two things that can be made
- * from them: a post and a reel. They are separate jobs on separate pipelines
- * with their own statuses and their own failures, but a marketer picks the
- * brand and the language once, not twice.
+ * It used to make both from one screen — brand, language, then a post and
+ * a reel stacked below each other. The Desk's tabs split them, and `kind`
+ * is how: the brand and language row is identical for both and is written
+ * once here, but a post and a reel are separate jobs on separate pipelines
+ * with their own statuses and their own failures, and now with their own
+ * tab.
  */
-export function Studio({ trend, brands }: { trend: Trend; brands: Brand[] }) {
+export function Studio({
+  trend,
+  brands,
+  kind,
+}: {
+  trend: Trend
+  brands: Brand[]
+  kind: 'post' | 'reel'
+}) {
   const [brandId, setBrandId] = useState(brands[0]?.id ?? 0)
   const [language, setLanguage] = useState('english')
 
-  const post = useJob(trend.id, 'post')
-  const reel = useJob(trend.id, 'reel')
+  const job = useJob(trend.id, kind)
 
-  // Match the controls to whatever is already on screen; leaving them on the
-  // defaults claims a Hindi post was generated in English.
-  const existing = post.job ?? reel.job
+  // Match the controls to whatever is already on screen; leaving them on
+  // the defaults claims a Hindi post was generated in English.
   useEffect(() => {
-    if (!existing) return
-    setLanguage(existing.language)
-    setBrandId(existing.brand_id)
-  }, [existing])
+    if (!job.job) return
+    setLanguage(job.job.language)
+    setBrandId(job.job.brand_id)
+  }, [job.job])
 
   const brand = brands.find((b) => b.id === brandId)
-  const caption = post.job?.assets.find((a) => a.kind === 'caption')
-  const images = post.job?.assets.filter((a) => a.kind === 'image') ?? []
+  const caption = job.job?.assets.find((a) => a.kind === 'caption')
+  const images = job.job?.assets.filter((a) => a.kind === 'image') ?? []
   const blocked = trend.safety_flag === 'skip'
-  const noBrands = brands.length === 0
+  const formats = kind === 'reel' ? ['reel'] : ['square', 'portrait']
+
+  if (brands.length === 0) {
+    return (
+      <Empty
+        title="There is no brand to generate for."
+        hint={
+          <>
+            <Link href="/brands/new" className="text-ink underline underline-offset-2">
+              Make one
+            </Link>{' '}
+            and it will appear here.
+          </>
+        }
+      />
+    )
+  }
+
+  if (blocked) {
+    return (
+      <Empty
+        title="This topic is flagged as one we do not market against."
+        hint="The studio is off for it. The curator decides this, not the writer."
+      />
+    )
+  }
 
   return (
-    <div className="border-t border-border pt-4">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-end gap-3">
-        <label className="flex flex-col gap-1 text-xs text-slate">
-          Brand
-          <select
-            value={brandId}
-            onChange={(e) => setBrandId(Number(e.target.value))}
-            className="border border-border bg-card px-2 py-1 text-sm text-ink"
-          >
+        <Field label="Brand" className="w-48">
+          <Select value={brandId} onChange={(e) => setBrandId(Number(e.target.value))}>
             {brands.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <label className="flex flex-col gap-1 text-xs text-slate">
-          Language
-          <select
-            value={language}
-            onChange={(e) => setLanguage(e.target.value)}
-            className="border border-border bg-card px-2 py-1 text-sm text-ink"
-          >
+        <Field label="Language" className="w-40">
+          <Select value={language} onChange={(e) => setLanguage(e.target.value)}>
             {(brand?.languages ?? ['english']).map((code) => (
               <option key={code} value={code}>
                 {LANGUAGE_LABELS[code] ?? code}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
 
-        <button
-          type="button"
-          onClick={() => post.start({ brandId, language, formats: ['square', 'portrait'] })}
-          disabled={post.busy || blocked || noBrands}
-          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-border disabled:text-slate"
+        <Button
+          variant="primary"
+          onClick={() => job.start({ brandId, language, formats })}
+          disabled={job.busy}
         >
-          {post.busy ? 'Generating' : 'Generate post'}
-        </button>
+          {job.busy
+            ? kind === 'reel'
+              ? 'Rendering'
+              : 'Generating'
+            : kind === 'reel'
+              ? 'Render reel'
+              : 'Generate post'}
+        </Button>
 
-        {post.job ? (
-          <span className="num text-xs text-slate">{statusLabel('post', post.job.status)}</span>
+        {job.job ? (
+          <span className="num pb-2 text-xs text-slate">{statusLabel(kind, job.job.status)}</span>
         ) : null}
       </div>
 
-      {blocked ? (
-        <p className="mt-3 text-sm text-slate">
-          This topic is flagged as one we do not market against, so the studio is off for it.
-        </p>
-      ) : null}
-
-      {post.error || post.job?.error ? (
-        <div className="mt-4 border-t border-border pt-3">
-          <p className="text-sm text-ink">{post.job?.error ?? post.error}</p>
-          <button
-            type="button"
-            onClick={() => post.start({ brandId, language, formats: ['square', 'portrait'] })}
-            className="mt-2 border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover"
+      {job.error || job.job?.error ? (
+        <div className="rounded-md border border-chilli/40 p-3">
+          <p className="text-sm text-ink">{job.job?.error ?? job.error}</p>
+          <Button
+            size="sm"
+            className="mt-2"
+            onClick={() => job.start({ brandId, language, formats })}
           >
             Try again
-          </button>
+          </Button>
         </div>
       ) : null}
 
-      {caption ? (
-        <CaptionEditor assetId={caption.id} initial={caption.meta_json as Caption} />
-      ) : null}
-
-      {images.length > 0 ? <Images images={images} brandName={brand?.name} /> : null}
-
-      {!post.job && !post.error && !blocked ? (
-        <p className="mt-3 text-sm text-slate">
-          Pick a brand and language, then generate a caption and post images for this topic.
-        </p>
-      ) : null}
-
-      <Reel
-        job={reel.job}
-        busy={reel.busy}
-        error={reel.error}
-        onRender={() => reel.start({ brandId, language, formats: ['reel'] })}
-        blocked={blocked}
-        disabled={noBrands}
-      />
+      {kind === 'post' ? (
+        <>
+          {caption ? (
+            <CaptionEditor assetId={caption.id} initial={caption.meta_json as Caption} />
+          ) : null}
+          {images.length > 0 ? (
+            <Images images={images} brandName={brand?.name} jobId={job.job?.id} />
+          ) : null}
+          {!job.job && !job.error ? (
+            <Empty
+              title="Nothing generated for this topic yet."
+              hint="Pick a brand and a language, then generate a caption and three post images."
+            />
+          ) : null}
+        </>
+      ) : (
+        <Reel job={job.job} busy={job.busy} />
+      )}
     </div>
   )
 }
 
-function Images({ images, brandName }: { images: ContentAsset[]; brandName?: string }) {
+function Images({
+  images,
+  brandName,
+  jobId,
+}: {
+  images: ContentAsset[]
+  brandName?: string
+  jobId?: number
+}) {
   return (
-    <div className="mt-6 flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <SectionLabel>
-        {images.length} images{brandName ? ` · ${brandName}` : ''}
+        {images.length} images{brandName ? ` for ${brandName}` : ''}
       </SectionLabel>
-      {/* A border here means "a rendered asset lives here". */}
       {/* items-start so a portrait card keeps its height instead of
           stretching its square neighbours to match. */}
       <div className="grid grid-cols-2 items-start gap-4 lg:grid-cols-3">
         {images.map((asset) => (
-          <figure key={asset.id} className="border border-border bg-card p-3">
+          <AssetCard
+            key={asset.id}
+            url={asset.url}
+            jobId={jobId}
+            title={templateLabel(asset)}
+            subtitle={dimensions(asset)}
+          >
             {asset.url ? (
-              // Intrinsic size on the element, so a 1080x1350 post holds its
-              // 4:5 shape instead of being squared off by the grid.
+              // Intrinsic size on the element, so a 1080x1350 post holds
+              // its 4:5 shape instead of being squared off by the grid.
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={asset.url}
                 alt={String((asset.meta_json as Caption).alt_text ?? '')}
                 width={Number((asset.meta_json as { width?: number }).width) || 1080}
                 height={Number((asset.meta_json as { height?: number }).height) || 1080}
-                className="h-auto w-full"
+                className="block h-auto w-full"
                 loading="lazy"
               />
-            ) : null}
-            {/*
-              Two lines, so the template name is never abbreviated: at three
-              cards per row there is not enough width for a name, its
-              dimensions and a link side by side.
-            */}
-            <figcaption className="mt-2 flex flex-col gap-0.5">
-              <span className="text-xs text-ink">{templateLabel(asset)}</span>
-              <span className="flex items-baseline justify-between gap-2">
-                <span className="num text-xs text-slate">{dimensions(asset)}</span>
-                {asset.url ? (
-                  <a
-                    href={asset.url}
-                    download
-                    className="shrink-0 text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
-                  >
-                    Save PNG
-                  </a>
-                ) : null}
-              </span>
-            </figcaption>
-          </figure>
+            ) : (
+              <span className="block aspect-square w-full bg-page" />
+            )}
+          </AssetCard>
         ))}
       </div>
     </div>
@@ -250,7 +278,7 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
   const words = text.trim() ? text.trim().split(/\s+/).length : 0
 
   return (
-    <div className="mt-5 flex flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between">
         <SectionLabel>Caption</SectionLabel>
         <span className="num text-xs text-slate">{words} words</span>
@@ -258,26 +286,20 @@ function CaptionEditor({ assetId, initial }: { assetId: number; initial: Caption
 
       {initial.hook ? <p className="text-sm font-medium text-ink">{initial.hook}</p> : null}
 
-      <textarea
+      <Textarea
         value={text}
         onChange={(e) => {
           setText(e.target.value)
           setState('clean')
         }}
         rows={5}
-        className="w-full border border-border bg-card p-3 text-sm leading-relaxed text-ink"
       />
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={() => void save()}
-          disabled={state === 'saving'}
-          className="border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover disabled:border-border disabled:text-slate"
-        >
+        <Button size="sm" onClick={() => void save()} disabled={state === 'saving'}>
           {state === 'saving' ? 'Saving' : 'Save caption'}
-        </button>
-        <span className={cx('text-xs', state === 'error' ? 'text-chilli' : 'text-slate')}>
+        </Button>
+        <span className={cx('text-xs', state === 'error' ? 'text-chilli' : 'text-neem')}>
           {state === 'saved' ? 'Saved' : state === 'error' ? 'Could not save' : ''}
         </span>
       </div>

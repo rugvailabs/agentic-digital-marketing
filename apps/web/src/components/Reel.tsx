@@ -2,16 +2,19 @@
 
 import type { ContentAsset, ContentJob } from '@trendforge/types'
 
-import { SectionLabel, cx } from '@/components/ui'
-import { statusLabel } from '@/lib/jobs'
+import { AssetCard } from '@/components/desk/AssetCard'
+import { Empty, SectionLabel, cx } from '@/components/ui'
 
 /**
  * The reel: what it will say, and the file once it exists.
  *
- * A reel takes minutes rather than seconds, so the waiting state carries more
- * weight here than it does for a post. The script appears as soon as it is
- * written — well before the video — which means there is something to read
- * and correct while the frames render, instead of a spinner.
+ * A reel takes minutes rather than seconds, so the waiting state carries
+ * more weight here than it does for a post. The script appears as soon as
+ * it is written — well before the video — which means there is something
+ * to read and correct while the frames render, instead of a spinner.
+ *
+ * The brand, language and render controls live in Studio, which owns the
+ * job. This renders what came back.
  */
 
 type ScriptSegment = {
@@ -40,138 +43,80 @@ type VideoMeta = {
   poster_url?: string | null
 }
 
-export function Reel({
-  job,
-  busy,
-  error,
-  onRender,
-  blocked,
-  disabled,
-}: {
-  job: ContentJob | null
-  busy: boolean
-  error: string | null
-  onRender: () => void
-  blocked: boolean
-  disabled: boolean
-}) {
+export function Reel({ job, busy }: { job: ContentJob | null; busy: boolean }) {
   const script = job?.assets.find((a) => a.kind === 'script')
   const video = job?.assets.find((a) => a.kind === 'video')
   const meta = (script?.meta_json ?? {}) as ScriptMeta
   const segments = meta.segments ?? []
 
   return (
-    <div className="mt-8 flex flex-col gap-3 border-t border-border pt-5">
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <SectionLabel>Reel</SectionLabel>
-        {job ? (
-          <span className="num text-xs text-slate">{statusLabel('reel', job.status)}</span>
-        ) : null}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={onRender}
-          disabled={busy || blocked || disabled}
-          className="border border-ink px-3 py-1.5 text-sm text-ink transition-colors hover:bg-row-hover disabled:border-border disabled:text-slate"
-        >
-          {busy ? 'Rendering' : video ? 'Render again' : 'Render reel'}
-        </button>
-        {busy ? (
-          // Said once, plainly. A reel narrates, renders every frame through
-          // a browser and then mixes; without this the first run looks stuck.
-          <span className="text-xs text-slate">
-            Narrating, then rendering every frame. A few minutes.
-          </span>
-        ) : null}
-      </div>
-
-      {blocked ? (
+    <div className="flex flex-col gap-4">
+      {busy && !video ? (
+        // Said once, plainly. A reel narrates, renders every frame through
+        // a browser and then mixes; without this the first run looks stuck.
         <p className="text-sm text-slate">
-          This topic is flagged as one we do not market against, so reels are off for it.
+          Narrating, then rendering every frame. This takes a few minutes — the script
+          below appears as soon as it is written.
         </p>
       ) : null}
 
-      {error || job?.error ? (
-        <div className="mt-1 border-t border-border pt-3">
-          <p className="text-sm text-ink">{job?.error ?? error}</p>
-          <button
-            type="button"
-            onClick={onRender}
-            className="mt-2 border border-ink px-3 py-1 text-sm text-ink hover:bg-row-hover"
-          >
-            Try again
-          </button>
-        </div>
-      ) : null}
-
-      {video?.url ? <VideoCard asset={video} /> : null}
+      {video?.url ? <VideoCard asset={video} jobId={job?.id} /> : null}
 
       {segments.length > 0 ? (
         <Script segments={segments} derived={meta.derived === true} spoken={!video} />
       ) : null}
 
-      {!job && !error && !blocked ? (
-        <p className="text-sm text-slate">
-          Render a narrated vertical video for this topic, in the language above.
-        </p>
+      {!job && !busy ? (
+        <Empty
+          title="No reel for this topic yet."
+          hint="A narrated vertical video, in the language above. It takes a few minutes."
+        />
       ) : null}
     </div>
   )
 }
 
 /**
- * The finished file.
+ * The finished file, as a card with the same actions as a post image.
  *
- * A border means "a rendered asset lives here" — the same card the post
- * images get, and the only thing in the app that gets one.
+ * Its own controls rather than the shared poster treatment: a reel is the
+ * one asset you watch rather than look at, so the player stays and the
+ * actions sit under it.
  */
-function VideoCard({ asset }: { asset: ContentAsset }) {
+function VideoCard({ asset, jobId }: { asset: ContentAsset; jobId?: number }) {
   const meta = (asset.meta_json ?? {}) as VideoMeta
   const width = Number(meta.width) || 1080
   const height = Number(meta.height) || 1920
   const seconds = Number(meta.duration_seconds) || 0
 
   return (
-    <figure className="mt-2 flex flex-col gap-2 self-start border border-border bg-card p-3">
-      <video
-        src={asset.url ?? undefined}
-        // Without this the player shows a blank sheet of paper until someone
-        // presses play — frame zero is the opening card still settling, which
-        // reads as a failed render.
-        poster={meta.poster_url ?? undefined}
-        controls
-        playsInline
-        preload="metadata"
-        width={width}
-        height={height}
-        aria-label={meta.alt_text || 'Rendered reel'}
-        // Intrinsic size on the element so a 9:16 file holds its shape, and a
-        // cap so it does not take the whole Desk.
-        className="h-auto w-full max-w-[270px]"
-      />
-      <figcaption className="flex max-w-[270px] flex-col gap-0.5">
-        <span className="text-xs text-ink">{meta.label || 'Reel'}</span>
-        <span className="num text-xs text-slate">
-          {width}×{height}
-          {seconds ? ` · ${seconds.toFixed(1)}s` : ''}
-        </span>
-        <span className="text-xs text-slate">
-          {meta.voice ? `Voice ${meta.voice}` : 'No voice recorded'}
-          {meta.has_music ? ' · music' : ''}
-        </span>
-        {asset.url ? (
-          <a
-            href={asset.url}
-            download
-            className="mt-0.5 self-start text-xs text-ink underline decoration-rule underline-offset-2 hover:decoration-ink"
-          >
-            Save MP4
-          </a>
-        ) : null}
-      </figcaption>
-    </figure>
+    <div className="max-w-[270px]">
+      <AssetCard
+        url={asset.url}
+        jobId={jobId}
+        title={meta.label || 'Reel'}
+        subtitle={`${width}x${height}${seconds ? `, ${seconds.toFixed(1)}s` : ''}`}
+      >
+        <video
+          src={asset.url ?? undefined}
+          // Without this the player shows a blank sheet of paper until
+          // someone presses play — frame zero is the opening card still
+          // settling, which reads as a failed render.
+          poster={meta.poster_url ?? undefined}
+          controls
+          playsInline
+          preload="metadata"
+          width={width}
+          height={height}
+          aria-label={meta.alt_text || 'Rendered reel'}
+          className="block h-auto w-full"
+        />
+      </AssetCard>
+      <p className="mt-1 text-xs text-muted">
+        {meta.voice ? `Voice ${meta.voice}` : 'No voice recorded'}
+        {meta.has_music ? ', music' : ''}
+      </p>
+    </div>
   )
 }
 

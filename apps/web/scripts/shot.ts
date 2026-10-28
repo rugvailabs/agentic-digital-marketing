@@ -55,6 +55,8 @@ type Shot = {
   batch?: boolean
   /** Collapse the sidebar to its icon rail. */
   rail?: boolean
+  /** Put the pointer on the first generated asset, to show its actions. */
+  hoverAsset?: boolean
 }
 
 function shots(regionOverride?: string): Shot[] {
@@ -95,6 +97,16 @@ function shots(regionOverride?: string): Shot[] {
       viewport: DESKTOP,
       selectTopic: 'Navy Weighs',
       studio: true,
+    },
+    // The card actions, which only exist under a pointer.
+    {
+      name: 'asset-actions-1440-dark',
+      region: 'IN-GA',
+      theme: 'dark',
+      viewport: DESKTOP,
+      selectTopic: 'Navy Weighs',
+      studio: true,
+      hoverAsset: true,
     },
     {
       name: 'studio-tamil',
@@ -319,6 +331,30 @@ function shots(regionOverride?: string): Shot[] {
 /** What one shot produced: the file, and anything worth saying about it. */
 type ShotResult = { file: string; note: string }
 
+/**
+ * Click one of the Desk's tabs and wait for it to take.
+ *
+ * In a loop, for the same reason the calendar smoke clicks in one: before
+ * hydration the tab is present, visible and enabled, and clicking it does
+ * nothing at all.
+ */
+async function openTab(page: Page, name: string): Promise<void> {
+  const tab = page.getByRole('tab', { name })
+  await tab.waitFor({ state: 'visible', timeout: 20_000 })
+  // Selecting a row resets the Desk to Overview, and that reset lands a
+  // beat after the click that caused it. Clicking into the middle of it
+  // selects the tab and then has the selection taken away again, which is
+  // what the first version of this spent six seconds doing.
+  await page.waitForTimeout(1_000)
+
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await tab.click()
+    await page.waitForTimeout(400)
+    if ((await tab.getAttribute('aria-selected')) === 'true') return
+  }
+  throw new Error(`the ${name} tab never opened — did the Desk hydrate?`)
+}
+
 async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   await page.setViewportSize(shot.viewport)
   // Kept for form controls and scrollbars, which the browser paints from
@@ -460,6 +496,7 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   }
 
   if (shot.reel) {
+    await openTab(page, 'Reel')
     // The video element only appears once the job is ready; without this the
     // shot catches an empty panel that looks like nothing was rendered.
     await page.waitForSelector('video', { timeout: 30_000 })
@@ -482,6 +519,7 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
   }
 
   if (shot.studio) {
+    await openTab(page, 'Post')
     // Wait for the stored post to arrive and its images to decode, or the
     // shot catches an empty studio that looks like nothing was generated.
     await page.waitForSelector('figure img', { timeout: 20_000 })
@@ -492,6 +530,17 @@ async function capture(page: Page, shot: Shot): Promise<ShotResult> {
       { timeout: 20_000 },
     )
     await page.locator('textarea').first().scrollIntoViewIfNeeded()
+
+    if (shot.hoverAsset) {
+      // The card actions are revealed by hover, so a shot of them needs a
+      // pointer parked on a card. Playwright's hover survives a
+      // screenshot; a CSS :hover faked with a class would not be the
+      // thing being tested.
+      const card = page.locator('figure').first()
+      await card.scrollIntoViewIfNeeded()
+      await card.hover()
+      await page.waitForTimeout(300)
+    }
   }
 
   await page.waitForTimeout(SETTLE_MS)

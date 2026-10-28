@@ -377,6 +377,81 @@ export function Segmented<T extends string | number>({
   )
 }
 
+/* ── Tabs ──────────────────────────────────────────────────────────────── */
+
+/**
+ * A row of tabs over one panel.
+ *
+ * Underline rather than a filled pill: the Desk is a reading surface and a
+ * row of filled pills at the top of it competes with the headline below.
+ * The active tab is the only chilli on the panel, which is the same job
+ * the accent does in the sidebar.
+ *
+ * Deliberately not routed. A tab here is which face of one topic you are
+ * looking at, not a place — putting it in the URL would mean the back
+ * button walks through four views of the same thing.
+ */
+export function Tabs<T extends string>({
+  value,
+  tabs,
+  onChange,
+  label,
+  className,
+}: {
+  value: T
+  tabs: ReadonlyArray<{ value: T; label: string; count?: number; disabled?: boolean }>
+  onChange: (value: T) => void
+  label: string
+  className?: string
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      className={cx('flex gap-1 border-b border-border', className)}
+      onKeyDown={(event) => {
+        const step = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0
+        if (step === 0) return
+        event.preventDefault()
+        const enabled = tabs.filter((t) => !t.disabled)
+        const here = enabled.findIndex((t) => t.value === value)
+        const next = enabled[(here + step + enabled.length) % enabled.length]
+        if (next) onChange(next.value)
+      }}
+    >
+      {tabs.map((tab) => {
+        const selected = tab.value === value
+        return (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={selected}
+            disabled={tab.disabled}
+            // Only the selected tab is in the tab order; the arrow keys
+            // move between them, which is how a tablist is meant to work.
+            tabIndex={selected ? 0 : -1}
+            onClick={() => onChange(tab.value)}
+            className={cx(
+              'relative -mb-px flex items-center gap-1.5 px-3 py-2 text-sm whitespace-nowrap',
+              'transition-colors duration-150',
+              'disabled:pointer-events-none disabled:opacity-40',
+              selected
+                ? 'border-b-2 border-chilli text-ink'
+                : 'border-b-2 border-transparent text-slate hover:text-ink',
+            )}
+          >
+            {tab.label}
+            {tab.count !== undefined && tab.count > 0 ? (
+              <span className="num text-xs text-muted">{tab.count}</span>
+            ) : null}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 /* ── Labels and small text ─────────────────────────────────────────────── */
 
 /**

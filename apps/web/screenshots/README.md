@@ -18,7 +18,6 @@ Captured at 2x, locale en-IN, timezone Asia/Kolkata.
 - `library-*` — every generated post and reel, filtered.
 - `calendar-*` — scheduled items; a grid at 1440px and an agenda at 390px.
 
-## Captured 2 shots this run
+## Captured 1 shot this run
 
-- `dashboard-1440-light.png` — 1440px
-- `dashboard-390-dark.png` — 390px
+- `asset-actions-1440-dark.png` — IN-GA, 1440px, 20 rows

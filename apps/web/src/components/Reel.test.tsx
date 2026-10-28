@@ -1,6 +1,6 @@
 import type { ContentJob } from '@trendforge/types'
-import { fireEvent, render, screen } from '@testing-library/react'
-import { describe, expect, it, vi } from 'vitest'
+import { render, screen } from '@testing-library/react'
+import { describe, expect, it } from 'vitest'
 
 import { Reel } from './Reel'
 
@@ -69,50 +69,22 @@ function videoAsset(over: Record<string, unknown> = {}) {
 }
 
 function setup(over: Partial<Parameters<typeof Reel>[0]> = {}) {
-  const onRender = vi.fn()
-  render(
-    <Reel
-      job={null}
-      busy={false}
-      error={null}
-      onRender={onRender}
-      blocked={false}
-      disabled={false}
-      {...over}
-    />,
-  )
-  return { onRender }
+  render(<Reel job={null} busy={false} {...over} />)
 }
 
 describe('Reel', () => {
-  it('says what the button will do before anything exists', () => {
+  it('says there is no reel yet, and what one is', () => {
     setup()
 
-    expect(screen.getByRole('button', { name: 'Render reel' })).toBeInTheDocument()
     expect(screen.getByText(/narrated vertical video/i)).toBeInTheDocument()
   })
 
-  it('starts a render when pressed', () => {
-    const { onRender } = setup()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Render reel' }))
-
-    expect(onRender).toHaveBeenCalledTimes(1)
-  })
-
   it('sets the expectation that this takes minutes', () => {
-    // Without this the first run looks stuck: a reel narrates, renders every
-    // frame through a browser, then mixes.
+    // Without this the first run looks stuck: a reel narrates, renders
+    // every frame through a browser, then mixes.
     setup({ busy: true })
 
     expect(screen.getByText(/a few minutes/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Rendering' })).toBeDisabled()
-  })
-
-  it('names the stage a reel is actually at', () => {
-    setup({ job: job({ status: 'voicing' }), busy: true })
-
-    expect(screen.getByText('Recording the voiceover')).toBeInTheDocument()
   })
 
   it('shows the script while the frames are still rendering', () => {
@@ -163,51 +135,25 @@ describe('Reel', () => {
     const video = screen.getByLabelText('A reel about the Goa AI policy.')
     expect(video).toHaveAttribute('src', 'http://minio.test/jobs/7/reel-wire.mp4')
     expect(video).toHaveAttribute('controls')
-    expect(screen.getByText(/1080×1920 · 29.3s/)).toBeInTheDocument()
+    // The card's subtitle, which the asset card writes rather than the
+    // reel: dimensions then duration, commas rather than middle dots.
+    expect(screen.getByText(/1080x1920, 29.3s/)).toBeInTheDocument()
     expect(screen.getByText(/en-IN-NeerjaNeural/)).toBeInTheDocument()
   })
 
   it('says when a reel carries music', () => {
     setup({ job: job({ assets: [videoAsset({ has_music: true })] as ContentJob['assets'] }) })
 
-    expect(screen.getByText(/· music/)).toBeInTheDocument()
+    expect(screen.getByText(/, music/)).toBeInTheDocument()
   })
 
   it('offers the file for download', () => {
     setup({ job: job({ assets: [videoAsset()] as ContentJob['assets'] }) })
 
-    expect(screen.getByRole('link', { name: 'Save MP4' })).toHaveAttribute(
+    // The actions are icons over the card now, named by their labels.
+    expect(screen.getByRole('link', { name: 'Save' })).toHaveAttribute(
       'href',
       'http://minio.test/jobs/7/reel-wire.mp4',
     )
-  })
-
-  it('offers a re-render once one exists', () => {
-    setup({ job: job({ assets: [videoAsset()] as ContentJob['assets'] }) })
-
-    expect(screen.getByRole('button', { name: 'Render again' })).toBeInTheDocument()
-  })
-
-  it('shows the pipeline failure verbatim with a way back', () => {
-    const { onRender } = setup({
-      job: job({ status: 'failed', error: 'The voice service did not answer within 60s.' }),
-    })
-
-    expect(screen.getByText('The voice service did not answer within 60s.')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
-    expect(onRender).toHaveBeenCalled()
-  })
-
-  it('refuses a topic the curator flagged', () => {
-    setup({ blocked: true })
-
-    expect(screen.getByRole('button', { name: 'Render reel' })).toBeDisabled()
-    expect(screen.getByText(/do not market against/i)).toBeInTheDocument()
-  })
-
-  it('cannot render without a brand to render for', () => {
-    setup({ disabled: true })
-
-    expect(screen.getByRole('button', { name: 'Render reel' })).toBeDisabled()
   })
 })
